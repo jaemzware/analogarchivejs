@@ -8,8 +8,8 @@ A beautiful, self-hosted music streaming server that displays your MP3 collectio
 - **Streaming Audio Player**: Click to play songs with built-in HTML5 audio controls
 - **Auto-Play Queue**: Automatically plays the next song when current track ends
 - **Dual Storage Support**:
-    - Local files from `./music` directory (root endpoint)
-    - Cloud storage via Backblaze B2 buckets (`/analog` and `/live` endpoints)
+   - Local files from `./music` directory (root endpoint)
+   - Cloud storage via Backblaze B2 buckets (`/analog` and `/live` endpoints)
 - **Beautiful UI**: Clean, modern interface with album artwork backgrounds
 - **HTTPS Ready**: Built-in SSL support for secure streaming
 - **CORS Proxy**: Handles cloud file streaming without browser restrictions
@@ -24,7 +24,7 @@ A beautiful, self-hosted music streaming server that displays your MP3 collectio
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/jimarasim/analogarchivejs.git
+   git clone https://github.com/jaemzware/analogarchivejs.git
    cd analogarchivejs
    ```
 
@@ -84,9 +84,9 @@ For cloud storage support:
 1. **Create a Backblaze B2 account** at [backblaze.com](https://www.backblaze.com/b2/cloud-storage.html)
 
 2. **Create application keys**:
-    - Go to "App Keys" in your B2 dashboard
-    - Create a new application key
-    - Note the Key ID and Application Key
+   - Go to "App Keys" in your B2 dashboard
+   - Create a new application key
+   - Note the Key ID and Application Key
 
 3. **Create a bucket** and organize with folders:
    ```
