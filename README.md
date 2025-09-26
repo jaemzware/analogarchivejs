@@ -2,8 +2,11 @@
 
 A beautiful, self-hosted music streaming server that displays your MP3 collection with rich metadata, album artwork, and seamless playback. Supports both local files and cloud storage via Backblaze B2.
 
+**🚀 Runs on a $15 Raspberry Pi Zero!**
+
 ## ✨ Features
 
+- **Ultra Lightweight**: Runs smoothly on Raspberry Pi Zero with minimal resource usage
 - **Rich Metadata Display**: Shows artist, album, title, and album artwork extracted from MP3 files
 - **Streaming Audio Player**: Click to play songs with built-in HTML5 audio controls
 - **Auto-Play Queue**: Automatically plays the next song when current track ends
@@ -14,11 +17,21 @@ A beautiful, self-hosted music streaming server that displays your MP3 collectio
 - **HTTPS Ready**: Built-in SSL support for secure streaming
 - **CORS Proxy**: Handles cloud file streaming without browser restrictions
 
+## 🔧 Hardware Requirements
+
+- **Minimum**: Raspberry Pi Zero ($15) - confirmed working!
+- **Recommended**: Raspberry Pi 3B+ or 4 for larger collections and faster metadata processing
+- **Storage**: MicroSD card (16GB+) for OS and music, or external USB storage
+- **Power**: Standard 5V micro-USB power supply
+
+*Perfect for always-on, low-power music streaming with virtually silent operation.*
+
 ## 🚀 Quick Start
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/en/download) (v14+ recommended)
 - OpenSSL for certificate generation (included on macOS/Linux)
+- *For Raspberry Pi: Use the official Raspberry Pi OS with Node.js installed*
 
 ### Local Setup
 
@@ -116,6 +129,8 @@ For cloud storage support:
 - **Cloud Storage**: Backblaze B2 SDK for cloud file access
 - **SSL**: Self-signed certificates for development
 - **Port**: 55557 (customizable in code)
+- **Resource Usage**: Minimal CPU and RAM - runs great on Pi Zero
+- **Architecture**: ARM64/ARM compatible
 
 ## 📝 File Structure
 
