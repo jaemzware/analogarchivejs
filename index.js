@@ -280,8 +280,6 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const fileName = file.fileName.split('/').pop();
                 const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(fileName)}`;
 
-                console.log(`File: ${file.fileName} -> Proxy URL: ${proxyUrl}`);
-
                 fileNames += `
                 <a class="link" 
                 onclick="audioHandler.playAudio('${proxyUrl}', this, 'b2')">
