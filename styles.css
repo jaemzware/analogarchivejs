@@ -1,0 +1,66 @@
+.container {
+    display: block; /* Change display to block */
+    border: 2px solid #333;
+    padding: 40px;
+}
+
+.videocontainer {
+    max-width: 1200px; /* adjust the maximum width as needed */
+    margin: 0 auto; /* center the container horizontally */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* adjust the minimum width of the videos as needed */
+    grid-gap: 20px; /* adjust the gap between videos as needed */
+}
+
+.video {
+    width: 320px; /* adjust the width of the videos as needed */
+}
+
+/* Style the links */
+.link {
+    display: block; /* Change display to block */
+    height: auto; /* Remove the fixed height */
+    margin-bottom: 20px; /* Add margin between the links */
+    border: 2px solid #333;
+    border-radius: 10px;
+    background-color: black;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: left;
+    text-decoration: none;
+    transition: all 0.2s ease-in-out;
+    word-wrap: break-word;
+    word-break: break-word;
+    text-align: left;
+    -webkit-text-stroke: 1px #fff;
+    text-fill-color: lime;
+    font-size: 40px;
+    color: deepskyblue;
+    min-height: 100px;
+    background-position: right center;
+}
+
+/* Add a hover effect to the links */
+.link:hover {
+    background-color: #000;
+    color: #000000;
+    text-decoration: underline;
+}
+
+/* Make the links responsive */
+@media screen and (max-width: 768px) {
+    .container {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Reduces the minimum size of the columns to 150px */
+        grid-gap: 10px; /* Reduces the gap between the links */
+    }
+
+    .link {
+        height: 80px; /* Reduces the height of the links */
+        font-size: 16px; /* Reduces the font size of the links */
+    }
+}
+
+audio {
+    max-width: 100%;
+    max-height: 100%;
+}

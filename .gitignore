@@ -1,0 +1,10 @@
+.DS_Store
+.idea/
+music/
+video/
+node_modules/
+package-lock.json
+ssl/
+.env
+deploy.sh
+output.log
