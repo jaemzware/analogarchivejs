@@ -279,9 +279,14 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             if (file.fileName.toLowerCase().endsWith('.mp3') && file.fileName !== `${folderName}/`) {
                 const fileName = file.fileName.split('/').pop();
                 const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(fileName)}`;
+                const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(fileName)}`;
 
                 fileNames += `
                 <a class="link" 
+                data-filename="${fileName}"
+                data-folder="${folderName}"
+                data-proxy-url="${proxyUrl}"
+                data-metadata-url="${metadataUrl}"
                 onclick="audioHandler.playAudio('${proxyUrl}', this, 'b2')">
                 ${fileName}
                 </a>`;
@@ -291,7 +296,15 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         fileNames += '</div>';
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(fileNames);
-        res.end(`<script src="/audio-handler.js"></script></body></html>`);
+        res.end(`
+            <script src="/audio-handler.js"></script>
+            <script>
+                // Initialize metadata cache and load any cached data
+                window.addEventListener('DOMContentLoaded', function() {
+                    audioHandler.initializeB2Page();
+                });
+            </script>
+            </body></html>`);
     } catch (err) {
         console.error(`Error fetching ${folderName} folder:`, err);
         res.writeHead(500);
