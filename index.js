@@ -37,6 +37,7 @@ app.get('/audio-handler.js', function(req, res) {
     res.set('Content-Type', 'application/javascript');
     res.sendFile(__dirname + '/audio-handler.js');
 });
+
 // Local metadata endpoint for root endpoint files
 app.get('/localmetadata/:filename(*)', async (req, res) => {
     try {
@@ -67,6 +68,7 @@ app.get('/localmetadata/:filename(*)', async (req, res) => {
         res.status(500).json({ error: 'Local metadata extraction failed', message: err.message });
     }
 });
+
 // Metadata endpoint to get song info from B2 files
 app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
     try {
@@ -130,6 +132,7 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
         res.status(500).json({ error: 'Metadata extraction failed', message: err.message });
     }
 });
+
 // Proxy endpoint to serve B2 files and avoid CORS issues
 app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
     try {
@@ -211,11 +214,19 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
         console.error('=== B2 Proxy Request Error End ===');
     }
 });
-// Original local music endpoint
+
+// Original local music endpoint with enhanced search support
 app.get('/', async (req,res) =>{
     try {
         const files = await promises.readdir(directoryPathMusic);
-        let fileNames = '<html><head><title>analogarchivejs</title><link rel="stylesheet" href="styles.css"></head><body><div class="container">';
+        let fileNames = `<html>
+<head>
+    <title>analogarchivejs</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<div class="container">`;
 
         for (const file of files) {
             const filePath = join(directoryPathMusic, file);
@@ -223,39 +234,52 @@ app.get('/', async (req,res) =>{
             if (stats.isFile() && extname(filePath).toLowerCase() === '.mp3') {
                 const metadata = await parseFile(filePath);
                 const artwork = await extractArtwork(filePath);
+
+                // Enhanced link with better data attributes for search
                 fileNames += `
                 <a class="link" 
-                style="background-image:url('data:image/png;base64,${artwork}')" 
-                onclick="audioHandler.playAudio('music/${file}', this, 'local')">
-                ${metadata.common.artist}
-                ${metadata.common.album}
-                ${metadata.common.title}
+                   style="background-image:url('data:image/png;base64,${artwork}')" 
+                   onclick="audioHandler.playAudio('music/${file}', this, 'local')"
+                   data-filename="${file}"
+                   data-artist="${metadata.common.artist || 'Unknown Artist'}"
+                   data-album="${metadata.common.album || 'Unknown Album'}"
+                   data-title="${metadata.common.title || file}">
+                ${metadata.common.artist || 'Unknown Artist'}
+                ${metadata.common.album || 'Unknown Album'}
+                ${metadata.common.title || file}
                 </a>`;
             }
         }
 
-        fileNames += '</div>';
+        fileNames += `</div>
+<script src="/audio-handler.js"></script>
+<script>
+    // Initialize search functionality for local files
+    window.addEventListener('DOMContentLoaded', function() {
+        audioHandler.initializePage();
+    });
+</script>
+</body></html>`;
+
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(fileNames);
-        res.end(`<script src="/audio-handler.js"></script></body></html>`);
+        res.end();
     } catch (err) {
         console.error(err);
         res.writeHead(500);
         res.end('Internal Server Error');
     }
 });
+
 app.get('/analog', async (req, res) => {
     await handleB2FolderEndpoint('analog', req, res);
 });
+
 app.get('/live', async (req, res) => {
     await handleB2FolderEndpoint('live', req, res);
 });
-// Shared function for B2 folder endpoints
-createServer(options, app).listen(port, () => {
-    console.log(`Server listening on https://localhost:${port}`);
-    console.log(`Server listening on https://localhost:${port}/analog`);
-    console.log(`Server listening on https://localhost:${port}/live`);
-});
+
+// Shared function for B2 folder endpoints with enhanced search support
 async function handleB2FolderEndpoint(folderName, req, res) {
     try {
         await b2.authorize();
@@ -273,7 +297,14 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         console.log(`Found ${response.data.files.length} files in ${folderName} folder`);
 
-        let fileNames = `<html><head><title>analogarchivejs - ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</title><link rel="stylesheet" href="styles.css"></head><body><div class="container">`;
+        let fileNames = `<html>
+<head>
+    <title>analogarchivejs - ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<div class="container">`;
 
         for (const file of response.data.files) {
             if (file.fileName.toLowerCase().endsWith('.mp3') && file.fileName !== `${folderName}/`) {
@@ -281,36 +312,51 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(fileName)}`;
                 const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(fileName)}`;
 
+                // Enhanced link with comprehensive data attributes for search
                 fileNames += `
                 <a class="link" 
-                data-filename="${fileName}"
-                data-folder="${folderName}"
-                data-proxy-url="${proxyUrl}"
-                data-metadata-url="${metadataUrl}"
-                onclick="audioHandler.playAudio('${proxyUrl}', this, 'b2')">
+                   data-filename="${fileName}"
+                   data-folder="${folderName}"
+                   data-proxy-url="${proxyUrl}"
+                   data-metadata-url="${metadataUrl}"
+                   onclick="audioHandler.playAudio('${proxyUrl}', this, 'b2')">
                 ${fileName}
                 </a>`;
             }
         }
 
-        fileNames += '</div>';
+        fileNames += `</div>
+<script src="/audio-handler.js"></script>
+<script>
+    // Initialize search and metadata cache for B2 pages
+    window.addEventListener('DOMContentLoaded', function() {
+        audioHandler.initializePage();
+        
+        // Optional: Preload metadata for better search experience
+        setTimeout(() => {
+            audioHandler.preloadMetadataForVisibleLinks();
+        }, 1000);
+    });
+</script>
+</body></html>`;
+
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(fileNames);
-        res.end(`
-            <script src="/audio-handler.js"></script>
-            <script>
-                // Initialize metadata cache and load any cached data
-                window.addEventListener('DOMContentLoaded', function() {
-                    audioHandler.initializeB2Page();
-                });
-            </script>
-            </body></html>`);
+        res.end();
     } catch (err) {
         console.error(`Error fetching ${folderName} folder:`, err);
         res.writeHead(500);
         res.end('Internal Server Error');
     }
 }
+
+// Create server and start listening
+createServer(options, app).listen(port, () => {
+    console.log(`Server listening on https://localhost:${port}`);
+    console.log(`Server listening on https://localhost:${port}/analog`);
+    console.log(`Server listening on https://localhost:${port}/live`);
+});
+
 async function extractArtwork(filePath) {
     const metadata = await parseFile(filePath);
     if(metadata.common.picture===undefined){

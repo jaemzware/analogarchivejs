@@ -1,26 +1,117 @@
+/* Search Bar Styles */
+.search-container {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    border-bottom: 3px solid #333;
+    padding: 15px 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    margin-bottom: 20px;
+}
+
+.search-bar {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 15px 50px 15px 20px;
+    font-size: 18px;
+    border: 2px solid #444;
+    border-radius: 25px;
+    background: #000;
+    color: deepskyblue;
+    outline: none;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.search-input:focus {
+    border-color: deepskyblue;
+    box-shadow: 0 0 20px rgba(0, 191, 255, 0.3);
+}
+
+.search-input::placeholder {
+    color: #666;
+    font-style: italic;
+}
+
+.search-icon {
+    position: absolute;
+    right: 20px;
+    color: #666;
+    font-size: 20px;
+    pointer-events: none;
+}
+
+.search-results-count {
+    color: lime;
+    font-size: 14px;
+    margin-left: 10px;
+    white-space: nowrap;
+}
+
+.clear-search {
+    background: #333;
+    border: none;
+    color: deepskyblue;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.clear-search:hover {
+    background: #555;
+    color: lime;
+}
+
+/* Hide filtered items */
+.link.search-hidden {
+    display: none !important;
+}
+
+/* Highlight search matches */
+.search-highlight {
+    background: rgba(0, 255, 0, 0.3);
+    color: lime;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+/* Existing styles with enhancements */
 .container {
-    display: block; /* Change display to block */
+    display: block;
     border: 2px solid #333;
     padding: 40px;
+    padding-top: 20px; /* Reduced top padding since search bar adds spacing */
 }
 
 .videocontainer {
-    max-width: 1200px; /* adjust the maximum width as needed */
-    margin: 0 auto; /* center the container horizontally */
+    max-width: 1200px;
+    margin: 0 auto;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* adjust the minimum width of the videos as needed */
-    grid-gap: 20px; /* adjust the gap between videos as needed */
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-gap: 20px;
 }
 
 .video {
-    width: 320px; /* adjust the width of the videos as needed */
+    width: 320px;
 }
 
 /* Style the links */
 .link {
-    display: block; /* Change display to block */
-    height: auto; /* Remove the fixed height */
-    margin-bottom: 20px; /* Add margin between the links */
+    display: block;
+    height: auto;
+    margin-bottom: 20px;
     border: 2px solid #333;
     border-radius: 10px;
     background-color: black;
@@ -38,6 +129,7 @@
     color: deepskyblue;
     min-height: 100px;
     background-position: right center;
+    cursor: pointer;
 }
 
 /* Add a hover effect to the links */
@@ -45,22 +137,50 @@
     background-color: #000;
     color: #000000;
     text-decoration: underline;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
 /* Make the links responsive */
 @media screen and (max-width: 768px) {
+    .search-container {
+        padding: 10px 15px;
+    }
+
+    .search-input {
+        font-size: 16px;
+        padding: 12px 40px 12px 15px;
+    }
+
+    .search-results-count {
+        font-size: 12px;
+    }
+
     .container {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Reduces the minimum size of the columns to 150px */
-        grid-gap: 10px; /* Reduces the gap between the links */
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-gap: 10px;
+        padding: 20px;
     }
 
     .link {
-        height: 80px; /* Reduces the height of the links */
-        font-size: 16px; /* Reduces the font size of the links */
+        height: 80px;
+        font-size: 16px;
     }
 }
 
 audio {
     max-width: 100%;
     max-height: 100%;
+}
+
+/* Loading indicator for search */
+.search-loading {
+    display: none;
+    color: #666;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+.search-loading.active {
+    display: inline-block;
 }
