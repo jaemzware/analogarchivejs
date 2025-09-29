@@ -328,14 +328,12 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         fileNames += `</div>
 <script src="/audio-handler.js"></script>
 <script>
-    // Initialize search and metadata cache for B2 pages
+    // Initialize search and load any previously cached metadata for B2 pages
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
         
-        // Optional: Preload metadata for better search experience
-        setTimeout(() => {
-            audioHandler.preloadMetadataForVisibleLinks();
-        }, 1000);
+        // Only load metadata that's already cached from previous plays
+        audioHandler.loadCachedMetadataOnPageLoad();
     });
 </script>
 </body></html>`;

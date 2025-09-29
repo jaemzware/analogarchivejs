@@ -17,11 +17,8 @@ class AudioHandler {
         this.setupSearchBar();
         this.indexAllLinks();
 
-        // Initialize B2 pages with cached metadata
-        const b2Links = document.querySelectorAll('.link[data-folder]');
-        if (b2Links.length > 0) {
-            this.initializeB2Page();
-        }
+        // DON'T preload metadata for B2 pages - only index filenames
+        // Metadata will be loaded on-demand when songs are played
     }
 
     // Setup search bar HTML and functionality
@@ -111,35 +108,33 @@ class AudioHandler {
             filename = link.dataset.filename;
         }
 
-        // Try to extract from text content (covers both local and B2)
+        // For LOCAL files (root endpoint) - extract from text content since metadata is already loaded
         const textContent = link.textContent.trim();
-
-        // Check if we have cached metadata
-        if (link.dataset && link.dataset.folder && link.dataset.filename) {
-            const cacheKey = `${link.dataset.folder}/${link.dataset.filename}`;
-            if (this.metadataCache.has(cacheKey)) {
-                const metadata = this.metadataCache.get(cacheKey);
-                artist = metadata.artist || '';
-                album = metadata.album || '';
-                title = metadata.title || '';
-            }
-        }
-
-        // If no cached metadata, try to parse from text content
-        if (!artist && !album && !title && textContent) {
-            // For local files or when metadata is displayed in text
-            const parts = textContent.split(/\s+/).filter(part => part.length > 0);
-            if (parts.length >= 3) {
-                artist = parts[0] || '';
-                album = parts[1] || '';
-                title = parts.slice(2).join(' ') || '';
+        if (link.dataset && link.dataset.artist) {
+            // Local files have metadata in data attributes
+            artist = link.dataset.artist || '';
+            album = link.dataset.album || '';
+            title = link.dataset.title || '';
+        } else if (textContent) {
+            // For B2 files, ONLY use filename - don't load metadata until played
+            if (link.dataset && link.dataset.folder) {
+                // This is a B2 file - only search by filename
+                filename = link.dataset.filename || textContent;
+                title = filename; // Use filename as title for search
             } else {
-                // Fall back to filename or text content
-                title = textContent;
+                // Try to parse local file text content if no data attributes
+                const parts = textContent.split(/\s+/).filter(part => part.length > 0);
+                if (parts.length >= 3) {
+                    artist = parts[0] || '';
+                    album = parts[1] || '';
+                    title = parts.slice(2).join(' ') || '';
+                } else {
+                    title = textContent;
+                }
             }
         }
 
-        // If still no filename, try to extract from onclick or other attributes
+        // If still no filename, try to extract from onclick
         if (!filename && link.getAttribute('onclick')) {
             const onclickMatch = link.getAttribute('onclick').match(/'([^']+)'/);
             if (onclickMatch) {
@@ -275,24 +270,26 @@ class AudioHandler {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    // Initialize B2 pages with cached metadata
+    // Initialize B2 pages - ONLY load cached metadata, don't fetch new metadata
     initializeB2Page() {
         const links = document.querySelectorAll('.link[data-folder]');
         links.forEach(link => {
+            // Only use metadata if it's already in cache (from previous play)
             this.loadCachedMetadataForLink(link);
         });
     }
 
-    // Load cached metadata for a specific link if available
+    // Load cached metadata for a specific link ONLY if already cached
     async loadCachedMetadataForLink(link) {
         const folder = link.dataset.folder;
         const filename = link.dataset.filename;
         const cacheKey = `${folder}/${filename}`;
 
+        // ONLY use cached data - don't fetch new metadata
         if (this.metadataCache.has(cacheKey)) {
             const metadata = this.metadataCache.get(cacheKey);
             this.updateLinkDisplay(link, metadata);
-            // Re-index this link with updated metadata
+            // Re-index this link with updated metadata for better search
             this.reindexLink(link);
         }
     }
