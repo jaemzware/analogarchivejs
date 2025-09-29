@@ -147,13 +147,31 @@
         padding: 10px 15px;
     }
 
+    .search-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
     .search-input {
         font-size: 16px;
         padding: 12px 40px 12px 15px;
+        min-width: 0; /* Allow input to shrink */
     }
 
     .search-results-count {
         font-size: 12px;
+        order: 3; /* Move to next line */
+        width: 100%;
+        text-align: center;
+        margin: 0;
+        padding-top: 5px;
+    }
+
+    .clear-search {
+        order: 2;
+        padding: 6px 12px;
+        font-size: 12px;
+        flex-shrink: 0; /* Don't shrink the button */
     }
 
     .container {
