@@ -1,34 +1,313 @@
-// Enhanced audio-handler.js with metadata caching
+// Enhanced audio-handler.js with search functionality
 class AudioHandler {
     constructor() {
         this.currentAudio = null;
         this.currentLink = null;
         this.currentMetadataDiv = null;
-        // In-memory cache for B2 metadata (no localStorage in Claude.ai)
+        // In-memory cache for metadata
         this.metadataCache = new Map();
+        // Search functionality
+        this.allLinks = [];
+        this.searchIndex = new Map();
+        this.isSearchActive = false;
     }
 
-    // Initialize B2 pages with cached metadata
+    // Initialize pages with search functionality
+    initializePage() {
+        this.setupSearchBar();
+        this.indexAllLinks();
+
+        // DON'T preload metadata for B2 pages - only index filenames
+        // Metadata will be loaded on-demand when songs are played
+    }
+
+    // Setup search bar HTML and functionality
+    setupSearchBar() {
+        const container = document.querySelector('.container');
+        if (!container) return;
+
+        const searchHTML = `
+            <div class="search-container">
+                <div class="search-bar">
+                    <div style="position: relative; flex: 1;">
+                        <input type="text" 
+                               class="search-input" 
+                               id="musicSearch" 
+                               placeholder="Search songs, artists, albums, or filenames..." 
+                               autocomplete="off">
+                        <span class="search-icon">🔍</span>
+                    </div>
+                    <button class="clear-search" id="clearSearch" style="display: none;">Clear</button>
+                    <div class="search-results-count" id="searchResults"></div>
+                    <div class="search-loading" id="searchLoading">Searching...</div>
+                </div>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforebegin', searchHTML);
+        this.attachSearchListeners();
+    }
+
+    // Attach search event listeners
+    attachSearchListeners() {
+        const searchInput = document.getElementById('musicSearch');
+        const clearButton = document.getElementById('clearSearch');
+
+        if (searchInput) {
+            // Debounced search
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    this.performSearch(e.target.value);
+                }, 150);
+            });
+
+            // Handle enter key
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.performSearch(e.target.value);
+                }
+            });
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener('click', () => {
+                this.clearSearch();
+            });
+        }
+    }
+
+    // Index all links for searching
+    indexAllLinks() {
+        this.allLinks = Array.from(document.querySelectorAll('.link'));
+        this.searchIndex.clear();
+
+        this.allLinks.forEach((link, index) => {
+            const searchData = this.extractSearchableData(link);
+            this.searchIndex.set(index, {
+                link: link,
+                searchText: searchData.combined.toLowerCase(),
+                data: searchData
+            });
+        });
+
+        this.updateResultsCount(this.allLinks.length, this.allLinks.length);
+    }
+
+    // Extract searchable data from a link
+    extractSearchableData(link) {
+        let filename = '';
+        let artist = '';
+        let album = '';
+        let title = '';
+
+        // For B2 files with data attributes
+        if (link.dataset && link.dataset.filename) {
+            filename = link.dataset.filename;
+        }
+
+        // For LOCAL files (root endpoint) - extract from text content since metadata is already loaded
+        const textContent = link.textContent.trim();
+        if (link.dataset && link.dataset.artist) {
+            // Local files have metadata in data attributes
+            artist = link.dataset.artist || '';
+            album = link.dataset.album || '';
+            title = link.dataset.title || '';
+        } else if (textContent) {
+            // For B2 files, ONLY use filename - don't load metadata until played
+            if (link.dataset && link.dataset.folder) {
+                // This is a B2 file - only search by filename
+                filename = link.dataset.filename || textContent;
+                title = filename; // Use filename as title for search
+            } else {
+                // Try to parse local file text content if no data attributes
+                const parts = textContent.split(/\s+/).filter(part => part.length > 0);
+                if (parts.length >= 3) {
+                    artist = parts[0] || '';
+                    album = parts[1] || '';
+                    title = parts.slice(2).join(' ') || '';
+                } else {
+                    title = textContent;
+                }
+            }
+        }
+
+        // If still no filename, try to extract from onclick
+        if (!filename && link.getAttribute('onclick')) {
+            const onclickMatch = link.getAttribute('onclick').match(/'([^']+)'/);
+            if (onclickMatch) {
+                filename = onclickMatch[1].split('/').pop().replace(/\.[^.]+$/, '');
+            }
+        }
+
+        const combined = [filename, artist, album, title].filter(Boolean).join(' ');
+
+        return {
+            filename,
+            artist,
+            album,
+            title,
+            combined
+        };
+    }
+
+    // Perform search with highlighting
+    performSearch(query) {
+        const searchLoading = document.getElementById('searchLoading');
+
+        if (!query || query.trim().length === 0) {
+            this.clearSearch();
+            return;
+        }
+
+        if (searchLoading) {
+            searchLoading.classList.add('active');
+        }
+
+        // Use setTimeout to allow UI to update
+        setTimeout(() => {
+            this.isSearchActive = true;
+            const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+            let visibleCount = 0;
+
+            this.searchIndex.forEach((item) => {
+                const { link, searchText } = item;
+
+                // Check if all search terms are found
+                const matches = searchTerms.every(term => searchText.includes(term));
+
+                if (matches) {
+                    link.classList.remove('search-hidden');
+                    this.highlightMatches(link, searchTerms);
+                    visibleCount++;
+                } else {
+                    link.classList.add('search-hidden');
+                }
+            });
+
+            this.updateResultsCount(visibleCount, this.allLinks.length);
+            this.toggleClearButton(true);
+
+            if (searchLoading) {
+                searchLoading.classList.remove('active');
+            }
+        }, 10);
+    }
+
+    // Highlight search terms in link content
+    highlightMatches(link, searchTerms) {
+        // Store original content if not already stored
+        if (!link.dataset.originalContent) {
+            link.dataset.originalContent = link.innerHTML;
+        }
+
+        let content = link.dataset.originalContent;
+
+        // Highlight each search term
+        searchTerms.forEach(term => {
+            const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+            content = content.replace(regex, '<span class="search-highlight">$1</span>');
+        });
+
+        link.innerHTML = content;
+    }
+
+    // Remove search highlighting
+    removeHighlighting() {
+        this.allLinks.forEach(link => {
+            if (link.dataset.originalContent) {
+                link.innerHTML = link.dataset.originalContent;
+                delete link.dataset.originalContent;
+            }
+        });
+    }
+
+    // Clear search and show all items
+    clearSearch() {
+        const searchInput = document.getElementById('musicSearch');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        this.allLinks.forEach(link => {
+            link.classList.remove('search-hidden');
+        });
+
+        this.removeHighlighting();
+        this.updateResultsCount(this.allLinks.length, this.allLinks.length);
+        this.toggleClearButton(false);
+        this.isSearchActive = false;
+
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }
+
+    // Update search results count display
+    updateResultsCount(visible, total) {
+        const resultsElement = document.getElementById('searchResults');
+        if (resultsElement) {
+            if (visible === total) {
+                resultsElement.textContent = `${total} songs`;
+            } else {
+                resultsElement.textContent = `${visible} of ${total} songs`;
+            }
+        }
+    }
+
+    // Toggle clear button visibility
+    toggleClearButton(show) {
+        const clearButton = document.getElementById('clearSearch');
+        if (clearButton) {
+            clearButton.style.display = show ? 'block' : 'none';
+        }
+    }
+
+    // Escape regex special characters
+    escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Initialize B2 pages - ONLY load cached metadata, don't fetch new metadata
     initializeB2Page() {
         const links = document.querySelectorAll('.link[data-folder]');
         links.forEach(link => {
+            // Only use metadata if it's already in cache (from previous play)
             this.loadCachedMetadataForLink(link);
         });
     }
 
-    // Load cached metadata for a specific link if available
+    // Load cached metadata for a specific link ONLY if already cached
     async loadCachedMetadataForLink(link) {
         const folder = link.dataset.folder;
         const filename = link.dataset.filename;
         const cacheKey = `${folder}/${filename}`;
 
+        // ONLY use cached data - don't fetch new metadata
         if (this.metadataCache.has(cacheKey)) {
             const metadata = this.metadataCache.get(cacheKey);
             this.updateLinkDisplay(link, metadata);
+            // Re-index this link with updated metadata for better search
+            this.reindexLink(link);
         }
     }
 
-    // Update link display with metadata (to match root page style)
+    // Re-index a single link after metadata is loaded
+    reindexLink(link) {
+        const linkIndex = this.allLinks.indexOf(link);
+        if (linkIndex !== -1) {
+            const searchData = this.extractSearchableData(link);
+            this.searchIndex.set(linkIndex, {
+                link: link,
+                searchText: searchData.combined.toLowerCase(),
+                data: searchData
+            });
+        }
+    }
+
+    // Update link display with metadata
     updateLinkDisplay(link, metadata) {
         const artwork = metadata.artwork ?
             `data:image/jpeg;base64,${metadata.artwork}` : '';
@@ -37,14 +316,23 @@ class AudioHandler {
             link.style.backgroundImage = `url('${artwork}')`;
         }
 
-        // Match the root page format: Artist Album Title (all on same line)
-        link.innerHTML = `
-            ${metadata.common?.artist || metadata.artist || 'Unknown Artist'}
-            ${metadata.common?.album || metadata.album || 'Unknown Album'}  
-            ${metadata.common?.title || metadata.title || link.dataset.filename}
+        // Store original content before updating
+        if (!link.dataset.originalContent) {
+            link.dataset.originalContent = link.innerHTML;
+        }
+
+        // Match the root page format: Artist Album Title
+        const displayContent = `
+            ${metadata.artist || 'Unknown Artist'}
+            ${metadata.album || 'Unknown Album'}  
+            ${metadata.title || link.dataset.filename}
         `;
+
+        link.innerHTML = displayContent;
+        link.dataset.originalContent = displayContent;
     }
 
+    // Enhanced playAudio method (existing functionality preserved)
     async playAudio(audioSrc, link, metadataEndpoint = null) {
         console.log('Playing:', audioSrc);
 
@@ -52,8 +340,8 @@ class AudioHandler {
         if (this.currentAudio) {
             console.log('Stopping current audio');
             this.currentAudio.pause();
-            this.currentAudio.src = ''; // Clear source to fully stop
-            this.currentAudio.load(); // Reset the audio element
+            this.currentAudio.src = '';
+            this.currentAudio.load();
         }
 
         // If there's a current container, restore the original link
@@ -110,8 +398,12 @@ class AudioHandler {
             this.currentLink = null;
             this.currentMetadataDiv = null;
 
+            // Find next visible link (respects search filter)
             let nextLink = link.nextElementSibling;
-            if(nextLink != null){
+            while (nextLink && nextLink.classList.contains('search-hidden')) {
+                nextLink = nextLink.nextElementSibling;
+            }
+            if (nextLink && nextLink.classList.contains('link')) {
                 nextLink.click();
             }
         });
@@ -131,7 +423,6 @@ class AudioHandler {
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         `;
 
-        // Add loading state
         metadataDiv.innerHTML = `
             <div style="width: 80px; height: 80px; background: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
                 <span style="color: #888;">♪</span>
@@ -150,11 +441,9 @@ class AudioHandler {
             let metadataUrl;
 
             if (metadataEndpoint === 'local') {
-                // For local files
                 const filename = audioSrc.replace('music/', '');
                 metadataUrl = `/localmetadata/${encodeURIComponent(filename)}`;
             } else {
-                // For B2 files
                 metadataUrl = audioSrc.replace('/b2proxy/', '/b2metadata/');
             }
 
@@ -189,13 +478,14 @@ class AudioHandler {
 
                 // Update the original link's display for when it returns
                 this.updateLinkDisplay(link, metadata);
+                // Re-index the link with new metadata
+                this.reindexLink(link);
             }
 
             this.displayMetadata(metadataDiv, metadata, metadataEndpoint);
 
         } catch (metadataError) {
             console.error('Failed to load metadata:', metadataError);
-            // Keep loading state or show error
         }
     }
 
@@ -217,10 +507,15 @@ class AudioHandler {
         `;
     }
 
-    // Method to preload metadata for visible links (optional enhancement)
+    // Method to preload metadata for visible links
     async preloadMetadataForVisibleLinks() {
         const links = document.querySelectorAll('.link[data-folder]:not([data-metadata-loaded])');
         for (const link of links) {
+            // Skip hidden links during search
+            if (this.isSearchActive && link.classList.contains('search-hidden')) {
+                continue;
+            }
+
             const folder = link.dataset.folder;
             const filename = link.dataset.filename;
             const cacheKey = `${folder}/${filename}`;
@@ -233,9 +528,9 @@ class AudioHandler {
 
                     this.metadataCache.set(cacheKey, metadata);
                     this.updateLinkDisplay(link, metadata);
+                    this.reindexLink(link);
                     link.setAttribute('data-metadata-loaded', 'true');
 
-                    // Add small delay to avoid overwhelming the server
                     await new Promise(resolve => setTimeout(resolve, 100));
                 } catch (error) {
                     console.error(`Failed to preload metadata for ${filename}:`, error);
