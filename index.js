@@ -115,9 +115,11 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
             // Parse metadata from the buffer using parseBuffer
             const { parseBuffer } = await import('music-metadata');
+            const isFlac = fullPath.toLowerCase().endsWith('.flac');
             const metadata = await parseBuffer(buffer, {
                 duration: true,
-                skipCovers: false
+                skipCovers: false,
+                mimeType: isFlac ? 'audio/flac' : 'audio/mpeg'
             });
 
             console.log('Metadata parsed successfully');
