@@ -50,10 +50,7 @@ app.get('/localmetadata/:filename(*)', async (req, res) => {
         // Parse metadata from local file
         const fileExt = extname(filePath).toLowerCase();
         const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
-        const metadata = await parseFile(filePath, {
-            mimeType,
-            skipPostHeaders: fileExt === '.flac' // Skip ID3v2 for FLAC to avoid Ubuntu parsing issues
-        });
+        const metadata = await parseFile(filePath, { mimeType });
         const artwork = await extractArtwork(filePath);
 
         console.log('Local metadata parsed successfully');
@@ -105,21 +102,12 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
             let buffer;
             if (Buffer.isBuffer(rawData)) {
                 buffer = rawData;
-                console.log('Data is already a Buffer');
             } else if (rawData instanceof ArrayBuffer) {
                 buffer = Buffer.from(rawData);
-                console.log('Converted ArrayBuffer to Buffer');
             } else if (rawData instanceof Uint8Array) {
                 buffer = Buffer.from(rawData);
-                console.log('Converted Uint8Array to Buffer');
             } else if (typeof rawData === 'object' && rawData.data) {
                 // Handle nested data structure
-                console.log('Detected nested data structure');
-                console.log('rawData.data type:', typeof rawData.data);
-                console.log('rawData.data is Buffer:', Buffer.isBuffer(rawData.data));
-                console.log('rawData.data is ArrayBuffer:', rawData.data instanceof ArrayBuffer);
-                console.log('rawData.data is Uint8Array:', rawData.data instanceof Uint8Array);
-
                 if (Buffer.isBuffer(rawData.data)) {
                     buffer = rawData.data;
                 } else if (rawData.data instanceof ArrayBuffer) {
@@ -130,50 +118,19 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     buffer = Buffer.from(rawData.data);
                 }
             } else {
-                console.log('Unknown data type, attempting Buffer.from');
                 buffer = Buffer.from(rawData);
             }
 
             console.log(`Buffer size: ${buffer.length} bytes`);
-            console.log(`First bytes: ${buffer.slice(0, 4).toString('hex')}`);
-            console.log(`First bytes as string: ${buffer.slice(0, 4).toString('ascii')}`);
 
             // Write buffer to temporary file and use parseFile instead of parseBuffer
-            // This works around parseBuffer issues with FLAC on Ubuntu
             const isFlac = fullPath.toLowerCase().endsWith('.flac');
             const tempFilePath = join(tmpdir(), `b2-temp-${Date.now()}${isFlac ? '.flac' : '.mp3'}`);
 
             try {
-                // Check if buffer starts with ID3v2 tag
-                const startsWithID3 = buffer.slice(0, 3).toString('ascii') === 'ID3';
-                console.log(`Buffer starts with ID3v2: ${startsWithID3}`);
-
-                // If FLAC file has ID3v2 tags, strip them
-                let cleanBuffer = buffer;
-                if (isFlac && startsWithID3) {
-                    console.log('Stripping ID3v2 tags from FLAC file');
-                    // ID3v2 header: 3 bytes "ID3", 2 bytes version, 1 byte flags, 4 bytes size
-                    const id3Size = ((buffer[6] & 0x7F) << 21) | ((buffer[7] & 0x7F) << 14) |
-                                    ((buffer[8] & 0x7F) << 7) | (buffer[9] & 0x7F);
-                    const id3TotalSize = 10 + id3Size; // Header + data
-                    console.log(`ID3v2 tag size: ${id3TotalSize} bytes`);
-                    cleanBuffer = buffer.slice(id3TotalSize);
-                    console.log(`Buffer after stripping ID3: ${cleanBuffer.slice(0, 4).toString('ascii')}`);
-                }
-
-                writeFileSync(tempFilePath, cleanBuffer);
-                console.log(`Wrote temp file: ${tempFilePath}`);
-
-                // Verify the written file
-                const writtenBuffer = readFileSync(tempFilePath);
-                console.log(`Temp file size: ${writtenBuffer.length}`);
-                console.log(`Temp file first bytes: ${writtenBuffer.slice(0, 4).toString('hex')}`);
-                console.log(`Temp file first bytes as string: ${writtenBuffer.slice(0, 4).toString('ascii')}`);
+                writeFileSync(tempFilePath, buffer);
 
                 const mimeType = isFlac ? 'audio/flac' : 'audio/mpeg';
-
-                // Parse without skipPostHeaders since we already stripped ID3v2
-                console.log('Attempting to parse file');
                 const metadata = await parseFile(tempFilePath, {
                     duration: true,
                     skipCovers: false,
@@ -182,7 +139,6 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
                 // Clean up temp file
                 unlinkSync(tempFilePath);
-                console.log(`Deleted temp file: ${tempFilePath}`);
 
                 console.log('Metadata parsed successfully');
                 console.log('Artist:', metadata.common.artist);
@@ -346,10 +302,7 @@ app.get('/', async (req,res) =>{
                 try {
                     const fileExt = extname(filePath).toLowerCase();
                     const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
-                    const metadata = await parseFile(filePath, {
-                        mimeType,
-                        skipPostHeaders: fileExt === '.flac' // Skip ID3v2 for FLAC to avoid Ubuntu parsing issues
-                    });
+                    const metadata = await parseFile(filePath, { mimeType });
                     const artwork = await extractArtwork(filePath);
 
                     // Enhanced link with better data attributes for search
