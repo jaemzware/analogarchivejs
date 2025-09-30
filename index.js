@@ -91,18 +91,27 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
             responseType: 'arraybuffer'
         });
 
-        if (fileData.data) {
+        // The actual file data is in fileData.data, but we need to handle the response correctly
+        const rawData = fileData.data;
+
+        if (rawData) {
             // Convert to buffer for metadata parsing
             let buffer;
-            if (fileData.data instanceof ArrayBuffer) {
-                buffer = Buffer.from(fileData.data);
-            } else if (Buffer.isBuffer(fileData.data)) {
-                buffer = fileData.data;
+            if (rawData instanceof ArrayBuffer) {
+                buffer = Buffer.from(rawData);
+            } else if (Buffer.isBuffer(rawData)) {
+                buffer = rawData;
+            } else if (rawData instanceof Uint8Array) {
+                buffer = Buffer.from(rawData);
+            } else if (typeof rawData === 'object' && rawData.data) {
+                // Handle nested data structure
+                buffer = Buffer.from(rawData.data);
             } else {
-                buffer = Buffer.from(fileData.data);
+                buffer = Buffer.from(rawData);
             }
 
             console.log(`Buffer size: ${buffer.length} bytes`);
+            console.log(`First bytes: ${buffer.slice(0, 4).toString('hex')}`);
 
             // Parse metadata from the buffer using parseBuffer
             const { parseBuffer } = await import('music-metadata');
