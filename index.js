@@ -3,11 +3,12 @@
 import 'dotenv/config';
 import { parseFile } from 'music-metadata';
 import {createServer} from 'https';
-import {promises, readFileSync} from 'fs';
+import {promises, readFileSync, writeFileSync, unlinkSync} from 'fs';
 import {join, extname} from 'path';
 import * as url from 'url';
 import express from 'express';
 import B2 from 'backblaze-b2';
+import {tmpdir} from 'os';
 
 const app = express();
 const port = 55557;
@@ -47,7 +48,12 @@ app.get('/localmetadata/:filename(*)', async (req, res) => {
         console.log(`Getting local metadata for: ${filePath}`);
 
         // Parse metadata from local file
-        const metadata = await parseFile(filePath);
+        const fileExt = extname(filePath).toLowerCase();
+        const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
+        const metadata = await parseFile(filePath, {
+            mimeType,
+            skipPostHeaders: fileExt === '.flac' // Skip ID3v2 for FLAC to avoid Ubuntu parsing issues
+        });
         const artwork = await extractArtwork(filePath);
 
         console.log('Local metadata parsed successfully');
@@ -97,71 +103,137 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
         if (rawData) {
             // Convert to buffer for metadata parsing
             let buffer;
-            if (rawData instanceof ArrayBuffer) {
-                buffer = Buffer.from(rawData);
-            } else if (Buffer.isBuffer(rawData)) {
+            if (Buffer.isBuffer(rawData)) {
                 buffer = rawData;
+                console.log('Data is already a Buffer');
+            } else if (rawData instanceof ArrayBuffer) {
+                buffer = Buffer.from(rawData);
+                console.log('Converted ArrayBuffer to Buffer');
             } else if (rawData instanceof Uint8Array) {
                 buffer = Buffer.from(rawData);
+                console.log('Converted Uint8Array to Buffer');
             } else if (typeof rawData === 'object' && rawData.data) {
                 // Handle nested data structure
-                buffer = Buffer.from(rawData.data);
+                console.log('Detected nested data structure');
+                console.log('rawData.data type:', typeof rawData.data);
+                console.log('rawData.data is Buffer:', Buffer.isBuffer(rawData.data));
+                console.log('rawData.data is ArrayBuffer:', rawData.data instanceof ArrayBuffer);
+                console.log('rawData.data is Uint8Array:', rawData.data instanceof Uint8Array);
+
+                if (Buffer.isBuffer(rawData.data)) {
+                    buffer = rawData.data;
+                } else if (rawData.data instanceof ArrayBuffer) {
+                    buffer = Buffer.from(rawData.data);
+                } else if (rawData.data instanceof Uint8Array) {
+                    buffer = Buffer.from(rawData.data);
+                } else {
+                    buffer = Buffer.from(rawData.data);
+                }
             } else {
+                console.log('Unknown data type, attempting Buffer.from');
                 buffer = Buffer.from(rawData);
             }
 
             console.log(`Buffer size: ${buffer.length} bytes`);
             console.log(`First bytes: ${buffer.slice(0, 4).toString('hex')}`);
+            console.log(`First bytes as string: ${buffer.slice(0, 4).toString('ascii')}`);
 
-            // Parse metadata from the buffer using parseBuffer
-            const { parseBuffer } = await import('music-metadata');
+            // Write buffer to temporary file and use parseFile instead of parseBuffer
+            // This works around parseBuffer issues with FLAC on Ubuntu
             const isFlac = fullPath.toLowerCase().endsWith('.flac');
-            const metadata = await parseBuffer(buffer, {
-                duration: true,
-                skipCovers: false,
-                mimeType: isFlac ? 'audio/flac' : 'audio/mpeg'
-            });
+            const tempFilePath = join(tmpdir(), `b2-temp-${Date.now()}${isFlac ? '.flac' : '.mp3'}`);
 
-            console.log('Metadata parsed successfully');
-            console.log('Artist:', metadata.common.artist);
-            console.log('Title:', metadata.common.title);
-            console.log('Album:', metadata.common.album);
-            console.log('Picture array:', metadata.common.picture);
+            try {
+                // Check if buffer starts with ID3v2 tag
+                const startsWithID3 = buffer.slice(0, 3).toString('ascii') === 'ID3';
+                console.log(`Buffer starts with ID3v2: ${startsWithID3}`);
 
-            // Extract artwork with better error handling
-            let artwork = "";
-            if (metadata.common.picture && metadata.common.picture.length > 0) {
-                const picture = metadata.common.picture[0];
-                console.log('Picture object:', picture);
-                console.log('Picture data type:', typeof picture.data);
-                console.log('Picture data is Buffer:', Buffer.isBuffer(picture.data));
-                console.log('Picture data is Uint8Array:', picture.data instanceof Uint8Array);
-
-                if (picture.data) {
-                    // Handle both Buffer and Uint8Array
-                    if (Buffer.isBuffer(picture.data)) {
-                        artwork = picture.data.toString('base64');
-                    } else if (picture.data instanceof Uint8Array) {
-                        artwork = Buffer.from(picture.data).toString('base64');
-                    } else {
-                        artwork = Buffer.from(picture.data).toString('base64');
-                    }
-                    console.log('Artwork extracted, size:', artwork.length);
-                } else {
-                    console.log('Picture data is empty');
+                // If FLAC file has ID3v2 tags, strip them
+                let cleanBuffer = buffer;
+                if (isFlac && startsWithID3) {
+                    console.log('Stripping ID3v2 tags from FLAC file');
+                    // ID3v2 header: 3 bytes "ID3", 2 bytes version, 1 byte flags, 4 bytes size
+                    const id3Size = ((buffer[6] & 0x7F) << 21) | ((buffer[7] & 0x7F) << 14) |
+                                    ((buffer[8] & 0x7F) << 7) | (buffer[9] & 0x7F);
+                    const id3TotalSize = 10 + id3Size; // Header + data
+                    console.log(`ID3v2 tag size: ${id3TotalSize} bytes`);
+                    cleanBuffer = buffer.slice(id3TotalSize);
+                    console.log(`Buffer after stripping ID3: ${cleanBuffer.slice(0, 4).toString('ascii')}`);
                 }
-            } else {
-                console.log('No artwork found in metadata');
-            }
 
-            // Return metadata as JSON
-            res.json({
-                artist: metadata.common.artist || 'Unknown Artist',
-                album: metadata.common.album || 'Unknown Album',
-                title: metadata.common.title || filename,
-                artwork: artwork,
-                duration: metadata.format.duration || 0
-            });
+                writeFileSync(tempFilePath, cleanBuffer);
+                console.log(`Wrote temp file: ${tempFilePath}`);
+
+                // Verify the written file
+                const writtenBuffer = readFileSync(tempFilePath);
+                console.log(`Temp file size: ${writtenBuffer.length}`);
+                console.log(`Temp file first bytes: ${writtenBuffer.slice(0, 4).toString('hex')}`);
+                console.log(`Temp file first bytes as string: ${writtenBuffer.slice(0, 4).toString('ascii')}`);
+
+                const mimeType = isFlac ? 'audio/flac' : 'audio/mpeg';
+
+                // Parse without skipPostHeaders since we already stripped ID3v2
+                console.log('Attempting to parse file');
+                const metadata = await parseFile(tempFilePath, {
+                    duration: true,
+                    skipCovers: false,
+                    mimeType
+                });
+
+                // Clean up temp file
+                unlinkSync(tempFilePath);
+                console.log(`Deleted temp file: ${tempFilePath}`);
+
+                console.log('Metadata parsed successfully');
+                console.log('Artist:', metadata.common.artist);
+                console.log('Title:', metadata.common.title);
+                console.log('Album:', metadata.common.album);
+                console.log('Picture array:', metadata.common.picture);
+
+                // Extract artwork with better error handling
+                let artwork = "";
+                if (metadata.common.picture && metadata.common.picture.length > 0) {
+                    const picture = metadata.common.picture[0];
+                    console.log('Picture object:', picture);
+                    console.log('Picture data type:', typeof picture.data);
+                    console.log('Picture data is Buffer:', Buffer.isBuffer(picture.data));
+                    console.log('Picture data is Uint8Array:', picture.data instanceof Uint8Array);
+
+                    if (picture.data) {
+                        // Handle both Buffer and Uint8Array
+                        if (Buffer.isBuffer(picture.data)) {
+                            artwork = picture.data.toString('base64');
+                        } else if (picture.data instanceof Uint8Array) {
+                            artwork = Buffer.from(picture.data).toString('base64');
+                        } else {
+                            artwork = Buffer.from(picture.data).toString('base64');
+                        }
+                        console.log('Artwork extracted, size:', artwork.length);
+                    } else {
+                        console.log('Picture data is empty');
+                    }
+                } else {
+                    console.log('No artwork found in metadata');
+                }
+
+                // Return metadata as JSON
+                res.json({
+                    artist: metadata.common.artist || 'Unknown Artist',
+                    album: metadata.common.album || 'Unknown Album',
+                    title: metadata.common.title || filename,
+                    artwork: artwork,
+                    duration: metadata.format.duration || 0
+                });
+            } catch (tempFileError) {
+                console.error('Error with temp file approach:', tempFileError);
+                // Clean up temp file if it exists
+                try {
+                    unlinkSync(tempFilePath);
+                } catch (cleanupError) {
+                    // Ignore cleanup errors
+                }
+                throw tempFileError;
+            }
         } else {
             res.status(404).json({ error: 'File not found' });
         }
@@ -274,7 +346,10 @@ app.get('/', async (req,res) =>{
                 try {
                     const fileExt = extname(filePath).toLowerCase();
                     const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
-                    const metadata = await parseFile(filePath, { mimeType });
+                    const metadata = await parseFile(filePath, {
+                        mimeType,
+                        skipPostHeaders: fileExt === '.flac' // Skip ID3v2 for FLAC to avoid Ubuntu parsing issues
+                    });
                     const artwork = await extractArtwork(filePath);
 
                     // Enhanced link with better data attributes for search
