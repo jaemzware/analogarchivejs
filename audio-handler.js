@@ -340,7 +340,7 @@ class AudioHandler {
         if (this.currentAudio) {
             console.log('Stopping current audio');
             this.currentAudio.pause();
-            this.currentAudio.src = '';
+            this.currentAudio.removeAttribute('src');
             this.currentAudio.load();
         }
 
@@ -444,7 +444,12 @@ class AudioHandler {
                 const filename = audioSrc.replace('music/', '');
                 metadataUrl = `/localmetadata/${encodeURIComponent(filename)}`;
             } else {
-                metadataUrl = audioSrc.replace('/b2proxy/', '/b2metadata/');
+                // Extract folder and filename from proxy URL
+                // Format: /b2proxy/:folder/:filename
+                const urlParts = audioSrc.split('/');
+                const folder = urlParts[2]; // folder name
+                const filename = urlParts.slice(3).join('/'); // filename (already encoded)
+                metadataUrl = `/b2metadata/${folder}/${filename}`;
             }
 
             console.log('Fetching metadata from:', metadataUrl);

@@ -6,5 +6,5 @@ node_modules/
 package-lock.json
 ssl/
 .env
-deploy.sh
+deploy*.sh
 output.log
