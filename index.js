@@ -79,23 +79,16 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
         console.log(`Getting metadata for: ${fullPath}`);
 
-        // For large files, only download first chunk for metadata
-        // FLAC metadata is at the beginning of the file
-        const isFlac = filename.toLowerCase().endsWith('.flac');
-        const chunkSize = isFlac ? 10 * 1024 * 1024 : 20 * 1024 * 1024; // 10MB for FLAC, 20MB for MP3
+        // For large files, download full file
+        // Note: Partial downloads can cause "Invalid FLAC preamble" errors
+        // because we might cut metadata blocks in the middle
+        console.log(`Downloading file for metadata extraction`);
 
-        console.log(`Downloading first ${chunkSize / 1024 / 1024}MB for metadata extraction`);
-
-        // Download partial file from B2 using Range header
+        // Download file from B2
         const fileData = await b2.downloadFileByName({
             bucketName: bucketName,
             fileName: fullPath,
-            responseType: 'arraybuffer',
-            axiosOverride: {
-                headers: {
-                    'Range': `bytes=0-${chunkSize - 1}`
-                }
-            }
+            responseType: 'arraybuffer'
         });
 
         if (fileData.data) {
