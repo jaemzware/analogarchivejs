@@ -79,11 +79,23 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
         console.log(`Getting metadata for: ${fullPath}`);
 
-        // Download the file from B2
+        // For large files, only download first chunk for metadata
+        // FLAC metadata is at the beginning of the file
+        const isFlac = filename.toLowerCase().endsWith('.flac');
+        const chunkSize = isFlac ? 10 * 1024 * 1024 : 20 * 1024 * 1024; // 10MB for FLAC, 20MB for MP3
+
+        console.log(`Downloading first ${chunkSize / 1024 / 1024}MB for metadata extraction`);
+
+        // Download partial file from B2 using Range header
         const fileData = await b2.downloadFileByName({
             bucketName: bucketName,
             fileName: fullPath,
-            responseType: 'arraybuffer'
+            responseType: 'arraybuffer',
+            axiosOverride: {
+                headers: {
+                    'Range': `bytes=0-${chunkSize - 1}`
+                }
+            }
         });
 
         if (fileData.data) {
@@ -99,21 +111,43 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
             console.log(`Buffer size: ${buffer.length} bytes`);
 
-            // Parse metadata from the buffer using parseBuffer instead of parseFile
+            // Parse metadata from the buffer using parseBuffer
             const { parseBuffer } = await import('music-metadata');
-            const metadata = await parseBuffer(buffer, { duration: true });
+            const metadata = await parseBuffer(buffer, {
+                duration: true,
+                skipCovers: false
+            });
 
             console.log('Metadata parsed successfully');
             console.log('Artist:', metadata.common.artist);
             console.log('Title:', metadata.common.title);
             console.log('Album:', metadata.common.album);
+            console.log('Picture array:', metadata.common.picture);
 
-            // Extract artwork
+            // Extract artwork with better error handling
             let artwork = "";
-            if (metadata.common.picture && metadata.common.picture[0]) {
+            if (metadata.common.picture && metadata.common.picture.length > 0) {
                 const picture = metadata.common.picture[0];
-                artwork = picture.data.toString('base64');
-                console.log('Artwork extracted, size:', artwork.length);
+                console.log('Picture object:', picture);
+                console.log('Picture data type:', typeof picture.data);
+                console.log('Picture data is Buffer:', Buffer.isBuffer(picture.data));
+                console.log('Picture data is Uint8Array:', picture.data instanceof Uint8Array);
+
+                if (picture.data) {
+                    // Handle both Buffer and Uint8Array
+                    if (Buffer.isBuffer(picture.data)) {
+                        artwork = picture.data.toString('base64');
+                    } else if (picture.data instanceof Uint8Array) {
+                        artwork = Buffer.from(picture.data).toString('base64');
+                    } else {
+                        artwork = Buffer.from(picture.data).toString('base64');
+                    }
+                    console.log('Artwork extracted, size:', artwork.length);
+                } else {
+                    console.log('Picture data is empty');
+                }
+            } else {
+                console.log('No artwork found in metadata');
             }
 
             // Return metadata as JSON
@@ -164,8 +198,9 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
             console.log(`Data length: ${fileData.data.byteLength || fileData.data.length || 'unknown'}`);
         }
 
-        // Set appropriate headers
-        res.set('Content-Type', 'audio/mpeg');
+        // Set appropriate headers based on file extension
+        const contentType = fullPath.toLowerCase().endsWith('.flac') ? 'audio/flac' : 'audio/mpeg';
+        res.set('Content-Type', contentType);
         res.set('Accept-Ranges', 'bytes');
         res.set('Cache-Control', 'public, max-age=3600');
         res.set('Access-Control-Allow-Origin', '*');
@@ -231,23 +266,30 @@ app.get('/', async (req,res) =>{
         for (const file of files) {
             const filePath = join(directoryPathMusic, file);
             const stats = await promises.stat(filePath);
-            if (stats.isFile() && extname(filePath).toLowerCase() === '.mp3') {
-                const metadata = await parseFile(filePath);
-                const artwork = await extractArtwork(filePath);
+            if (stats.isFile() && ['.mp3', '.flac'].includes(extname(filePath).toLowerCase())) {
+                try {
+                    const fileExt = extname(filePath).toLowerCase();
+                    const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
+                    const metadata = await parseFile(filePath, { mimeType });
+                    const artwork = await extractArtwork(filePath);
 
-                // Enhanced link with better data attributes for search
-                fileNames += `
-                <a class="link" 
-                   style="background-image:url('data:image/png;base64,${artwork}')" 
-                   onclick="audioHandler.playAudio('music/${file}', this, 'local')"
-                   data-filename="${file}"
-                   data-artist="${metadata.common.artist || 'Unknown Artist'}"
-                   data-album="${metadata.common.album || 'Unknown Album'}"
-                   data-title="${metadata.common.title || file}">
-                ${metadata.common.artist || 'Unknown Artist'}
-                ${metadata.common.album || 'Unknown Album'}
-                ${metadata.common.title || file}
-                </a>`;
+                    // Enhanced link with better data attributes for search
+                    fileNames += `
+                    <a class="link"
+                       style="background-image:url('data:image/png;base64,${artwork}')"
+                       onclick="audioHandler.playAudio('music/${file}', this, 'local')"
+                       data-filename="${file}"
+                       data-artist="${metadata.common.artist || 'Unknown Artist'}"
+                       data-album="${metadata.common.album || 'Unknown Album'}"
+                       data-title="${metadata.common.title || file}">
+                    ${metadata.common.artist || 'Unknown Artist'}
+                    ${metadata.common.album || 'Unknown Album'}
+                    ${metadata.common.title || file}
+                    </a>`;
+                } catch (err) {
+                    console.error(`Error parsing metadata for ${file}:`, err.message);
+                    // Skip files that can't be parsed
+                }
             }
         }
 
@@ -307,7 +349,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 <div class="container">`;
 
         for (const file of response.data.files) {
-            if (file.fileName.toLowerCase().endsWith('.mp3') && file.fileName !== `${folderName}/`) {
+            if ((file.fileName.toLowerCase().endsWith('.mp3') || file.fileName.toLowerCase().endsWith('.flac')) && file.fileName !== `${folderName}/`) {
                 const fileName = file.fileName.split('/').pop();
                 const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(fileName)}`;
                 const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(fileName)}`;
@@ -328,12 +370,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         fileNames += `</div>
 <script src="/audio-handler.js"></script>
 <script>
-    // Initialize search and load any previously cached metadata for B2 pages
+    // Initialize search functionality for B2 pages
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
-        
-        // Only load metadata that's already cached from previous plays
-        audioHandler.loadCachedMetadataOnPageLoad();
     });
 </script>
 </body></html>`;
@@ -356,11 +395,18 @@ createServer(options, app).listen(port, () => {
 });
 
 async function extractArtwork(filePath) {
-    const metadata = await parseFile(filePath);
+    const fileExt = extname(filePath).toLowerCase();
+    const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
+    const metadata = await parseFile(filePath, { mimeType });
     if(metadata.common.picture===undefined){
         return "";
     }else {
         const picture = metadata.common.picture[0];
-        return picture.data.toString('base64');
+        // Ensure picture.data is a Buffer before converting to base64
+        if (Buffer.isBuffer(picture.data)) {
+            return picture.data.toString('base64');
+        } else {
+            return Buffer.from(picture.data).toString('base64');
+        }
     }
 }
