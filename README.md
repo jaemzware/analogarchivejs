@@ -1,6 +1,6 @@
 # AnalogArchiveJS 🎵
 
-A beautiful, self-hosted music streaming server that displays your MP3 collection with rich metadata, album artwork, and seamless playback. Supports both local files and cloud storage via Backblaze B2.
+A beautiful, self-hosted music streaming server that displays your MP3 or FLAC collection with rich metadata, album artwork, and seamless playback. Supports both local files and cloud storage via Backblaze B2.
 
 **🚀 Runs on a $15 Raspberry Pi Zero!**
 
@@ -13,6 +13,7 @@ A beautiful, self-hosted music streaming server that displays your MP3 collectio
 - **Dual Storage Support**:
    - Local files from `./music` directory (root endpoint)
    - Cloud storage via Backblaze B2 buckets (`/analog` and `/live` endpoints)
+- **FLAC Support**: Now supports high-quality FLAC audio files in addition to MP3
 - **Beautiful UI**: Clean, modern interface with album artwork backgrounds
 - **HTTPS Ready**: Built-in SSL support for secure streaming
 - **CORS Proxy**: Handles cloud file streaming without browser restrictions
@@ -57,7 +58,7 @@ A beautiful, self-hosted music streaming server that displays your MP3 collectio
    ```bash
    mkdir music
    ```
-   Copy your MP3 files into the `music` directory.
+   Copy your MP3 or FLAC files into the `music` directory.
 
 5. **Configure environment** (optional - for Backblaze B2)
    ```bash
@@ -154,7 +155,7 @@ analogarchivejs/
 - **Port**: Change `port` variable in `index.js`
 - **Styling**: Modify `styles.css` for custom appearance
 - **Buckets**: Add more endpoints by following the `/analog` and `/live` pattern
-- **Audio Formats**: Currently supports MP3 (can be extended for other formats)
+- **Audio Formats**: Supports MP3 and FLAC formats
 
 ## 🐛 Troubleshooting
 
