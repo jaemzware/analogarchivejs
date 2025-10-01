@@ -6,9 +6,9 @@ A beautiful, self-hosted music streaming server that displays your MP3 or FLAC c
 
 ## ✨ Features
 
-- **Ultra Lightweight**: Runs smoothly on Raspberry Pi Zero with minimal resource usage
+- **Ultra Lightweight**: Runs smoothly on Raspberry Pi Zero with minimal resource usage via efficient streaming architecture
 - **Rich Metadata Display**: Shows artist, album, title, and album artwork extracted from MP3 files
-- **Streaming Audio Player**: Click to play songs with built-in HTML5 audio controls
+- **Efficient Streaming**: Direct file streaming with minimal memory footprint - no buffering entire files in RAM
 - **Auto-Play Queue**: Automatically plays the next song when current track ends
 - **Dual Storage Support**:
    - Local files from `./music` directory (root endpoint)
@@ -16,6 +16,7 @@ A beautiful, self-hosted music streaming server that displays your MP3 or FLAC c
 - **FLAC Support**: Now supports high-quality FLAC audio files in addition to MP3
 - **Beautiful UI**: Clean, modern interface with album artwork backgrounds
 - **HTTPS Ready**: Built-in SSL support for secure streaming
+- **Memory Efficient**: Streams files directly without loading into memory - perfect for low-resource devices
 - **CORS Proxy**: Handles cloud file streaming without browser restrictions
 
 ## 🔧 Hardware Requirements
@@ -172,9 +173,9 @@ For cloud storage support:
 
 ## 🎨 How It Works
 
-- **Metadata Extraction**: Uses `music-metadata` to read ID3 tags from MP3 files
+- **Metadata Extraction**: Uses `music-metadata` to read ID3 tags from audio files (downloads only first 10MB for efficiency)
 - **Album Artwork**: Extracts embedded artwork and displays as background images
-- **Streaming**: Files are served directly with proper MIME types and caching headers
+- **Efficient Streaming**: Files are streamed directly with zero-copy architecture - no buffering in RAM for excellent performance on low-resource devices
 - **Auto-Queue**: Automatically advances to the next song in the list
 - **Responsive Design**: Clean, mobile-friendly interface
 

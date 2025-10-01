@@ -82,16 +82,22 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
         console.log(`Getting metadata for: ${fullPath}`);
 
-        // For large files, download full file
-        // Note: Partial downloads can cause "Invalid FLAC preamble" errors
-        // because we might cut metadata blocks in the middle
-        console.log(`Downloading file for metadata extraction`);
+        // Download only first 10MB for metadata extraction (includes artwork)
+        // Metadata and album art are typically in the first few MB of audio files
+        console.log(`Downloading first 10MB for metadata extraction`);
 
-        // Download file from B2
+        const METADATA_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+
+        // Download file from B2 with range header
         const fileData = await b2.downloadFileByName({
             bucketName: bucketName,
             fileName: fullPath,
-            responseType: 'arraybuffer'
+            responseType: 'arraybuffer',
+            axios: {
+                headers: {
+                    'Range': `bytes=0-${METADATA_CHUNK_SIZE - 1}`
+                }
+            }
         });
 
         // The actual file data is in fileData.data, but we need to handle the response correctly
@@ -137,9 +143,6 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     mimeType
                 });
 
-                // Clean up temp file
-                unlinkSync(tempFilePath);
-
                 console.log('Metadata parsed successfully');
                 console.log('Artist:', metadata.common.artist);
                 console.log('Title:', metadata.common.title);
@@ -182,13 +185,15 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                 });
             } catch (tempFileError) {
                 console.error('Error with temp file approach:', tempFileError);
-                // Clean up temp file if it exists
+                throw tempFileError;
+            } finally {
+                // Always clean up temp file
                 try {
                     unlinkSync(tempFilePath);
+                    console.log('Temp file cleaned up:', tempFilePath);
                 } catch (cleanupError) {
-                    // Ignore cleanup errors
+                    console.error('Error cleaning up temp file:', cleanupError.message);
                 }
-                throw tempFileError;
             }
         } else {
             res.status(404).json({ error: 'File not found' });
@@ -214,48 +219,56 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
         console.log(`Decoded filename: ${filename}`);
         console.log(`Full path: ${fullPath}`);
 
-        // Download the file from B2
-        console.log('Starting B2 download...');
-        const fileData = await b2.downloadFileByName({
-            bucketName: bucketName,
-            fileName: fullPath,
-            responseType: 'arraybuffer'
+        // First, get file info to know the content length
+        const bucket = await b2.getBucket({ bucketName });
+        const bucketId = bucket.data.buckets[0].bucketId;
+
+        const fileInfo = await b2.listFileNames({
+            bucketId: bucketId,
+            startFileName: fullPath,
+            maxFileCount: 1,
+            prefix: fullPath
         });
 
-        console.log(`Download successful`);
-        console.log(`Data exists: ${fileData.data ? 'yes' : 'no'}`);
-
-        if (fileData.data) {
-            console.log(`Data type: ${typeof fileData.data}`);
-            console.log(`Data length: ${fileData.data.byteLength || fileData.data.length || 'unknown'}`);
+        if (!fileInfo.data.files || fileInfo.data.files.length === 0) {
+            return res.status(404).send('File not found');
         }
+
+        const fileSize = fileInfo.data.files[0].contentLength;
+        console.log(`File size: ${fileSize} bytes`);
 
         // Set appropriate headers based on file extension
         const contentType = fullPath.toLowerCase().endsWith('.flac') ? 'audio/flac' : 'audio/mpeg';
         res.set('Content-Type', contentType);
+        res.set('Content-Length', fileSize);
         res.set('Accept-Ranges', 'bytes');
         res.set('Cache-Control', 'public, max-age=3600');
         res.set('Access-Control-Allow-Origin', '*');
 
-        // Handle the data
-        if (fileData.data) {
-            let buffer;
-            if (fileData.data instanceof ArrayBuffer) {
-                buffer = Buffer.from(fileData.data);
-                console.log('Converted ArrayBuffer to Buffer');
-            } else if (Buffer.isBuffer(fileData.data)) {
-                buffer = fileData.data;
-                console.log('Data is already a Buffer');
-            } else {
-                buffer = Buffer.from(fileData.data);
-                console.log('Converted data to Buffer');
-            }
+        // Stream the file from B2 instead of loading into memory
+        console.log('Starting B2 download stream...');
+        const fileData = await b2.downloadFileByName({
+            bucketName: bucketName,
+            fileName: fullPath,
+            responseType: 'stream'  // Stream to avoid loading entire file in memory
+        });
 
-            console.log(`Sending buffer of size: ${buffer.length}`);
-            res.send(buffer);
-            console.log('=== B2 Proxy Request Success ===');
+        console.log(`Download stream initiated`);
+
+        // Pipe the stream directly to the response
+        if (fileData.data) {
+            fileData.data.pipe(res);
+            fileData.data.on('end', () => {
+                console.log('=== B2 Proxy Request Success ===');
+            });
+            fileData.data.on('error', (streamErr) => {
+                console.error('Stream error:', streamErr);
+                if (!res.headersSent) {
+                    res.status(500).end();
+                }
+            });
         } else {
-            console.error('No file data in response');
+            console.error('No file data stream in response');
             res.status(404).send('File data not found');
         }
     } catch (err) {
