@@ -1,0 +1,14 @@
+services:
+  analogarchive:
+    build: .
+    container_name: analogarchivejs
+    ports:
+      - "55557:55557"
+    volumes:
+      - ./music:/app/music
+    environment:
+      - NODE_ENV=production
+      - B2_APPLICATION_KEY_ID=${B2_APPLICATION_KEY_ID}
+      - B2_APPLICATION_KEY=${B2_APPLICATION_KEY}
+      - B2_BUCKET_NAME=${B2_BUCKET_NAME}
+    restart: unless-stopped

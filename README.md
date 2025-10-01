@@ -1,6 +1,6 @@
 # AnalogArchiveJS 🎵
 
-A beautiful, self-hosted music streaming server that displays your MP3 collection with rich metadata, album artwork, and seamless playback. Supports both local files and cloud storage via Backblaze B2.
+A beautiful, self-hosted music streaming server that displays your MP3 or FLAC collection with rich metadata, album artwork, and seamless playback. Supports both local files and cloud storage via Backblaze B2.
 
 **🚀 Runs on a $15 Raspberry Pi Zero!**
 
@@ -13,6 +13,7 @@ A beautiful, self-hosted music streaming server that displays your MP3 collectio
 - **Dual Storage Support**:
    - Local files from `./music` directory (root endpoint)
    - Cloud storage via Backblaze B2 buckets (`/analog` and `/live` endpoints)
+- **FLAC Support**: Now supports high-quality FLAC audio files in addition to MP3
 - **Beautiful UI**: Clean, modern interface with album artwork backgrounds
 - **HTTPS Ready**: Built-in SSL support for secure streaming
 - **CORS Proxy**: Handles cloud file streaming without browser restrictions
@@ -28,12 +29,67 @@ A beautiful, self-hosted music streaming server that displays your MP3 collectio
 
 ## 🚀 Quick Start
 
-### Prerequisites
+Choose either **Docker** (recommended for easy setup) or **Node.js** (for direct installation):
+
+### Option 1: Docker Setup (Recommended)
+
+#### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+
+#### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/jaemzware/analogarchivejs.git
+   cd analogarchivejs
+   ```
+
+2. **Set up your music directory**
+   ```bash
+   mkdir music
+   ```
+   Copy your MP3 or FLAC files into the `music` directory.
+
+3. **Configure environment** (optional - for Backblaze B2)
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` with your Backblaze B2 credentials:
+   ```
+   B2_APPLICATION_KEY_ID=your_key_id
+   B2_APPLICATION_KEY=your_application_key
+   B2_BUCKET_NAME=your_bucket_name
+   ```
+   *Note: SSL certificates are automatically generated inside the container*
+
+4. **Start the container**
+   ```bash
+   docker-compose up -d
+   ```
+
+5. **Open in browser**
+   Navigate to: `https://localhost:55557`
+
+   *(Accept the self-signed certificate warning for localhost development)*
+
+6. **Stop the container**
+   ```bash
+   docker-compose down
+   ```
+
+**Note**: If you update your `.env` file with B2 credentials, restart the container with:
+```bash
+docker-compose down && docker-compose up -d
+```
+
+### Option 2: Node.js Local Setup
+
+#### Prerequisites
 - [Node.js](https://nodejs.org/en/download) (v14+ recommended)
 - OpenSSL for certificate generation (included on macOS/Linux)
 - *For Raspberry Pi: Use the official Raspberry Pi OS with Node.js installed*
 
-### Local Setup
+#### Setup
 
 1. **Clone the repository**
    ```bash
@@ -57,7 +113,7 @@ A beautiful, self-hosted music streaming server that displays your MP3 collectio
    ```bash
    mkdir music
    ```
-   Copy your MP3 files into the `music` directory.
+   Copy your MP3 or FLAC files into the `music` directory.
 
 5. **Configure environment** (optional - for Backblaze B2)
    ```bash
@@ -154,7 +210,7 @@ analogarchivejs/
 - **Port**: Change `port` variable in `index.js`
 - **Styling**: Modify `styles.css` for custom appearance
 - **Buckets**: Add more endpoints by following the `/analog` and `/live` pattern
-- **Audio Formats**: Currently supports MP3 (can be extended for other formats)
+- **Audio Formats**: Supports MP3 and FLAC formats
 
 ## 🐛 Troubleshooting
 

@@ -356,6 +356,32 @@ app.get('/live', async (req, res) => {
 // Shared function for B2 folder endpoints with enhanced search support
 async function handleB2FolderEndpoint(folderName, req, res) {
     try {
+        // Check if B2 credentials are configured
+        if (!process.env.B2_APPLICATION_KEY_ID || !process.env.B2_APPLICATION_KEY || !process.env.B2_BUCKET_NAME ||
+            process.env.B2_APPLICATION_KEY_ID === '' || process.env.B2_APPLICATION_KEY === '' || process.env.B2_BUCKET_NAME === '') {
+            res.writeHead(500, { 'Content-Type': 'text/html' });
+            res.end(`
+                <html>
+                <head>
+                    <title>Configuration Error</title>
+                    <link rel="stylesheet" href="styles.css">
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>B2 Configuration Missing</h1>
+                        <p>Backblaze B2 credentials are not configured. Please set the following environment variables:</p>
+                        <ul>
+                            <li>B2_APPLICATION_KEY_ID</li>
+                            <li>B2_APPLICATION_KEY</li>
+                            <li>B2_BUCKET_NAME</li>
+                        </ul>
+                    </div>
+                </body>
+                </html>
+            `);
+            return;
+        }
+
         await b2.authorize();
 
         const bucket = await b2.getBucket({ bucketName });
