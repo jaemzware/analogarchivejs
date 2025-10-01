@@ -29,12 +29,67 @@ A beautiful, self-hosted music streaming server that displays your MP3 or FLAC c
 
 ## 🚀 Quick Start
 
-### Prerequisites
+Choose either **Docker** (recommended for easy setup) or **Node.js** (for direct installation):
+
+### Option 1: Docker Setup (Recommended)
+
+#### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+
+#### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/jaemzware/analogarchivejs.git
+   cd analogarchivejs
+   ```
+
+2. **Set up your music directory**
+   ```bash
+   mkdir music
+   ```
+   Copy your MP3 or FLAC files into the `music` directory.
+
+3. **Configure environment** (optional - for Backblaze B2)
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` with your Backblaze B2 credentials:
+   ```
+   B2_APPLICATION_KEY_ID=your_key_id
+   B2_APPLICATION_KEY=your_application_key
+   B2_BUCKET_NAME=your_bucket_name
+   ```
+   *Note: SSL certificates are automatically generated inside the container*
+
+4. **Start the container**
+   ```bash
+   docker-compose up -d
+   ```
+
+5. **Open in browser**
+   Navigate to: `https://localhost:55557`
+
+   *(Accept the self-signed certificate warning for localhost development)*
+
+6. **Stop the container**
+   ```bash
+   docker-compose down
+   ```
+
+**Note**: If you update your `.env` file with B2 credentials, restart the container with:
+```bash
+docker-compose down && docker-compose up -d
+```
+
+### Option 2: Node.js Local Setup
+
+#### Prerequisites
 - [Node.js](https://nodejs.org/en/download) (v14+ recommended)
 - OpenSSL for certificate generation (included on macOS/Linux)
 - *For Raspberry Pi: Use the official Raspberry Pi OS with Node.js installed*
 
-### Local Setup
+#### Setup
 
 1. **Clone the repository**
    ```bash
