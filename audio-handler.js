@@ -37,7 +37,9 @@ class AudioHandler {
             const relativePath = link.dataset.relativePath;
 
             if (audioType === 'local' && relativePath) {
-                this.playAudio(`music/${relativePath}`, link, 'local');
+                // Encode each path component to handle special characters like # and '
+                const encodedPath = relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                this.playAudio(`music/${encodedPath}`, link, 'local');
             } else if (audioType === 'b2') {
                 const proxyUrl = link.dataset.proxyUrl;
                 if (proxyUrl) {
