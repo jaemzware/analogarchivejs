@@ -362,6 +362,26 @@ app.get('/', async (req,res) =>{
         console.log(`Using cached file list (${musicFilesCache.length} files)`);
         const musicFiles = musicFilesCache;
 
+        // If no music files found, show helpful message
+        if (musicFiles.length === 0) {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(`<html>
+<head>
+    <title>analogarchivejs</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9); color: lime; padding: 30px 50px;
+            border: 2px solid lime; border-radius: 10px; font-size: 24px; text-align: center;">
+    No music folder found<br>
+    <span style="font-size: 14px; opacity: 0.7;">Create a "${directoryPathMusic}" directory or symlink</span>
+</div>
+</body>
+</html>`);
+            return;
+        }
+
         // Sort by folder path then file name
         musicFiles.sort((a, b) => {
             if (a.folderPath !== b.folderPath) {
@@ -535,11 +555,21 @@ async function scanMusicFiles() {
     console.log('Scanning music directory...');
     const scanStart = Date.now();
     try {
+        // Check if music directory exists
+        try {
+            await promises.access(directoryPathMusic);
+        } catch (err) {
+            console.error(`Music directory "${directoryPathMusic}" not found. Please create it or add a symlink.`);
+            musicFilesCache = []; // Set empty array so page doesn't hang
+            return;
+        }
+
         musicFilesCache = await findMusicFiles(directoryPathMusic);
         const scanDuration = ((Date.now() - scanStart) / 1000).toFixed(2);
         console.log(`Scan complete: ${musicFilesCache.length} files indexed in ${scanDuration}s`);
     } catch (err) {
         console.error('Failed to scan music directory:', err.message);
+        musicFilesCache = []; // Set empty array so page doesn't hang
     }
 }
 
