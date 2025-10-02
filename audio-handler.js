@@ -16,9 +16,35 @@ class AudioHandler {
     initializePage() {
         this.setupSearchBar();
         this.indexAllLinks();
+        this.setupClickHandlers();
 
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
+    }
+
+    // Setup click handlers for audio links
+    setupClickHandlers() {
+        const container = document.querySelector('.container');
+        if (!container) return;
+
+        container.addEventListener('click', (e) => {
+            const link = e.target.closest('.link');
+            if (!link) return;
+
+            e.preventDefault();
+
+            const audioType = link.dataset.audioType;
+            const relativePath = link.dataset.relativePath;
+
+            if (audioType === 'local' && relativePath) {
+                this.playAudio(`music/${relativePath}`, link, 'local');
+            } else if (audioType === 'b2') {
+                const proxyUrl = link.dataset.proxyUrl;
+                if (proxyUrl) {
+                    this.playAudio(proxyUrl, link, 'b2');
+                }
+            }
+        });
     }
 
     // Setup search bar HTML and functionality

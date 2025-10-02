@@ -392,10 +392,10 @@ app.get('/', async (req,res) =>{
 
             chunk += `
             <a class="link"
-               onclick="audioHandler.playAudio('music/${fileInfo.relativePath}', this, 'local')"
                data-filename="${fileInfo.fileName}"
                data-folder="${fileInfo.folderPath}"
-               data-relative-path="${fileInfo.relativePath}">
+               data-relative-path="${fileInfo.relativePath}"
+               data-audio-type="local">
             ${fileInfo.fileName}
             ${folderLine}
             </a>`;
@@ -499,12 +499,12 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Enhanced link with comprehensive data attributes for search
                 fileNames += `
-                <a class="link" 
+                <a class="link"
                    data-filename="${fileName}"
                    data-folder="${folderName}"
                    data-proxy-url="${proxyUrl}"
                    data-metadata-url="${metadataUrl}"
-                   onclick="audioHandler.playAudio('${proxyUrl}', this, 'b2')">
+                   data-audio-type="b2">
                 ${fileName}
                 </a>`;
             }
