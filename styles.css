@@ -141,6 +141,17 @@
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
+/* Style for folder paths */
+.folder-path {
+    display: block;
+    color: #1aff00;
+    font-size: 0.5em;
+    margin-top: 5px;
+    -webkit-text-stroke: 0.5px #000;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
 /* Make the links responsive */
 @media screen and (max-width: 768px) {
     .search-container {

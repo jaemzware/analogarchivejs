@@ -18,6 +18,9 @@ const options = {key: readFileSync(process.env.SSL_KEY_PATH),
     cert: readFileSync(process.env.SSL_CERT_PATH)}
 const directoryPathMusic = "./music";
 
+// Cache for music files - always scans fresh on startup
+let musicFilesCache = null;
+
 // Backblaze B2 configuration
 const b2 = new B2({
     applicationKeyId: process.env.B2_APPLICATION_KEY_ID, // Set these in your environment
@@ -40,7 +43,7 @@ app.get('/audio-handler.js', function(req, res) {
 });
 
 // Local metadata endpoint for root endpoint files
-app.get('/localmetadata/:filename(*)', async (req, res) => {
+app.get('/localmetadata/:filename(.*)', async (req, res) => {
     try {
         const filename = decodeURIComponent(req.params.filename);
         const filePath = join(directoryPathMusic, filename);
@@ -295,61 +298,150 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
     }
 });
 
+// Helper function to recursively find all music files in a directory
+async function findMusicFiles(dir, baseDir = dir, files = []) {
+    const items = await promises.readdir(dir);
+
+    for (const item of items) {
+        const fullPath = join(dir, item);
+        const stats = await promises.stat(fullPath);
+
+        if (stats.isDirectory()) {
+            await findMusicFiles(fullPath, baseDir, files);
+        } else if (stats.isFile() && ['.mp3', '.flac'].includes(extname(fullPath).toLowerCase())) {
+            // Skip macOS metadata files (AppleDouble files)
+            if (item.startsWith('._')) {
+                continue;
+            }
+
+            // Get the relative path from the base directory
+            // Normalize baseDir to handle path.join's normalization
+            const normalizedBaseDir = join(baseDir);
+            const relativePath = fullPath.substring(normalizedBaseDir.length + 1);
+            // Extract folder name (empty string if in root)
+            const folderPath = relativePath.includes('/')
+                ? relativePath.substring(0, relativePath.lastIndexOf('/'))
+                : '';
+
+            files.push({
+                fullPath,
+                relativePath,
+                fileName: item,
+                folderPath
+            });
+        }
+    }
+
+    return files;
+}
+
 // Original local music endpoint with enhanced search support
 app.get('/', async (req,res) =>{
     try {
-        const files = await promises.readdir(directoryPathMusic);
-        let fileNames = `<html>
+        // If cache isn't ready yet, show loading page
+        if (!musicFilesCache) {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(`<html>
 <head>
     <title>analogarchivejs</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta http-equiv="refresh" content="2">
+</head>
+<body>
+<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9); color: lime; padding: 30px 50px;
+            border: 2px solid lime; border-radius: 10px; font-size: 24px; text-align: center;">
+    Scanning music library...<br>
+    <span style="font-size: 14px; opacity: 0.7;">Page will refresh automatically</span>
+</div>
+</body>
+</html>`);
+            return;
+        }
+
+        console.log(`Using cached file list (${musicFilesCache.length} files)`);
+        const musicFiles = musicFilesCache;
+
+        // If no music files found, show helpful message
+        if (musicFiles.length === 0) {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(`<html>
+<head>
+    <title>analogarchivejs</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9); color: lime; padding: 30px 50px;
+            border: 2px solid lime; border-radius: 10px; font-size: 24px; text-align: center;">
+    No music folder found<br>
+    <span style="font-size: 14px; opacity: 0.7;">Create a "${directoryPathMusic}" directory or symlink</span>
+</div>
+</body>
+</html>`);
+            return;
+        }
+
+        // Sort by folder path then file name
+        musicFiles.sort((a, b) => {
+            if (a.folderPath !== b.folderPath) {
+                return a.folderPath.localeCompare(b.folderPath);
+            }
+            return a.fileName.localeCompare(b.fileName);
+        });
+
+        // Send header immediately
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+
+        // Send HTML head right away
+        res.write(`<html>
+<head>
+    <title>analogarchivejs - ${musicFiles.length} files</title>
     <link rel="stylesheet" href="styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-<div class="container">`;
+<div class="container">
+`);
 
-        for (const file of files) {
-            const filePath = join(directoryPathMusic, file);
-            const stats = await promises.stat(filePath);
-            if (stats.isFile() && ['.mp3', '.flac'].includes(extname(filePath).toLowerCase())) {
-                try {
-                    const fileExt = extname(filePath).toLowerCase();
-                    const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
-                    const metadata = await parseFile(filePath, { mimeType });
-                    const artwork = await extractArtwork(filePath);
+        // Stream file links in chunks
+        let chunk = '';
+        for (let i = 0; i < musicFiles.length; i++) {
+            const fileInfo = musicFiles[i];
+            const folderLine = fileInfo.folderPath ? `<br><span class="folder-path">${fileInfo.folderPath}</span>` : '';
 
-                    // Enhanced link with better data attributes for search
-                    fileNames += `
-                    <a class="link"
-                       style="background-image:url('data:image/png;base64,${artwork}')"
-                       onclick="audioHandler.playAudio('music/${file}', this, 'local')"
-                       data-filename="${file}"
-                       data-artist="${metadata.common.artist || 'Unknown Artist'}"
-                       data-album="${metadata.common.album || 'Unknown Album'}"
-                       data-title="${metadata.common.title || file}">
-                    ${metadata.common.artist || 'Unknown Artist'}
-                    ${metadata.common.album || 'Unknown Album'}
-                    ${metadata.common.title || file}
-                    </a>`;
-                } catch (err) {
-                    console.error(`Error parsing metadata for ${file}:`, err.message);
-                    // Skip files that can't be parsed
-                }
+            chunk += `
+            <a class="link"
+               data-filename="${fileInfo.fileName}"
+               data-folder="${fileInfo.folderPath}"
+               data-relative-path="${fileInfo.relativePath}"
+               data-audio-type="local">
+            ${fileInfo.fileName}
+            ${folderLine}
+            </a>`;
+
+            // Send in chunks of 50 to improve streaming
+            if (i % 50 === 0 && chunk.length > 0) {
+                res.write(chunk);
+                chunk = '';
             }
         }
 
-        fileNames += `</div>
+        // Write any remaining chunk
+        if (chunk.length > 0) {
+            res.write(chunk);
+        }
+
+        // Send footer
+        res.write(`</div>
 <script src="/audio-handler.js"></script>
 <script>
-    // Initialize search functionality for local files
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
     });
 </script>
-</body></html>`;
+</body></html>`);
 
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.write(fileNames);
         res.end();
     } catch (err) {
         console.error(err);
@@ -427,12 +519,12 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Enhanced link with comprehensive data attributes for search
                 fileNames += `
-                <a class="link" 
+                <a class="link"
                    data-filename="${fileName}"
                    data-folder="${folderName}"
                    data-proxy-url="${proxyUrl}"
                    data-metadata-url="${metadataUrl}"
-                   onclick="audioHandler.playAudio('${proxyUrl}', this, 'b2')">
+                   data-audio-type="b2">
                 ${fileName}
                 </a>`;
             }
@@ -458,11 +550,37 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     }
 }
 
+// Scan music files on server startup
+async function scanMusicFiles() {
+    console.log('Scanning music directory...');
+    const scanStart = Date.now();
+    try {
+        // Check if music directory exists
+        try {
+            await promises.access(directoryPathMusic);
+        } catch (err) {
+            console.error(`Music directory "${directoryPathMusic}" not found. Please create it or add a symlink.`);
+            musicFilesCache = []; // Set empty array so page doesn't hang
+            return;
+        }
+
+        musicFilesCache = await findMusicFiles(directoryPathMusic);
+        const scanDuration = ((Date.now() - scanStart) / 1000).toFixed(2);
+        console.log(`Scan complete: ${musicFilesCache.length} files indexed in ${scanDuration}s`);
+    } catch (err) {
+        console.error('Failed to scan music directory:', err.message);
+        musicFilesCache = []; // Set empty array so page doesn't hang
+    }
+}
+
 // Create server and start listening
-createServer(options, app).listen(port, () => {
+createServer(options, app).listen(port, async () => {
     console.log(`Server listening on https://localhost:${port}`);
     console.log(`Server listening on https://localhost:${port}/analog`);
     console.log(`Server listening on https://localhost:${port}/live`);
+
+    // Scan music directory on startup
+    scanMusicFiles();
 });
 
 async function extractArtwork(filePath) {

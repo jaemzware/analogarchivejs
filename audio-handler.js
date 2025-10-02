@@ -16,9 +16,37 @@ class AudioHandler {
     initializePage() {
         this.setupSearchBar();
         this.indexAllLinks();
+        this.setupClickHandlers();
 
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
+    }
+
+    // Setup click handlers for audio links
+    setupClickHandlers() {
+        const container = document.querySelector('.container');
+        if (!container) return;
+
+        container.addEventListener('click', (e) => {
+            const link = e.target.closest('.link');
+            if (!link) return;
+
+            e.preventDefault();
+
+            const audioType = link.dataset.audioType;
+            const relativePath = link.dataset.relativePath;
+
+            if (audioType === 'local' && relativePath) {
+                // Encode each path component to handle special characters like # and '
+                const encodedPath = relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                this.playAudio(`music/${encodedPath}`, link, 'local');
+            } else if (audioType === 'b2') {
+                const proxyUrl = link.dataset.proxyUrl;
+                if (proxyUrl) {
+                    this.playAudio(proxyUrl, link, 'b2');
+                }
+            }
+        });
     }
 
     // Setup search bar HTML and functionality
@@ -102,6 +130,12 @@ class AudioHandler {
         let artist = '';
         let album = '';
         let title = '';
+        let folder = '';
+
+        // Extract folder path from data attribute
+        if (link.dataset && link.dataset.folder) {
+            folder = link.dataset.folder;
+        }
 
         // For B2 files with data attributes
         if (link.dataset && link.dataset.filename) {
@@ -142,13 +176,14 @@ class AudioHandler {
             }
         }
 
-        const combined = [filename, artist, album, title].filter(Boolean).join(' ');
+        const combined = [filename, artist, album, title, folder].filter(Boolean).join(' ');
 
         return {
             filename,
             artist,
             album,
             title,
+            folder,
             combined
         };
     }
@@ -442,7 +477,9 @@ class AudioHandler {
 
             if (metadataEndpoint === 'local') {
                 const filename = audioSrc.replace('music/', '');
-                metadataUrl = `/localmetadata/${encodeURIComponent(filename)}`;
+                // Encode each path component separately to preserve forward slashes
+                const encodedPath = filename.split('/').map(part => encodeURIComponent(part)).join('/');
+                metadataUrl = `/localmetadata/${encodedPath}`;
             } else {
                 // Extract folder and filename from proxy URL
                 // Format: /b2proxy/:folder/:filename
