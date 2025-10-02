@@ -102,6 +102,12 @@ class AudioHandler {
         let artist = '';
         let album = '';
         let title = '';
+        let folder = '';
+
+        // Extract folder path from data attribute
+        if (link.dataset && link.dataset.folder) {
+            folder = link.dataset.folder;
+        }
 
         // For B2 files with data attributes
         if (link.dataset && link.dataset.filename) {
@@ -142,13 +148,14 @@ class AudioHandler {
             }
         }
 
-        const combined = [filename, artist, album, title].filter(Boolean).join(' ');
+        const combined = [filename, artist, album, title, folder].filter(Boolean).join(' ');
 
         return {
             filename,
             artist,
             album,
             title,
+            folder,
             combined
         };
     }

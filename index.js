@@ -18,10 +18,8 @@ const options = {key: readFileSync(process.env.SSL_KEY_PATH),
     cert: readFileSync(process.env.SSL_CERT_PATH)}
 const directoryPathMusic = "./music";
 
-// Cache for music files to speed up page loads
+// Cache for music files - always scans fresh on startup
 let musicFilesCache = null;
-let lastScanTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Backblaze B2 configuration
 const b2 = new B2({
@@ -532,17 +530,16 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     }
 }
 
-// Warm up the cache on server startup
-async function warmUpCache() {
-    console.log('Warming up music file cache...');
+// Scan music files on server startup
+async function scanMusicFiles() {
+    console.log('Scanning music directory...');
     const scanStart = Date.now();
     try {
         musicFilesCache = await findMusicFiles(directoryPathMusic);
-        lastScanTime = Date.now();
         const scanDuration = ((Date.now() - scanStart) / 1000).toFixed(2);
-        console.log(`Cache warmed: ${musicFilesCache.length} files indexed in ${scanDuration}s`);
+        console.log(`Scan complete: ${musicFilesCache.length} files indexed in ${scanDuration}s`);
     } catch (err) {
-        console.error('Failed to warm up cache:', err.message);
+        console.error('Failed to scan music directory:', err.message);
     }
 }
 
@@ -552,8 +549,8 @@ createServer(options, app).listen(port, async () => {
     console.log(`Server listening on https://localhost:${port}/analog`);
     console.log(`Server listening on https://localhost:${port}/live`);
 
-    // Start cache warming in background
-    warmUpCache();
+    // Scan music directory on startup
+    scanMusicFiles();
 });
 
 async function extractArtwork(filePath) {
