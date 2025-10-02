@@ -13,6 +13,7 @@ A beautiful, self-hosted music streaming server that displays your MP3 or FLAC c
 - **Dual Storage Support**:
    - Local files from `./music` directory (root endpoint)
    - Cloud storage via Backblaze B2 buckets (`/analog` and `/live` endpoints)
+- **Recursive Directory Scanning**: Automatically discovers music in all subdirectories - symlink your old music hard drives to the `music` folder to find all your long-lost songs
 - **FLAC Support**: Now supports high-quality FLAC audio files in addition to MP3
 - **Beautiful UI**: Clean, modern interface with album artwork backgrounds
 - **HTTPS Ready**: Built-in SSL support for secure streaming
@@ -49,7 +50,7 @@ Choose either **Docker** (recommended for easy setup) or **Node.js** (for direct
    ```bash
    mkdir music
    ```
-   Copy your MP3 or FLAC files into the `music` directory.
+   Copy your MP3 or FLAC files into the `music` directory, or symlink an existing music folder (e.g., `ln -s /path/to/old/harddrive music`) to automatically discover all songs in subdirectories.
 
 3. **Configure environment** (optional - for Backblaze B2)
    ```bash
@@ -114,7 +115,7 @@ docker-compose down && docker-compose up -d
    ```bash
    mkdir music
    ```
-   Copy your MP3 or FLAC files into the `music` directory.
+   Copy your MP3 or FLAC files into the `music` directory, or symlink an existing music folder (e.g., `ln -s /path/to/old/harddrive music`) to automatically discover all songs in subdirectories.
 
 5. **Configure environment** (optional - for Backblaze B2)
    ```bash
