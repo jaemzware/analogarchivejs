@@ -1,0 +1,16 @@
+[Unit]
+Description=AnalogArchiveJS Music Server
+After=network.target
+
+[Service]
+Type=simple
+User=jaemzware
+WorkingDirectory=/home/jaemzware/Desktop/analogarchivejs
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

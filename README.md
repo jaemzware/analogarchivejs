@@ -139,6 +139,42 @@ docker-compose down && docker-compose up -d
 
    *(Accept the self-signed certificate warning for localhost development)*
 
+## 🍓 Raspberry Pi Auto-Start on Boot
+
+To have the server automatically start when your Raspberry Pi boots:
+
+1. **Copy the service file to systemd**
+   ```bash
+   sudo cp analogarchivejs.service /etc/systemd/system/
+   ```
+
+2. **Reload systemd**
+   ```bash
+   sudo systemctl daemon-reload
+   ```
+
+3. **Enable the service to start on boot**
+   ```bash
+   sudo systemctl enable analogarchivejs
+   ```
+
+4. **Start the service now**
+   ```bash
+   sudo systemctl start analogarchivejs
+   ```
+
+5. **Check the service status**
+   ```bash
+   sudo systemctl status analogarchivejs
+   ```
+
+6. **View logs** (optional)
+   ```bash
+   journalctl -u analogarchivejs -f
+   ```
+
+**Note**: The included `analogarchivejs.service` file assumes the project is located at `/home/jaemzware/Desktop/analogarchivejs`. Update the `WorkingDirectory` and `User` fields in the service file if your setup differs.
+
 ## 📁 Endpoints
 
 | Endpoint | Description | Storage |
