@@ -40,7 +40,7 @@ app.get('/audio-handler.js', function(req, res) {
 });
 
 // Local metadata endpoint for root endpoint files
-app.get('/localmetadata/:filename(*)', async (req, res) => {
+app.get('/localmetadata/:filename(.*)', async (req, res) => {
     try {
         const filename = decodeURIComponent(req.params.filename);
         const filePath = join(directoryPathMusic, filename);
@@ -295,10 +295,52 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
     }
 });
 
+// Helper function to recursively find all music files in a directory
+async function findMusicFiles(dir, baseDir = dir, files = []) {
+    const items = await promises.readdir(dir);
+
+    for (const item of items) {
+        const fullPath = join(dir, item);
+        const stats = await promises.stat(fullPath);
+
+        if (stats.isDirectory()) {
+            await findMusicFiles(fullPath, baseDir, files);
+        } else if (stats.isFile() && ['.mp3', '.flac'].includes(extname(fullPath).toLowerCase())) {
+            // Get the relative path from the base directory
+            // Normalize baseDir to handle path.join's normalization
+            const normalizedBaseDir = join(baseDir);
+            const relativePath = fullPath.substring(normalizedBaseDir.length + 1);
+            // Extract folder name (empty string if in root)
+            const folderPath = relativePath.includes('/')
+                ? relativePath.substring(0, relativePath.lastIndexOf('/'))
+                : '';
+
+            files.push({
+                fullPath,
+                relativePath,
+                fileName: item,
+                folderPath
+            });
+        }
+    }
+
+    return files;
+}
+
 // Original local music endpoint with enhanced search support
 app.get('/', async (req,res) =>{
     try {
-        const files = await promises.readdir(directoryPathMusic);
+        // Recursively find all music files
+        const musicFiles = await findMusicFiles(directoryPathMusic);
+
+        // Sort by folder path then file name
+        musicFiles.sort((a, b) => {
+            if (a.folderPath !== b.folderPath) {
+                return a.folderPath.localeCompare(b.folderPath);
+            }
+            return a.fileName.localeCompare(b.fileName);
+        });
+
         let fileNames = `<html>
 <head>
     <title>analogarchivejs</title>
@@ -308,33 +350,34 @@ app.get('/', async (req,res) =>{
 <body>
 <div class="container">`;
 
-        for (const file of files) {
-            const filePath = join(directoryPathMusic, file);
-            const stats = await promises.stat(filePath);
-            if (stats.isFile() && ['.mp3', '.flac'].includes(extname(filePath).toLowerCase())) {
-                try {
-                    const fileExt = extname(filePath).toLowerCase();
-                    const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
-                    const metadata = await parseFile(filePath, { mimeType });
-                    const artwork = await extractArtwork(filePath);
+        for (const fileInfo of musicFiles) {
+            try {
+                const fileExt = extname(fileInfo.fullPath).toLowerCase();
+                const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
+                const metadata = await parseFile(fileInfo.fullPath, { mimeType });
+                const artwork = await extractArtwork(fileInfo.fullPath);
 
-                    // Enhanced link with better data attributes for search
-                    fileNames += `
-                    <a class="link"
-                       style="background-image:url('data:image/png;base64,${artwork}')"
-                       onclick="audioHandler.playAudio('music/${file}', this, 'local')"
-                       data-filename="${file}"
-                       data-artist="${metadata.common.artist || 'Unknown Artist'}"
-                       data-album="${metadata.common.album || 'Unknown Album'}"
-                       data-title="${metadata.common.title || file}">
-                    ${metadata.common.artist || 'Unknown Artist'}
-                    ${metadata.common.album || 'Unknown Album'}
-                    ${metadata.common.title || file}
-                    </a>`;
-                } catch (err) {
-                    console.error(`Error parsing metadata for ${file}:`, err.message);
-                    // Skip files that can't be parsed
-                }
+                // Display folder as subscript if file is in a subdirectory
+                const folderSubscript = fileInfo.folderPath ? `<sub>${fileInfo.folderPath}</sub>` : '';
+
+                // Enhanced link with better data attributes for search
+                fileNames += `
+                <a class="link"
+                   style="background-image:url('data:image/png;base64,${artwork}')"
+                   onclick="audioHandler.playAudio('music/${fileInfo.relativePath}', this, 'local')"
+                   data-filename="${fileInfo.fileName}"
+                   data-folder="${fileInfo.folderPath}"
+                   data-artist="${metadata.common.artist || 'Unknown Artist'}"
+                   data-album="${metadata.common.album || 'Unknown Album'}"
+                   data-title="${metadata.common.title || fileInfo.fileName}">
+                ${metadata.common.artist || 'Unknown Artist'}
+                ${metadata.common.album || 'Unknown Album'}
+                ${metadata.common.title || fileInfo.fileName}
+                ${folderSubscript}
+                </a>`;
+            } catch (err) {
+                console.error(`Error parsing metadata for ${fileInfo.relativePath}:`, err.message);
+                // Skip files that can't be parsed
             }
         }
 

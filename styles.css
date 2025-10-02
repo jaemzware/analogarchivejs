@@ -141,6 +141,14 @@
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
+/* Style for folder subscripts */
+.link sub {
+    color: #888;
+    font-size: 0.5em;
+    margin-left: 5px;
+    -webkit-text-stroke: 0.5px #444;
+}
+
 /* Make the links responsive */
 @media screen and (max-width: 768px) {
     .search-container {

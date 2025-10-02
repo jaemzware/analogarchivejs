@@ -442,7 +442,9 @@ class AudioHandler {
 
             if (metadataEndpoint === 'local') {
                 const filename = audioSrc.replace('music/', '');
-                metadataUrl = `/localmetadata/${encodeURIComponent(filename)}`;
+                // Encode each path component separately to preserve forward slashes
+                const encodedPath = filename.split('/').map(part => encodeURIComponent(part)).join('/');
+                metadataUrl = `/localmetadata/${encodedPath}`;
             } else {
                 // Extract folder and filename from proxy URL
                 // Format: /b2proxy/:folder/:filename
