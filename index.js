@@ -11,12 +11,12 @@ import B2 from 'backblaze-b2';
 import {tmpdir} from 'os';
 
 const app = express();
-const port = 55557;
+const port = process.env.PORT || 55557;
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 //use self-signed certificate for localhost development
 const options = {key: readFileSync(process.env.SSL_KEY_PATH),
     cert: readFileSync(process.env.SSL_CERT_PATH)}
-const directoryPathMusic = "./music";
+const directoryPathMusic = process.env.MUSIC_DIRECTORY || "./music";
 
 // Cache for music files - always scans fresh on startup
 let musicFilesCache = null;
@@ -52,7 +52,14 @@ app.get('/localmetadata/:filename(.*)', async (req, res) => {
 
         // Parse metadata from local file
         const fileExt = extname(filePath).toLowerCase();
-        const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
+        let mimeType;
+        if (fileExt === '.flac') {
+            mimeType = 'audio/flac';
+        } else if (fileExt === '.m4b') {
+            mimeType = 'audio/mp4';
+        } else {
+            mimeType = 'audio/mpeg';
+        }
         const metadata = await parseFile(filePath, { mimeType });
         const artwork = await extractArtwork(filePath);
 
@@ -133,13 +140,25 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
             console.log(`Buffer size: ${buffer.length} bytes`);
 
             // Write buffer to temporary file and use parseFile instead of parseBuffer
-            const isFlac = fullPath.toLowerCase().endsWith('.flac');
-            const tempFilePath = join(tmpdir(), `b2-temp-${Date.now()}${isFlac ? '.flac' : '.mp3'}`);
+            const lowerPath = fullPath.toLowerCase();
+            const isFlac = lowerPath.endsWith('.flac');
+            const isM4b = lowerPath.endsWith('.m4b');
+            let fileExt = '.mp3';
+            if (isFlac) fileExt = '.flac';
+            if (isM4b) fileExt = '.m4b';
+            const tempFilePath = join(tmpdir(), `b2-temp-${Date.now()}${fileExt}`);
 
             try {
                 writeFileSync(tempFilePath, buffer);
 
-                const mimeType = isFlac ? 'audio/flac' : 'audio/mpeg';
+                let mimeType;
+                if (isFlac) {
+                    mimeType = 'audio/flac';
+                } else if (isM4b) {
+                    mimeType = 'audio/mp4';
+                } else {
+                    mimeType = 'audio/mpeg';
+                }
                 const metadata = await parseFile(tempFilePath, {
                     duration: true,
                     skipCovers: false,
@@ -241,7 +260,15 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
         console.log(`File size: ${fileSize} bytes`);
 
         // Set appropriate headers based on file extension
-        const contentType = fullPath.toLowerCase().endsWith('.flac') ? 'audio/flac' : 'audio/mpeg';
+        const lowerFullPath = fullPath.toLowerCase();
+        let contentType;
+        if (lowerFullPath.endsWith('.flac')) {
+            contentType = 'audio/flac';
+        } else if (lowerFullPath.endsWith('.m4b')) {
+            contentType = 'audio/mp4';
+        } else {
+            contentType = 'audio/mpeg';
+        }
         res.set('Content-Type', contentType);
         res.set('Content-Length', fileSize);
         res.set('Accept-Ranges', 'bytes');
@@ -308,7 +335,7 @@ async function findMusicFiles(dir, baseDir = dir, files = []) {
 
         if (stats.isDirectory()) {
             await findMusicFiles(fullPath, baseDir, files);
-        } else if (stats.isFile() && ['.mp3', '.flac'].includes(extname(fullPath).toLowerCase())) {
+        } else if (stats.isFile() && ['.mp3', '.flac', '.m4b'].includes(extname(fullPath).toLowerCase())) {
             // Skip macOS metadata files (AppleDouble files)
             if (item.startsWith('._')) {
                 continue;
@@ -512,7 +539,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 <div class="container">`;
 
         for (const file of response.data.files) {
-            if ((file.fileName.toLowerCase().endsWith('.mp3') || file.fileName.toLowerCase().endsWith('.flac')) && file.fileName !== `${folderName}/`) {
+            const lowerFileName = file.fileName.toLowerCase();
+            if ((lowerFileName.endsWith('.mp3') || lowerFileName.endsWith('.flac') || lowerFileName.endsWith('.m4b')) && file.fileName !== `${folderName}/`) {
                 const fileName = file.fileName.split('/').pop();
                 const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(fileName)}`;
                 const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(fileName)}`;
@@ -585,7 +613,14 @@ createServer(options, app).listen(port, async () => {
 
 async function extractArtwork(filePath) {
     const fileExt = extname(filePath).toLowerCase();
-    const mimeType = fileExt === '.flac' ? 'audio/flac' : 'audio/mpeg';
+    let mimeType;
+    if (fileExt === '.flac') {
+        mimeType = 'audio/flac';
+    } else if (fileExt === '.m4b') {
+        mimeType = 'audio/mp4';
+    } else {
+        mimeType = 'audio/mpeg';
+    }
     const metadata = await parseFile(filePath, { mimeType });
     if(metadata.common.picture===undefined){
         return "";

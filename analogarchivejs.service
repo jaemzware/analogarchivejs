@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=jaemzware
-WorkingDirectory=/home/jaemzware/Desktop/analogarchivejs
+WorkingDirectory=/home/jaemzware/analogarchivejs
 ExecStart=/usr/bin/node index.js
 Restart=always
 RestartSec=10
