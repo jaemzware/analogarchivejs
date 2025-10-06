@@ -362,6 +362,26 @@ async function findMusicFiles(dir, baseDir = dir, files = []) {
     return files;
 }
 
+// Rescan endpoint
+app.get('/rescan', async (req, res) => {
+    try {
+        console.log('Manual rescan triggered');
+        await scanMusicFiles();
+        res.json({
+            success: true,
+            fileCount: musicFilesCache ? musicFilesCache.length : 0,
+            message: 'Rescan completed successfully'
+        });
+    } catch (err) {
+        console.error('Rescan failed:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Rescan failed',
+            message: err.message
+        });
+    }
+});
+
 // Original local music endpoint with enhanced search support
 app.get('/', async (req,res) =>{
     try {

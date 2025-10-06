@@ -54,18 +54,23 @@ class AudioHandler {
         const container = document.querySelector('.container');
         if (!container) return;
 
+        // Determine if we're on the local files page (root endpoint)
+        const isLocalPage = window.location.pathname === '/';
+        const rescanButton = isLocalPage ? '<button class="rescan-button" id="rescanButton">🔄 Rescan</button>' : '';
+
         const searchHTML = `
             <div class="search-container">
                 <div class="search-bar">
                     <div style="position: relative; flex: 1;">
-                        <input type="text" 
-                               class="search-input" 
-                               id="musicSearch" 
-                               placeholder="Search songs, artists, albums, or filenames..." 
+                        <input type="text"
+                               class="search-input"
+                               id="musicSearch"
+                               placeholder="Search songs, artists, albums, or filenames..."
                                autocomplete="off">
                         <span class="search-icon">🔍</span>
                     </div>
                     <button class="clear-search" id="clearSearch" style="display: none;">Clear</button>
+                    ${rescanButton}
                     <div class="search-results-count" id="searchResults"></div>
                     <div class="search-loading" id="searchLoading">Searching...</div>
                 </div>
@@ -80,6 +85,7 @@ class AudioHandler {
     attachSearchListeners() {
         const searchInput = document.getElementById('musicSearch');
         const clearButton = document.getElementById('clearSearch');
+        const rescanButton = document.getElementById('rescanButton');
 
         if (searchInput) {
             // Debounced search
@@ -104,6 +110,44 @@ class AudioHandler {
             clearButton.addEventListener('click', () => {
                 this.clearSearch();
             });
+        }
+
+        if (rescanButton) {
+            rescanButton.addEventListener('click', async () => {
+                await this.triggerRescan(rescanButton);
+            });
+        }
+    }
+
+    // Trigger rescan on the server
+    async triggerRescan(button) {
+        try {
+            button.disabled = true;
+            button.textContent = '⏳ Scanning...';
+
+            const response = await fetch('/rescan');
+            const result = await response.json();
+
+            if (result.success) {
+                button.textContent = '✓ Complete!';
+                setTimeout(() => {
+                    // Reload the page to show new files
+                    window.location.reload();
+                }, 800);
+            } else {
+                button.textContent = '✗ Failed';
+                setTimeout(() => {
+                    button.textContent = '🔄 Rescan';
+                    button.disabled = false;
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Rescan failed:', error);
+            button.textContent = '✗ Error';
+            setTimeout(() => {
+                button.textContent = '🔄 Rescan';
+                button.disabled = false;
+            }, 2000);
         }
     }
 
