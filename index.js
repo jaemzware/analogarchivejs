@@ -29,7 +29,10 @@ const b2 = new B2({
 const bucketName = process.env.B2_BUCKET_NAME;
 
 //make files available in music subdirectory
-app.use('/music', express.static(join(__dirname, directoryPathMusic.substring(2))));
+const musicStaticPath = directoryPathMusic.startsWith('./')
+    ? join(__dirname, directoryPathMusic.substring(2))
+    : directoryPathMusic;
+app.use('/music', express.static(musicStaticPath));
 app.get('/favicon.ico', function(req,res){
     res.sendFile(__dirname + '/favicon.ico');
 });
