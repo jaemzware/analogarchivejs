@@ -3,12 +3,16 @@ services:
     build: .
     container_name: analogarchivejs
     ports:
-      - "55557:55557"
+      - "${PORT}:${PORT}"
     volumes:
-      - ./music:/app/music
+      - ${HOST_MUSIC_PATH}:/app/music:ro
     environment:
       - NODE_ENV=production
+      - PORT=${PORT}
+      - MUSIC_DIRECTORY=${MUSIC_DIRECTORY}
       - B2_APPLICATION_KEY_ID=${B2_APPLICATION_KEY_ID}
       - B2_APPLICATION_KEY=${B2_APPLICATION_KEY}
       - B2_BUCKET_NAME=${B2_BUCKET_NAME}
+      - SSL_KEY_PATH=${SSL_KEY_PATH}
+      - SSL_CERT_PATH=${SSL_CERT_PATH}
     restart: unless-stopped

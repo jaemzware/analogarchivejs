@@ -330,17 +330,17 @@ async function findMusicFiles(dir, baseDir = dir, files = []) {
     const items = await promises.readdir(dir);
 
     for (const item of items) {
+        // Skip macOS metadata files BEFORE trying to stat them
+        if (item.startsWith('._') || item.startsWith('.__') || item === '.DS_Store') {
+            continue;
+        }
+
         const fullPath = join(dir, item);
         const stats = await promises.stat(fullPath);
 
         if (stats.isDirectory()) {
             await findMusicFiles(fullPath, baseDir, files);
         } else if (stats.isFile() && ['.mp3', '.flac', '.m4b'].includes(extname(fullPath).toLowerCase())) {
-            // Skip macOS metadata files (AppleDouble files)
-            if (item.startsWith('._')) {
-                continue;
-            }
-
             // Get the relative path from the base directory
             // Normalize baseDir to handle path.join's normalization
             const normalizedBaseDir = join(baseDir);
