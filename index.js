@@ -169,16 +169,16 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                 console.log('Artist:', metadata.common.artist);
                 console.log('Title:', metadata.common.title);
                 console.log('Album:', metadata.common.album);
-                console.log('Picture array:', metadata.common.picture);
+                // console.log('Picture array:', metadata.common.picture);
 
                 // Extract artwork with better error handling
                 let artwork = "";
                 if (metadata.common.picture && metadata.common.picture.length > 0) {
                     const picture = metadata.common.picture[0];
-                    console.log('Picture object:', picture);
-                    console.log('Picture data type:', typeof picture.data);
-                    console.log('Picture data is Buffer:', Buffer.isBuffer(picture.data));
-                    console.log('Picture data is Uint8Array:', picture.data instanceof Uint8Array);
+                    // console.log('Picture object:', picture);
+                    // console.log('Picture data type:', typeof picture.data);
+                    // console.log('Picture data is Buffer:', Buffer.isBuffer(picture.data));
+                    // console.log('Picture data is Uint8Array:', picture.data instanceof Uint8Array);
 
                     if (picture.data) {
                         // Handle both Buffer and Uint8Array
