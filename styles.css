@@ -83,6 +83,27 @@ body {
     color: lime;
 }
 
+.rescan-button {
+    background: #333;
+    border: none;
+    color: lime;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.rescan-button:hover {
+    background: #555;
+    color: #0f0;
+}
+
+.rescan-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Hide filtered items */
 .link.search-hidden {
     display: none !important;
@@ -192,6 +213,13 @@ body {
         padding: 6px 12px;
         font-size: 12px;
         flex-shrink: 0; /* Don't shrink the button */
+    }
+
+    .rescan-button {
+        order: 2;
+        padding: 6px 12px;
+        font-size: 12px;
+        flex-shrink: 0;
     }
 
     .container {
