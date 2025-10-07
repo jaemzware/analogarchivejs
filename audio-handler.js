@@ -154,12 +154,17 @@ class AudioHandler {
     // Index all links for searching
     indexAllLinks() {
         this.allLinks = Array.from(document.querySelectorAll('.link'));
+        // Also track song rows for easier manipulation
+        this.songRows = Array.from(document.querySelectorAll('.song-row'));
         this.searchIndex.clear();
 
         this.allLinks.forEach((link, index) => {
             const searchData = this.extractSearchableData(link);
+            // Get parent song-row if it exists
+            const songRow = link.closest('.song-row');
             this.searchIndex.set(index, {
                 link: link,
+                songRow: songRow,
                 searchText: searchData.combined.toLowerCase(),
                 data: searchData
             });
@@ -252,17 +257,26 @@ class AudioHandler {
             let visibleCount = 0;
 
             this.searchIndex.forEach((item) => {
-                const { link, searchText } = item;
+                const { link, songRow, searchText } = item;
 
                 // Check if all search terms are found
                 const matches = searchTerms.every(term => searchText.includes(term));
 
                 if (matches) {
-                    link.classList.remove('search-hidden');
+                    // Hide/show the parent song-row if it exists, otherwise hide the link
+                    if (songRow) {
+                        songRow.classList.remove('search-hidden');
+                    } else {
+                        link.classList.remove('search-hidden');
+                    }
                     this.highlightMatches(link, searchTerms);
                     visibleCount++;
                 } else {
-                    link.classList.add('search-hidden');
+                    if (songRow) {
+                        songRow.classList.add('search-hidden');
+                    } else {
+                        link.classList.add('search-hidden');
+                    }
                 }
             });
 
@@ -310,9 +324,16 @@ class AudioHandler {
             searchInput.value = '';
         }
 
+        // Clear search-hidden from both links and song-rows
         this.allLinks.forEach(link => {
             link.classList.remove('search-hidden');
         });
+
+        if (this.songRows) {
+            this.songRows.forEach(row => {
+                row.classList.remove('search-hidden');
+            });
+        }
 
         this.removeHighlighting();
         this.updateResultsCount(this.allLinks.length, this.allLinks.length);
@@ -449,15 +470,20 @@ class AudioHandler {
 
         audio.src = audioSrc;
 
-        // Replace the link with audio and metadata
+        // Replace the link (or song-row) with audio and metadata
         const container = document.createElement('div');
         container.appendChild(metadataDiv);
         container.appendChild(audio);
-        link.parentNode.replaceChild(container, link);
 
-        // Store references
+        // Check if link is inside a song-row
+        const songRow = link.closest('.song-row');
+        const elementToReplace = songRow || link;
+
+        elementToReplace.parentNode.replaceChild(container, elementToReplace);
+
+        // Store references - store the original element to restore later
         this.currentAudio = audio;
-        this.currentLink = link;
+        this.currentLink = elementToReplace;
         this.currentMetadataDiv = container;
 
         // Fetch and display metadata
@@ -470,19 +496,37 @@ class AudioHandler {
             });
         }, 200);
 
-        // When the audio ends, replace everything with the original link
+        // When the audio ends, replace everything with the original element
         audio.addEventListener('ended', () => {
-            container.parentNode.replaceChild(link, container);
+            const restoredElement = this.currentLink;
+            container.parentNode.replaceChild(restoredElement, container);
             this.currentAudio = null;
             this.currentLink = null;
             this.currentMetadataDiv = null;
 
-            // Find next visible link (respects search filter)
-            let nextLink = link.nextElementSibling;
-            while (nextLink && nextLink.classList.contains('search-hidden')) {
-                nextLink = nextLink.nextElementSibling;
+            // Find next visible song (respects search filter)
+            // Need to find the next .link element, checking parent song-rows for visibility
+            let nextElement = restoredElement.nextElementSibling;
+            let nextLink = null;
+
+            while (nextElement) {
+                // If it's a song-row, check if it's hidden and get the link inside
+                if (nextElement.classList.contains('song-row')) {
+                    if (!nextElement.classList.contains('search-hidden')) {
+                        nextLink = nextElement.querySelector('.link');
+                        break;
+                    }
+                } else if (nextElement.classList.contains('link')) {
+                    // Direct link (no song-row wrapper)
+                    if (!nextElement.classList.contains('search-hidden')) {
+                        nextLink = nextElement;
+                        break;
+                    }
+                }
+                nextElement = nextElement.nextElementSibling;
             }
-            if (nextLink && nextLink.classList.contains('link')) {
+
+            if (nextLink) {
                 nextLink.click();
             }
         });
