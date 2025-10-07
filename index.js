@@ -32,7 +32,20 @@ const bucketName = process.env.B2_BUCKET_NAME;
 const musicStaticPath = directoryPathMusic.startsWith('./')
     ? join(__dirname, directoryPathMusic.substring(2))
     : directoryPathMusic;
-app.use('/music', express.static(musicStaticPath));
+app.use('/music', express.static(musicStaticPath, {
+    setHeaders: (res, path) => {
+        // Set proper content-type headers to prevent download prompts
+        if (path.toLowerCase().endsWith('.flac')) {
+            res.set('Content-Type', 'audio/flac');
+        } else if (path.toLowerCase().endsWith('.m4b')) {
+            res.set('Content-Type', 'audio/mp4');
+        } else if (path.toLowerCase().endsWith('.mp3')) {
+            res.set('Content-Type', 'audio/mpeg');
+        }
+        // Allow range requests for seeking
+        res.set('Accept-Ranges', 'bytes');
+    }
+}));
 app.get('/favicon.ico', function(req,res){
     res.sendFile(__dirname + '/favicon.ico');
 });
@@ -460,15 +473,22 @@ app.get('/', async (req,res) =>{
             const fileInfo = musicFiles[i];
             const folderLine = fileInfo.folderPath ? `<br><span class="folder-path">${fileInfo.folderPath}</span>` : '';
 
+            // Encode path for direct file access
+            const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+            const directUrl = `/music/${encodedPath}`;
+
             chunk += `
-            <a class="link"
-               data-filename="${fileInfo.fileName}"
-               data-folder="${fileInfo.folderPath}"
-               data-relative-path="${fileInfo.relativePath}"
-               data-audio-type="local">
-            ${fileInfo.fileName}
-            ${folderLine}
-            </a>`;
+            <div class="song-row">
+                <a class="link"
+                   data-filename="${fileInfo.fileName}"
+                   data-folder="${fileInfo.folderPath}"
+                   data-relative-path="${fileInfo.relativePath}"
+                   data-audio-type="local">
+                ${fileInfo.fileName}
+                ${folderLine}
+                </a>
+                <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
+            </div>`;
 
             // Send in chunks of 50 to improve streaming
             if (i % 50 === 0 && chunk.length > 0) {
@@ -570,14 +590,17 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Enhanced link with comprehensive data attributes for search
                 fileNames += `
-                <a class="link"
-                   data-filename="${fileName}"
-                   data-folder="${folderName}"
-                   data-proxy-url="${proxyUrl}"
-                   data-metadata-url="${metadataUrl}"
-                   data-audio-type="b2">
-                ${fileName}
-                </a>`;
+                <div class="song-row">
+                    <a class="link"
+                       data-filename="${fileName}"
+                       data-folder="${folderName}"
+                       data-proxy-url="${proxyUrl}"
+                       data-metadata-url="${metadataUrl}"
+                       data-audio-type="b2">
+                    ${fileName}
+                    </a>
+                    <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
+                </div>`;
             }
         }
 
