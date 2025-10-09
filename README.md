@@ -106,10 +106,11 @@ docker-compose down && docker-compose up -d
 
 3. **Create SSL certificates**
    ```bash
-   mkdir ssl
-   openssl req -nodes -new -x509 -keyout ssl/server.key -out ssl/server.cert
+   mkdir sslcert
+   openssl genrsa -out sslcert/key.pem 4096
+   openssl req -x509 -new -sha256 -nodes -key sslcert/key.pem -days 1095 -out sslcert/cert.pem -subj "/CN=localhost/O=analogarchive/C=US"
    ```
-   *Follow the prompts - you can use default values for localhost development*
+   *Self-signed certificates are automatically generated for localhost development*
 
 4. **Set up your music directory**
    ```bash
@@ -123,8 +124,8 @@ docker-compose down && docker-compose up -d
    ```
    Edit `.env` with your Backblaze B2 credentials:
    ```
-   SSL_KEY_PATH=./ssl/server.key
-   SSL_CERT_PATH=./ssl/server.cert
+   SSL_KEY_PATH=./sslcert/key.pem
+   SSL_CERT_PATH=./sslcert/cert.pem
    B2_APPLICATION_KEY_ID=your_key_id
    B2_APPLICATION_KEY=your_application_key
    B2_BUCKET_NAME=your_bucket_name
@@ -140,7 +141,7 @@ docker-compose down && docker-compose up -d
 
    *(Accept the self-signed certificate warning for localhost development)*
 
-## 🍓 Raspberry Pi Auto-Start on Boot
+## 🔄 Raspberry Pi Auto-Start on Boot
 
 To have the server automatically start when your Raspberry Pi boots:
 
@@ -176,7 +177,7 @@ To have the server automatically start when your Raspberry Pi boots:
 
 **Note**: The included `analogarchivejs.service` file assumes the project is located at `/home/jaemzware/Desktop/analogarchivejs`. Update the `WorkingDirectory` and `User` fields in the service file if your setup differs.
 
-## 📁 Endpoints
+## 🔍 Endpoints
 
 | Endpoint | Description | Storage |
 |----------|-------------|---------|
@@ -226,7 +227,7 @@ For cloud storage support:
 - **Resource Usage**: Minimal CPU and RAM - runs great on Pi Zero
 - **Architecture**: ARM64/ARM compatible
 
-## 📝 File Structure
+## 📁 File Structure
 
 ```
 analogarchivejs/
@@ -235,9 +236,9 @@ analogarchivejs/
 ├── styles.css           # UI styling
 ├── package.json         # Dependencies
 ├── .env.example         # Environment template
-├── ssl/                 # SSL certificates
-│   ├── server.key
-│   └── server.cert
+├── sslcert/             # SSL certificates
+│   ├── key.pem
+│   └── cert.pem
 └── music/               # Local MP3 files
     ├── song1.mp3
     └── song2.mp3
@@ -253,7 +254,7 @@ analogarchivejs/
 ## 🐛 Troubleshooting
 
 **SSL Certificate Issues**:
-- Make sure certificates are in the `ssl/` directory
+- Make sure certificates are in the `sslcert/` directory
 - Verify file paths in `.env` match your certificate locations
 
 **No Audio Playback**:
