@@ -267,6 +267,13 @@ analogarchivejs/
 - Check bucket name matches your `.env` configuration
 - Ensure files are in the correct folder structure
 
+## Endpoints
+
+**Analog Archive JS (Port 55557)**
+- `https://localhost:55557/` - Audio player for onboard music folders (scanned from Pi's hard drives)
+- `https://localhost:55557/analog` - Backblaze B2 bucket audio library (requires home WiFi with gateway)
+- `https://localhost:55557/live` - Backblaze B2 live recordings library (requires home WiFi with gateway)
+
 ## 🤝 Contributing
 
 Pull requests welcome! Please feel free to submit issues and enhancement requests.
