@@ -13,6 +13,7 @@ services:
       - B2_APPLICATION_KEY_ID=${B2_APPLICATION_KEY_ID}
       - B2_APPLICATION_KEY=${B2_APPLICATION_KEY}
       - B2_BUCKET_NAME=${B2_BUCKET_NAME}
-      - SSL_KEY_PATH=${SSL_KEY_PATH}
-      - SSL_CERT_PATH=${SSL_CERT_PATH}
+      # SSL certificate paths (defaults to auto-generated certs in container)
+      - SSL_KEY_PATH=${SSL_KEY_PATH:-/app/sslcert/key.pem}
+      - SSL_CERT_PATH=${SSL_CERT_PATH:-/app/sslcert/cert.pem}
     restart: unless-stopped

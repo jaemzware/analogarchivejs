@@ -12,7 +12,7 @@ RUN npm ci --only=production
 COPY . .
 
 # Create SSL certificate directory
-RUN mkdir -p /app/ssl
+RUN mkdir -p /app/sslcert
 
 # Generate self-signed SSL certificates for development
 RUN apk add --no-cache openssl && \
@@ -21,14 +21,14 @@ RUN apk add --no-cache openssl && \
         -key /app/sslcert/key.pem \
         -days 1095 \
         -out /app/sslcert/cert.pem \
-        -subj "/CN=localhost/O=stuffedanimalwar/C=US"
+        -subj "/CN=localhost/O=analogarchive/C=US"
 
 # Expose the port the app runs on
 EXPOSE 55557
 
 # Set default environment variables
-ENV SSL_KEY_PATH=/app/ssl/server.key
-ENV SSL_CERT_PATH=/app/ssl/server.cert
+ENV SSL_KEY_PATH=/app/sslcert/key.pem
+ENV SSL_CERT_PATH=/app/sslcert/cert.pem
 
 # Start the application
 CMD ["node", "index.js"]
