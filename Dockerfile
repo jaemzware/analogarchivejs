@@ -14,14 +14,14 @@ COPY . .
 # Create SSL certificate directory
 RUN mkdir -p /app/ssl
 
-# Generate self-signed SSL certificates
+# Generate self-signed SSL certificates for development
 RUN apk add --no-cache openssl && \
-    openssl genrsa -out /app/ssl/server.key 4096 && \
+    openssl genrsa -out /app/sslcert/key.pem 4096 && \
     openssl req -x509 -new -sha256 -nodes \
-        -key /app/ssl/server.key \
+        -key /app/sslcert/key.pem \
         -days 1095 \
-        -out /app/ssl/server.cert \
-        -subj "/CN=localhost/O=analogarchivejs/C=US"
+        -out /app/sslcert/cert.pem \
+        -subj "/CN=localhost/O=stuffedanimalwar/C=US"
 
 # Expose the port the app runs on
 EXPOSE 55557
