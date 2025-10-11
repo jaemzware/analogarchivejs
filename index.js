@@ -346,8 +346,10 @@ async function findMusicFiles(dir, baseDir = dir, files = []) {
     const items = await promises.readdir(dir);
 
     for (const item of items) {
-        // Skip macOS metadata files BEFORE trying to stat them
-        if (item.startsWith('._') || item.startsWith('.__') || item === '.DS_Store') {
+        // Skip macOS and Windows metadata files BEFORE trying to stat them
+        if (item.startsWith('._') || item.startsWith('.__') ||
+            item === '.DS_Store' || item.toLowerCase() === 'desktop.ini' ||
+            item.toLowerCase() === 'thumbs.db') {
             continue;
         }
 
@@ -420,15 +422,12 @@ function buildDirectoryStructure(musicFiles) {
                 structure.set(topLevel, { files: [], subdirs: new Set(), hasChildren: parts.length > 1 });
             }
 
-            // If this is directly in the top-level directory
-            if (parts.length === 1) {
-                structure.get(topLevel).files.push(fileInfo);
-            } else {
-                // Track that this top-level has subdirectories
+            // Track that this top-level has subdirectories if needed
+            if (parts.length > 1) {
                 structure.get(topLevel).hasChildren = true;
             }
 
-            // For all subdirectory paths
+            // For all subdirectory paths (including top-level)
             for (let i = 1; i <= parts.length; i++) {
                 const currentPath = parts.slice(0, i).join('/');
                 if (!structure.has(currentPath)) {
