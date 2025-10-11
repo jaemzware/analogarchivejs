@@ -1,8 +1,5 @@
 .DS_Store
 .idea/
-music
-music/
-music.old/
 video/
 node_modules/
 ssl/
