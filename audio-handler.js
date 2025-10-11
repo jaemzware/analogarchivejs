@@ -257,15 +257,21 @@ class AudioHandler {
             let visibleCount = 0;
 
             this.searchIndex.forEach((item) => {
-                const { link, songRow, searchText } = item;
+                const { link, searchText } = item;
 
                 // Check if all search terms are found
                 const matches = searchTerms.every(term => searchText.includes(term));
+
+                // Re-query for songRow at search time instead of using cached reference
+                // This ensures we get the correct parent even if DOM was modified
+                const songRow = link.closest('.song-row');
 
                 if (matches) {
                     // Hide/show the parent song-row if it exists, otherwise hide the link
                     if (songRow) {
                         songRow.classList.remove('search-hidden');
+                        // Also ensure the link itself doesn't have the class
+                        link.classList.remove('search-hidden');
                     } else {
                         link.classList.remove('search-hidden');
                     }
@@ -274,6 +280,8 @@ class AudioHandler {
                 } else {
                     if (songRow) {
                         songRow.classList.add('search-hidden');
+                        // Also ensure the link itself doesn't have the class
+                        link.classList.remove('search-hidden');
                     } else {
                         link.classList.add('search-hidden');
                     }
