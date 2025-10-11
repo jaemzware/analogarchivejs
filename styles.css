@@ -7,10 +7,35 @@ body {
     color: #333;
 }
 
+/* Breadcrumb Navigation */
+.breadcrumb {
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+    background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+    border-bottom: 2px solid #333;
+    padding: 12px 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    font-size: 16px;
+}
+
+.breadcrumb-link {
+    color: deepskyblue;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.breadcrumb-link:hover {
+    background: rgba(0, 191, 255, 0.2);
+    color: lime;
+}
+
 /* Search Bar Styles */
 .search-container {
     position: sticky;
-    top: 0;
+    top: 46px; /* Position below breadcrumb */
     z-index: 1000;
     background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
     border-bottom: 3px solid #333;
@@ -115,10 +140,11 @@ body {
 
 /* Highlight search matches */
 .search-highlight {
-    background: rgba(0, 255, 0, 0.3);
-    color: lime;
+    background: rgba(255, 215, 0, 0.4);
+    color: #000;
     font-weight: bold;
-    text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    padding: 2px 4px;
+    border-radius: 3px;
 }
 
 /* Existing styles with enhancements */
@@ -137,6 +163,33 @@ body {
     align-items: stretch;
     margin-bottom: 15px;
     gap: 5px;
+}
+
+/* Folder row styling */
+.folder-row {
+    margin-bottom: 15px;
+}
+
+.folder-link {
+    display: block;
+    padding: 18px 20px;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    background-color: #fff;
+    text-decoration: none;
+    transition: all 0.2s ease-in-out;
+    font-size: 20px;
+    color: #333;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #ffffff, #f5f5f5);
+}
+
+.folder-link:hover {
+    background: linear-gradient(135deg, #f0f8ff, #e6f3ff);
+    border-color: deepskyblue;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,191,255,0.2);
 }
 
 /* Direct link button */

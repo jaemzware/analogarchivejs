@@ -151,11 +151,11 @@ class AudioHandler {
         }
     }
 
-    // Index all links for searching
+    // Index all links for searching (exclude folder links)
     indexAllLinks() {
         this.allLinks = Array.from(document.querySelectorAll('.link'));
-        // Also track song rows for easier manipulation
-        this.songRows = Array.from(document.querySelectorAll('.song-row'));
+        // Also track song rows for easier manipulation (exclude folder rows)
+        this.songRows = Array.from(document.querySelectorAll('.song-row:not(.folder-row)'));
         this.searchIndex.clear();
 
         this.allLinks.forEach((link, index) => {

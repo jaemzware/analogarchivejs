@@ -398,7 +398,61 @@ app.get('/rescan', async (req, res) => {
     }
 });
 
-// Original local music endpoint with enhanced search support
+// Helper function to build directory structure
+function buildDirectoryStructure(musicFiles) {
+    const structure = new Map();
+
+    musicFiles.forEach(fileInfo => {
+        const parts = fileInfo.folderPath ? fileInfo.folderPath.split('/') : [];
+
+        if (parts.length === 0) {
+            // Files in root directory
+            if (!structure.has('__root__')) {
+                structure.set('__root__', { files: [], subdirs: new Set() });
+            }
+            structure.get('__root__').files.push(fileInfo);
+        } else {
+            // Files in subdirectories
+            const topLevel = parts[0];
+
+            // Track top-level directory
+            if (!structure.has(topLevel)) {
+                structure.set(topLevel, { files: [], subdirs: new Set(), hasChildren: parts.length > 1 });
+            }
+
+            // If this is directly in the top-level directory
+            if (parts.length === 1) {
+                structure.get(topLevel).files.push(fileInfo);
+            } else {
+                // Track that this top-level has subdirectories
+                structure.get(topLevel).hasChildren = true;
+            }
+
+            // For all subdirectory paths
+            for (let i = 1; i <= parts.length; i++) {
+                const currentPath = parts.slice(0, i).join('/');
+                if (!structure.has(currentPath)) {
+                    structure.set(currentPath, { files: [], subdirs: new Set() });
+                }
+
+                // Add files that are directly in this path
+                if (i === parts.length) {
+                    structure.get(currentPath).files.push(fileInfo);
+                }
+
+                // Track subdirectories
+                if (i < parts.length) {
+                    const nextPath = parts.slice(0, i + 1).join('/');
+                    structure.get(currentPath).subdirs.add(parts[i]);
+                }
+            }
+        }
+    });
+
+    return structure;
+}
+
+// Original local music endpoint with directory navigation
 app.get('/', async (req,res) =>{
     try {
         // If cache isn't ready yet, show loading page
@@ -445,33 +499,85 @@ app.get('/', async (req,res) =>{
             return;
         }
 
-        // Sort by folder path then file name
-        musicFiles.sort((a, b) => {
-            if (a.folderPath !== b.folderPath) {
-                return a.folderPath.localeCompare(b.folderPath);
+        // Get current directory from query parameter
+        const currentPath = req.query.dir || '';
+
+        // Build directory structure
+        const dirStructure = buildDirectoryStructure(musicFiles);
+
+        // Get content for current directory
+        let currentContent;
+        if (currentPath === '') {
+            // Root level - show top-level directories and root files
+            currentContent = { files: [], subdirs: [] };
+
+            // Add root files if any
+            if (dirStructure.has('__root__')) {
+                currentContent.files = dirStructure.get('__root__').files;
             }
-            return a.fileName.localeCompare(b.fileName);
-        });
+
+            // Add top-level directories
+            dirStructure.forEach((value, key) => {
+                if (key !== '__root__' && !key.includes('/')) {
+                    currentContent.subdirs.push(key);
+                }
+            });
+        } else {
+            // Show contents of specific directory
+            if (dirStructure.has(currentPath)) {
+                const dirInfo = dirStructure.get(currentPath);
+                currentContent = {
+                    files: dirInfo.files,
+                    subdirs: Array.from(dirInfo.subdirs || [])
+                };
+            } else {
+                currentContent = { files: [], subdirs: [] };
+            }
+        }
+
+        // Sort files and folders
+        currentContent.subdirs.sort();
+        currentContent.files.sort((a, b) => a.fileName.localeCompare(b.fileName));
 
         // Send header immediately
         res.writeHead(200, { 'Content-Type': 'text/html' });
 
+        // Build breadcrumb path
+        const pathParts = currentPath ? currentPath.split('/') : [];
+        let breadcrumbHtml = '<a href="/" class="breadcrumb-link">Home</a>';
+        let buildPath = '';
+        pathParts.forEach(part => {
+            buildPath += (buildPath ? '/' : '') + part;
+            breadcrumbHtml += ` / <a href="/?dir=${encodeURIComponent(buildPath)}" class="breadcrumb-link">${part}</a>`;
+        });
+
         // Send HTML head right away
         res.write(`<html>
 <head>
-    <title>analogarchivejs - ${musicFiles.length} files</title>
+    <title>analogarchivejs - ${currentPath || 'Home'}</title>
     <link rel="stylesheet" href="styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
+<div class="breadcrumb">${breadcrumbHtml}</div>
 <div class="container">
 `);
 
-        // Stream file links in chunks
+        // Stream subdirectories first
         let chunk = '';
-        for (let i = 0; i < musicFiles.length; i++) {
-            const fileInfo = musicFiles[i];
-            const folderLine = fileInfo.folderPath ? `<br><span class="folder-path">${fileInfo.folderPath}</span>` : '';
+        for (const subdir of currentContent.subdirs) {
+            const subdirPath = currentPath ? `${currentPath}/${subdir}` : subdir;
+            chunk += `
+            <div class="song-row folder-row">
+                <a href="/?dir=${encodeURIComponent(subdirPath)}" class="folder-link">
+                ${subdir}
+                </a>
+            </div>`;
+        }
+
+        // Stream file links
+        for (let i = 0; i < currentContent.files.length; i++) {
+            const fileInfo = currentContent.files[i];
 
             // Encode path for direct file access
             const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
@@ -485,7 +591,6 @@ app.get('/', async (req,res) =>{
                    data-relative-path="${fileInfo.relativePath}"
                    data-audio-type="local">
                 ${fileInfo.fileName}
-                ${folderLine}
                 </a>
                 <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
             </div>`;
@@ -572,6 +677,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         console.log(`Found ${response.data.files.length} files in ${folderName} folder`);
 
+        // Build breadcrumb for B2 endpoints
+        const breadcrumbHtml = `<a href="/" class="breadcrumb-link">Home</a> / <span style="color: deepskyblue;">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</span>`;
+
         let fileNames = `<html>
 <head>
     <title>analogarchivejs - ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</title>
@@ -579,6 +687,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
+<div class="breadcrumb">${breadcrumbHtml}</div>
 <div class="container">`;
 
         for (const file of response.data.files) {
