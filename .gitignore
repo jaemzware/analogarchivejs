@@ -2,7 +2,6 @@
 .idea/
 video/
 node_modules/
-ssl/
 sslcert/
 .env
 deploy*.sh
