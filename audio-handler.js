@@ -461,6 +461,9 @@ class AudioHandler {
         // Create metadata display container
         const metadataDiv = this.createMetadataDiv();
 
+        // Create speed control slider
+        const speedControlDiv = this.createSpeedControl(audio);
+
         audio.addEventListener('loadstart', () => console.log('Loading started:', audioSrc));
         audio.addEventListener('canplay', () => console.log('Can start playing'));
         audio.addEventListener('error', (e) => {
@@ -473,7 +476,14 @@ class AudioHandler {
         // Replace the link (or song-row) with audio and metadata
         const container = document.createElement('div');
         container.appendChild(metadataDiv);
-        container.appendChild(audio);
+
+        // Create audio player wrapper with controls
+        const audioWrapper = document.createElement('div');
+        audioWrapper.className = 'audio-player-wrapper';
+        audioWrapper.appendChild(audio);
+        audioWrapper.appendChild(speedControlDiv);
+
+        container.appendChild(audioWrapper);
 
         // Check if link is inside a song-row
         const songRow = link.closest('.song-row');
@@ -557,6 +567,39 @@ class AudioHandler {
         `;
 
         return metadataDiv;
+    }
+
+    createSpeedControl(audio) {
+        const speedDiv = document.createElement('div');
+        speedDiv.className = 'speed-control';
+
+        const label = document.createElement('label');
+        label.textContent = 'Speed: ';
+        label.style.marginRight = '8px';
+
+        const speedValue = document.createElement('span');
+        speedValue.className = 'speed-value';
+        speedValue.textContent = '1.0x';
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '0.5';
+        slider.max = '2.5';
+        slider.step = '0.1';
+        slider.value = '1.0';
+        slider.className = 'speed-slider';
+
+        slider.addEventListener('input', (e) => {
+            const speed = parseFloat(e.target.value);
+            audio.playbackRate = speed;
+            speedValue.textContent = `${speed.toFixed(1)}x`;
+        });
+
+        speedDiv.appendChild(label);
+        speedDiv.appendChild(slider);
+        speedDiv.appendChild(speedValue);
+
+        return speedDiv;
     }
 
     async loadMetadata(audioSrc, metadataDiv, metadataEndpoint = null, link = null) {
