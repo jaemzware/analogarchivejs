@@ -6,6 +6,7 @@ music.old/
 video/
 node_modules/
 ssl/
+sslcert/
 .env
 deploy*.sh
 output.log

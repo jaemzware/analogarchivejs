@@ -284,11 +284,100 @@ body {
         font-size: 12px;
         margin-top: 3px;
     }
+
+    .audio-player-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .speed-control {
+        justify-content: center;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .speed-slider {
+        width: 100px;
+    }
 }
 
 audio {
     max-width: 100%;
     max-height: 100%;
+}
+
+/* Audio player wrapper with speed control */
+.audio-player-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 10px 0;
+}
+
+/* Speed control styles */
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
+    padding: 10px 15px;
+    border-radius: 8px;
+    color: deepskyblue;
+    font-size: 14px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.speed-value {
+    font-weight: bold;
+    color: lime;
+    min-width: 45px;
+    text-align: center;
+}
+
+.speed-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 120px;
+    height: 6px;
+    background: linear-gradient(to right, #444, #666);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+.speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: deepskyblue;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+}
+
+.speed-slider::-webkit-slider-thumb:hover {
+    background: lime;
+    transform: scale(1.1);
+}
+
+.speed-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: deepskyblue;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+}
+
+.speed-slider::-moz-range-thumb:hover {
+    background: lime;
+    transform: scale(1.1);
 }
 
 /* Loading indicator for search */
