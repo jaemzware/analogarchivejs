@@ -151,26 +151,44 @@ class AudioHandler {
         }
     }
 
-    // Index all links for searching
+    // Index all links for searching (include folder links)
     indexAllLinks() {
         this.allLinks = Array.from(document.querySelectorAll('.link'));
-        // Also track song rows for easier manipulation
-        this.songRows = Array.from(document.querySelectorAll('.song-row'));
+        // Also include folder links in search
+        this.folderLinks = Array.from(document.querySelectorAll('.folder-link'));
+        // Track all rows (both song rows and folder rows)
+        this.songRows = Array.from(document.querySelectorAll('.song-row:not(.folder-row)'));
+        this.folderRows = Array.from(document.querySelectorAll('.folder-row'));
         this.searchIndex.clear();
 
+        // Index audio links
         this.allLinks.forEach((link, index) => {
             const searchData = this.extractSearchableData(link);
-            // Get parent song-row if it exists
             const songRow = link.closest('.song-row');
-            this.searchIndex.set(index, {
+            this.searchIndex.set(`link-${index}`, {
                 link: link,
                 songRow: songRow,
                 searchText: searchData.combined.toLowerCase(),
-                data: searchData
+                data: searchData,
+                type: 'audio'
             });
         });
 
-        this.updateResultsCount(this.allLinks.length, this.allLinks.length);
+        // Index folder links
+        this.folderLinks.forEach((link, index) => {
+            const folderName = link.textContent.trim();
+            const folderRow = link.closest('.folder-row');
+            this.searchIndex.set(`folder-${index}`, {
+                link: link,
+                songRow: folderRow,
+                searchText: folderName.toLowerCase(),
+                data: { combined: folderName },
+                type: 'folder'
+            });
+        });
+
+        const totalItems = this.allLinks.length + this.folderLinks.length;
+        this.updateResultsCount(totalItems, totalItems);
     }
 
     // Extract searchable data from a link
@@ -323,6 +341,15 @@ class AudioHandler {
                 delete link.dataset.originalContent;
             }
         });
+
+        if (this.folderLinks) {
+            this.folderLinks.forEach(link => {
+                if (link.dataset.originalContent) {
+                    link.innerHTML = link.dataset.originalContent;
+                    delete link.dataset.originalContent;
+                }
+            });
+        }
     }
 
     // Clear search and show all items
@@ -337,14 +364,27 @@ class AudioHandler {
             link.classList.remove('search-hidden');
         });
 
+        if (this.folderLinks) {
+            this.folderLinks.forEach(link => {
+                link.classList.remove('search-hidden');
+            });
+        }
+
         if (this.songRows) {
             this.songRows.forEach(row => {
                 row.classList.remove('search-hidden');
             });
         }
 
+        if (this.folderRows) {
+            this.folderRows.forEach(row => {
+                row.classList.remove('search-hidden');
+            });
+        }
+
         this.removeHighlighting();
-        this.updateResultsCount(this.allLinks.length, this.allLinks.length);
+        const totalItems = this.allLinks.length + (this.folderLinks ? this.folderLinks.length : 0);
+        this.updateResultsCount(totalItems, totalItems);
         this.toggleClearButton(false);
         this.isSearchActive = false;
 
@@ -358,9 +398,9 @@ class AudioHandler {
         const resultsElement = document.getElementById('searchResults');
         if (resultsElement) {
             if (visible === total) {
-                resultsElement.textContent = `${total} songs`;
+                resultsElement.textContent = `${total} items`;
             } else {
-                resultsElement.textContent = `${visible} of ${total} songs`;
+                resultsElement.textContent = `${visible} of ${total} items`;
             }
         }
     }
