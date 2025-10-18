@@ -10,6 +10,8 @@ class AudioHandler {
         this.allLinks = [];
         this.searchIndex = new Map();
         this.isSearchActive = false;
+        // Store the original page title to restore later
+        this.originalPageTitle = document.title;
     }
 
     // Initialize pages with search functionality
@@ -586,6 +588,9 @@ class AudioHandler {
 
             if (nextLink) {
                 nextLink.click();
+            } else {
+                // No next song - restore the original page title
+                document.title = this.originalPageTitle;
             }
         });
     }
@@ -717,8 +722,8 @@ class AudioHandler {
             'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">♪</text></svg>');
 
         metadataDiv.innerHTML = `
-            <img src="${artworkSrc}" 
-                 style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;" 
+            <img src="${artworkSrc}"
+                 style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;"
                  onerror="this.style.display='none';">
             <div>
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${metadata.title}</div>
@@ -726,6 +731,9 @@ class AudioHandler {
                 <div style="opacity: 0.7; font-size: 14px;">${metadata.album}</div>
             </div>
         `;
+
+        // Update the page title with artist and song title
+        document.title = `${metadata.artist} - ${metadata.title}`;
     }
 
     // Method to preload metadata for visible links
