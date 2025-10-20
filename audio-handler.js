@@ -12,16 +12,437 @@ class AudioHandler {
         this.isSearchActive = false;
         // Store the original page title to restore later
         this.originalPageTitle = document.title;
+        // Sticky player
+        this.stickyPlayerContainer = null;
+        this.currentPlaylist = []; // Track visible songs at time of play
+        this.currentTrackIndex = -1; // Current position in playlist
     }
 
     // Initialize pages with search functionality
     initializePage() {
+        this.createStickyPlayer();
         this.setupSearchBar();
         this.indexAllLinks();
         this.setupClickHandlers();
+        this.setupFolderNavigation();
+        this.restorePlayerState();
+
+        // Load all files for search if we're on the local music endpoint (not B2)
+        // Root is "/" and subdirectories are "/?dir=something"
+        const isLocalEndpoint = window.location.pathname === '/' &&
+                               !window.location.pathname.includes('/analog') &&
+                               !window.location.pathname.includes('/live');
+
+        if (isLocalEndpoint) {
+            this.loadAllFilesForSearch();
+        }
 
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
+    }
+
+    // Load all files from all folders for comprehensive search
+    async loadAllFilesForSearch() {
+        try {
+            const response = await fetch('/api/all-files');
+            const data = await response.json();
+
+            if (data.success && data.files) {
+                console.log(`Loaded ${data.files.length} files for search across all folders`);
+                this.allFilesData = data.files;
+                // Index these files for search
+                this.indexAllFiles(data.files);
+            }
+        } catch (error) {
+            console.error('Failed to load all files for search:', error);
+        }
+    }
+
+    // Index all files from all folders for search
+    indexAllFiles(filesData) {
+        filesData.forEach((fileInfo, index) => {
+            const searchData = {
+                filename: fileInfo.fileName,
+                folder: fileInfo.folderPath || '',
+                combined: `${fileInfo.fileName} ${fileInfo.folderPath || ''}`
+            };
+
+            this.searchIndex.set(`all-file-${index}`, {
+                fileInfo: fileInfo,
+                searchText: searchData.combined.toLowerCase(),
+                data: searchData,
+                type: 'all-file'
+            });
+        });
+
+        console.log(`Indexed ${filesData.length} files from all folders for search`);
+    }
+
+    // Setup folder navigation to avoid page reloads when player is active
+    setupFolderNavigation() {
+        document.addEventListener('click', (e) => {
+            const folderLink = e.target.closest('.folder-link, .breadcrumb-link');
+            if (!folderLink) return;
+
+            const href = folderLink.getAttribute('href');
+            if (!href) return;
+
+            // Check if we're crossing endpoints (e.g., / -> /analog, or /analog -> /)
+            const currentEndpoint = this.getCurrentEndpoint();
+            const targetEndpoint = this.getEndpointFromHref(href);
+
+            if (currentEndpoint !== targetEndpoint) {
+                // Crossing endpoints - stop player and allow normal navigation
+                if (this.currentAudio) {
+                    this.hideStickyPlayer();
+                    this.clearPlayerState();
+                    if (this.currentAudio) {
+                        this.currentAudio.pause();
+                        this.currentAudio.removeAttribute('src');
+                        this.currentAudio.load();
+                    }
+                    this.currentAudio = null;
+                    this.currentLink = null;
+                }
+                // Allow normal page navigation
+                return;
+            }
+
+            // Same endpoint - only intercept if audio is playing
+            if (!this.currentAudio || this.currentAudio.paused) {
+                return;
+            }
+
+            // Don't intercept if it's not a local music navigation
+            if (!href.startsWith('/?') && href !== '/') return;
+
+            e.preventDefault();
+
+            // Save current scroll position
+            const scrollPos = window.scrollY;
+
+            // Fetch the new page content
+            fetch(href)
+                .then(response => response.text())
+                .then(html => {
+                    // Parse the HTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+
+                    // Update the container content
+                    const newContainer = doc.querySelector('.container');
+                    const currentContainer = document.querySelector('.container');
+                    if (newContainer && currentContainer) {
+                        currentContainer.innerHTML = newContainer.innerHTML;
+                    }
+
+                    // Update breadcrumb
+                    const newBreadcrumb = doc.querySelector('.breadcrumb');
+                    const currentBreadcrumb = document.querySelector('.breadcrumb');
+                    if (newBreadcrumb && currentBreadcrumb) {
+                        currentBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
+                    }
+
+                    // Update page title (but not if audio is playing - that sets its own title)
+                    if (!this.currentAudio || this.currentAudio.paused) {
+                        document.title = doc.title;
+                    }
+
+                    // Update URL without reload
+                    window.history.pushState({}, '', href);
+
+                    // Update search bar if it exists in new content
+                    const newSearchContainer = doc.querySelector('.search-container');
+                    const currentSearchContainer = document.querySelector('.search-container');
+                    if (newSearchContainer && currentSearchContainer) {
+                        currentSearchContainer.innerHTML = newSearchContainer.innerHTML;
+                        this.attachSearchListeners();
+                    }
+
+                    // Re-index the new links
+                    this.indexAllLinks();
+
+                    // Update playlist to new folder's songs
+                    this.updatePlaylistToCurrentPage();
+
+                    // Restore scroll position or scroll to top
+                    window.scrollTo(0, 0);
+                })
+                .catch(error => {
+                    console.error('Failed to load folder:', error);
+                    // Fall back to regular navigation
+                    window.location.href = href;
+                });
+        });
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', () => {
+            if (this.currentAudio && !this.currentAudio.paused) {
+                // Reload content without full page refresh
+                fetch(window.location.href)
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+
+                        const newContainer = doc.querySelector('.container');
+                        const currentContainer = document.querySelector('.container');
+                        if (newContainer && currentContainer) {
+                            currentContainer.innerHTML = newContainer.innerHTML;
+                        }
+
+                        const newBreadcrumb = doc.querySelector('.breadcrumb');
+                        const currentBreadcrumb = document.querySelector('.breadcrumb');
+                        if (newBreadcrumb && currentBreadcrumb) {
+                            currentBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
+                        }
+
+                        const newSearchContainer = doc.querySelector('.search-container');
+                        const currentSearchContainer = document.querySelector('.search-container');
+                        if (newSearchContainer && currentSearchContainer) {
+                            currentSearchContainer.innerHTML = newSearchContainer.innerHTML;
+                            this.attachSearchListeners();
+                        }
+
+                        this.indexAllLinks();
+                        this.updatePlaylistToCurrentPage();
+                    });
+            }
+        });
+    }
+
+    // Get the current endpoint (root, analog, or live)
+    getCurrentEndpoint() {
+        const path = window.location.pathname;
+        if (path === '/' || path.startsWith('/?')) {
+            return 'root';
+        } else if (path.includes('/analog')) {
+            return 'analog';
+        } else if (path.includes('/live')) {
+            return 'live';
+        }
+        return 'root';
+    }
+
+    // Get the endpoint from a href
+    getEndpointFromHref(href) {
+        if (href.startsWith('/analog')) {
+            return 'analog';
+        } else if (href.startsWith('/live')) {
+            return 'live';
+        } else if (href === '/' || href.startsWith('/?')) {
+            return 'root';
+        }
+        return 'root';
+    }
+
+    // Update playlist to match current page without changing playback
+    updatePlaylistToCurrentPage() {
+        const visibleLinks = Array.from(document.querySelectorAll('.link')).filter(link => {
+            const songRow = link.closest('.song-row');
+            if (songRow) {
+                return !songRow.classList.contains('search-hidden');
+            }
+            return !link.classList.contains('search-hidden');
+        });
+
+        this.currentPlaylist = visibleLinks;
+
+        // Find if the currently playing track is on this page
+        if (this.currentLink) {
+            const currentLinkOnPage = visibleLinks.find(link => {
+                if (this.currentLink.dataset.audioType === 'local') {
+                    return link.dataset.relativePath === this.currentLink.dataset.relativePath;
+                } else {
+                    return link.dataset.filename === this.currentLink.dataset.filename &&
+                           link.dataset.folder === this.currentLink.dataset.folder;
+                }
+            });
+
+            if (currentLinkOnPage) {
+                this.currentTrackIndex = visibleLinks.indexOf(currentLinkOnPage);
+            } else {
+                // Current track not on this page
+                this.currentTrackIndex = -1;
+            }
+        }
+
+        console.log(`Playlist updated to current page: ${visibleLinks.length} tracks, current at index ${this.currentTrackIndex}`);
+        this.savePlayerState();
+    }
+
+    // Save player state to sessionStorage
+    savePlayerState() {
+        if (!this.currentAudio) return;
+
+        const state = {
+            audioSrc: this.currentAudio.src,
+            currentTime: this.currentAudio.currentTime,
+            playbackRate: this.currentAudio.playbackRate,
+            isPlaying: !this.currentAudio.paused,
+            playlist: this.currentPlaylist.map(link => ({
+                audioType: link.dataset.audioType,
+                relativePath: link.dataset.relativePath,
+                proxyUrl: link.dataset.proxyUrl,
+                filename: link.dataset.filename,
+                folder: link.dataset.folder
+            })),
+            currentTrackIndex: this.currentTrackIndex,
+            currentLinkData: this.currentLink ? {
+                audioType: this.currentLink.dataset.audioType,
+                relativePath: this.currentLink.dataset.relativePath,
+                proxyUrl: this.currentLink.dataset.proxyUrl,
+                filename: this.currentLink.dataset.filename,
+                folder: this.currentLink.dataset.folder
+            } : null,
+            metadata: this._currentMetadata || null,
+            metadataEndpoint: this._currentMetadataEndpoint || null,
+            endpoint: this.getCurrentEndpoint()
+        };
+
+        sessionStorage.setItem('audioPlayerState', JSON.stringify(state));
+    }
+
+    // Restore player state from sessionStorage
+    restorePlayerState() {
+        const stateJson = sessionStorage.getItem('audioPlayerState');
+        if (!stateJson) return;
+
+        try {
+            const state = JSON.parse(stateJson);
+
+            // Check if we're on the same endpoint - if not, clear state
+            const savedEndpoint = state.endpoint || 'root';
+            const currentEndpoint = this.getCurrentEndpoint();
+
+            if (savedEndpoint !== currentEndpoint) {
+                console.log(`Endpoint changed from ${savedEndpoint} to ${currentEndpoint}, clearing player state`);
+                this.clearPlayerState();
+                return;
+            }
+
+            // Create audio element and restore playback first (without clicking any link)
+            const audio = new Audio();
+            audio.controls = true;
+            audio.src = state.audioSrc;
+            audio.currentTime = state.currentTime;
+            audio.playbackRate = state.playbackRate;
+
+            // Create metadata display from saved state
+            const metadataDiv = this.createMetadataDiv();
+
+            // Create speed control
+            const speedControlDiv = this.createSpeedControl(audio);
+
+            // Setup event listeners
+            audio.addEventListener('play', () => this.savePlayerState());
+            audio.addEventListener('pause', () => this.savePlayerState());
+            audio.addEventListener('timeupdate', () => {
+                if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 2000) {
+                    this.savePlayerState();
+                    this._lastSaveTime = Date.now();
+                }
+            });
+            audio.addEventListener('ratechange', () => this.savePlayerState());
+            audio.addEventListener('ended', () => {
+                this.playNextTrack();
+            });
+
+            // Add to sticky player
+            const container = document.createElement('div');
+            container.appendChild(metadataDiv);
+            const audioWrapper = document.createElement('div');
+            audioWrapper.className = 'audio-player-wrapper';
+            audioWrapper.appendChild(audio);
+            audioWrapper.appendChild(speedControlDiv);
+            container.appendChild(audioWrapper);
+
+            this.stickyPlayerContainer.appendChild(container);
+            this.showStickyPlayer();
+
+            this.currentAudio = audio;
+            this.currentMetadataDiv = container;
+
+            // Display saved metadata
+            if (state.metadata) {
+                this.displayMetadata(metadataDiv, state.metadata, state.metadataEndpoint);
+            }
+
+            // Update playlist to current page's songs
+            const visibleLinks = Array.from(document.querySelectorAll('.link')).filter(link => {
+                const songRow = link.closest('.song-row');
+                if (songRow) {
+                    return !songRow.classList.contains('search-hidden');
+                }
+                return !link.classList.contains('search-hidden');
+            });
+
+            this.currentPlaylist = visibleLinks;
+
+            // Find if the currently playing track is on this page
+            const currentLinkOnPage = visibleLinks.find(link => {
+                if (state.currentLinkData.audioType === 'local') {
+                    return link.dataset.relativePath === state.currentLinkData.relativePath;
+                } else {
+                    return link.dataset.filename === state.currentLinkData.filename &&
+                           link.dataset.folder === state.currentLinkData.folder;
+                }
+            });
+
+            if (currentLinkOnPage) {
+                this.currentTrackIndex = visibleLinks.indexOf(currentLinkOnPage);
+                this.currentLink = currentLinkOnPage;
+            } else {
+                // Current track not on this page, when it ends, start from beginning of new page
+                this.currentTrackIndex = -1;
+                this.currentLink = null;
+            }
+
+            console.log(`Player restored: ${visibleLinks.length} tracks in new playlist, current track at index ${this.currentTrackIndex}`);
+
+            // Resume playback if it was playing
+            if (state.isPlaying) {
+                audio.play().catch(e => {
+                    console.log('Auto-play prevented, user must interact first');
+                });
+            }
+
+        } catch (error) {
+            console.error('Failed to restore player state:', error);
+            sessionStorage.removeItem('audioPlayerState');
+        }
+    }
+
+    // Clear player state
+    clearPlayerState() {
+        sessionStorage.removeItem('audioPlayerState');
+    }
+
+    // Create the sticky audio player container
+    createStickyPlayer() {
+        if (this.stickyPlayerContainer) return; // Already created
+
+        const playerContainer = document.createElement('div');
+        playerContainer.id = 'sticky-audio-player';
+        playerContainer.className = 'sticky-audio-player hidden';
+        document.body.appendChild(playerContainer);
+        this.stickyPlayerContainer = playerContainer;
+    }
+
+    // Show the sticky player
+    showStickyPlayer() {
+        if (this.stickyPlayerContainer) {
+            this.stickyPlayerContainer.classList.remove('hidden');
+            document.body.classList.add('player-active');
+        }
+    }
+
+    // Hide the sticky player
+    hideStickyPlayer() {
+        if (this.stickyPlayerContainer) {
+            this.stickyPlayerContainer.classList.add('hidden');
+            document.body.classList.remove('player-active');
+        }
     }
 
     // Setup click handlers for audio links
@@ -158,10 +579,15 @@ class AudioHandler {
         this.allLinks = Array.from(document.querySelectorAll('.link'));
         // Also include folder links in search
         this.folderLinks = Array.from(document.querySelectorAll('.folder-link'));
-        // Track all rows (both song rows and folder rows)
-        this.songRows = Array.from(document.querySelectorAll('.song-row:not(.folder-row)'));
-        this.folderRows = Array.from(document.querySelectorAll('.folder-row'));
-        this.searchIndex.clear();
+
+        // Clear only the current page links from search index, preserve all-file entries
+        const keysToDelete = [];
+        this.searchIndex.forEach((item, key) => {
+            if (item.type !== 'all-file') {
+                keysToDelete.push(key);
+            }
+        });
+        keysToDelete.forEach(key => this.searchIndex.delete(key));
 
         // Index audio links
         this.allLinks.forEach((link, index) => {
@@ -275,46 +701,147 @@ class AudioHandler {
             this.isSearchActive = true;
             const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
             let visibleCount = 0;
+            const matchedAllFiles = [];
 
             this.searchIndex.forEach((item) => {
-                const { link, searchText } = item;
+                const { link, searchText, type, fileInfo } = item;
 
                 // Check if all search terms are found
                 const matches = searchTerms.every(term => searchText.includes(term));
 
-                // Re-query for songRow at search time instead of using cached reference
-                // This ensures we get the correct parent even if DOM was modified
-                const songRow = link.closest('.song-row');
-
-                if (matches) {
-                    // Hide/show the parent song-row if it exists, otherwise hide the link
-                    if (songRow) {
-                        songRow.classList.remove('search-hidden');
-                        // Also ensure the link itself doesn't have the class
-                        link.classList.remove('search-hidden');
-                    } else {
-                        link.classList.remove('search-hidden');
+                if (type === 'all-file') {
+                    // Handle all-file results separately
+                    if (matches) {
+                        matchedAllFiles.push(fileInfo);
+                        visibleCount++;
                     }
-                    this.highlightMatches(link, searchTerms);
-                    visibleCount++;
                 } else {
-                    if (songRow) {
-                        songRow.classList.add('search-hidden');
-                        // Also ensure the link itself doesn't have the class
-                        link.classList.remove('search-hidden');
+                    // Handle regular links (current page)
+                    // Re-query for songRow at search time instead of using cached reference
+                    const songRow = link ? link.closest('.song-row') : null;
+
+                    if (matches) {
+                        // Hide/show the parent song-row if it exists, otherwise hide the link
+                        if (songRow) {
+                            songRow.classList.remove('search-hidden');
+                            // Also ensure the link itself doesn't have the class
+                            if (link) link.classList.remove('search-hidden');
+                        } else if (link) {
+                            link.classList.remove('search-hidden');
+                        }
+                        if (link) this.highlightMatches(link, searchTerms);
+                        visibleCount++;
                     } else {
-                        link.classList.add('search-hidden');
+                        if (songRow) {
+                            songRow.classList.add('search-hidden');
+                            // Also ensure the link itself doesn't have the class
+                            if (link) link.classList.remove('search-hidden');
+                        } else if (link) {
+                            link.classList.add('search-hidden');
+                        }
                     }
                 }
             });
 
-            this.updateResultsCount(visibleCount, this.allLinks.length);
+            // Add matched files from other folders to the DOM
+            if (matchedAllFiles.length > 0) {
+                this.displayAllFileResults(matchedAllFiles, searchTerms);
+            } else {
+                // Remove any previously added all-file results
+                this.removeAllFileResults();
+            }
+
+            this.updateResultsCount(visibleCount, this.searchIndex.size);
             this.toggleClearButton(true);
 
             if (searchLoading) {
                 searchLoading.classList.remove('active');
             }
+
+            // Update playlist if audio is currently playing
+            if (this.currentAudio && !this.currentAudio.paused) {
+                this.updatePlaylistToCurrentPage();
+            }
         }, 10);
+    }
+
+    // Display search results from all folders
+    displayAllFileResults(matchedFiles, searchTerms) {
+        // Remove any existing all-file results first
+        this.removeAllFileResults();
+
+        const container = document.querySelector('.container');
+        if (!container) return;
+
+        // Group files by folder
+        const filesByFolder = new Map();
+        matchedFiles.forEach(fileInfo => {
+            const folder = fileInfo.folderPath || 'Root';
+            if (!filesByFolder.has(folder)) {
+                filesByFolder.set(folder, []);
+            }
+            filesByFolder.get(folder).push(fileInfo);
+        });
+
+        // Create a container for all-file results
+        const resultsContainer = document.createElement('div');
+        resultsContainer.id = 'all-files-search-results';
+        resultsContainer.style.cssText = 'margin-top: 20px;';
+
+        filesByFolder.forEach((files, folder) => {
+            // Add folder header
+            const folderHeader = document.createElement('div');
+            folderHeader.className = 'search-folder-header';
+            folderHeader.style.cssText = `
+                background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
+                color: deepskyblue;
+                padding: 8px 15px;
+                margin: 15px 0 5px 0;
+                border-radius: 5px;
+                font-weight: 600;
+                font-size: 14px;
+                border-left: 4px solid lime;
+            `;
+            folderHeader.textContent = `📁 ${folder}`;
+            resultsContainer.appendChild(folderHeader);
+
+            // Add files from this folder
+            files.forEach(fileInfo => {
+                const songRow = document.createElement('div');
+                songRow.className = 'song-row all-file-result';
+                songRow.dataset.allFileResult = 'true';
+
+                const link = document.createElement('a');
+                link.className = 'link';
+                link.dataset.filename = fileInfo.fileName;
+                link.dataset.folder = fileInfo.folderPath || '';
+                link.dataset.relativePath = fileInfo.relativePath;
+                link.dataset.audioType = 'local';
+
+                // Highlight matching terms
+                let displayText = fileInfo.fileName;
+                searchTerms.forEach(term => {
+                    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+                    displayText = displayText.replace(regex, '<span class="search-highlight">$1</span>');
+                });
+
+                link.innerHTML = displayText;
+
+                songRow.appendChild(link);
+                resultsContainer.appendChild(songRow);
+            });
+        });
+
+        // Insert at the top of the container
+        container.insertBefore(resultsContainer, container.firstChild);
+    }
+
+    // Remove all-file search results from DOM
+    removeAllFileResults() {
+        const existingResults = document.getElementById('all-files-search-results');
+        if (existingResults) {
+            existingResults.remove();
+        }
     }
 
     // Highlight search terms in link content
@@ -361,26 +888,25 @@ class AudioHandler {
             searchInput.value = '';
         }
 
-        // Clear search-hidden from both links and song-rows
+        // Remove all-file search results
+        this.removeAllFileResults();
+
+        // Clear search-hidden from both links and their parent rows
         this.allLinks.forEach(link => {
             link.classList.remove('search-hidden');
+            const songRow = link.closest('.song-row');
+            if (songRow) {
+                songRow.classList.remove('search-hidden');
+            }
         });
 
         if (this.folderLinks) {
             this.folderLinks.forEach(link => {
                 link.classList.remove('search-hidden');
-            });
-        }
-
-        if (this.songRows) {
-            this.songRows.forEach(row => {
-                row.classList.remove('search-hidden');
-            });
-        }
-
-        if (this.folderRows) {
-            this.folderRows.forEach(row => {
-                row.classList.remove('search-hidden');
+                const folderRow = link.closest('.folder-row');
+                if (folderRow) {
+                    folderRow.classList.remove('search-hidden');
+                }
             });
         }
 
@@ -389,6 +915,11 @@ class AudioHandler {
         this.updateResultsCount(totalItems, totalItems);
         this.toggleClearButton(false);
         this.isSearchActive = false;
+
+        // Update playlist if audio is currently playing
+        if (this.currentAudio && !this.currentAudio.paused) {
+            this.updatePlaylistToCurrentPage();
+        }
 
         if (searchInput) {
             searchInput.focus();
@@ -420,42 +951,6 @@ class AudioHandler {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    // Initialize B2 pages - ONLY load cached metadata, don't fetch new metadata
-    initializeB2Page() {
-        const links = document.querySelectorAll('.link[data-folder]');
-        links.forEach(link => {
-            // Only use metadata if it's already in cache (from previous play)
-            this.loadCachedMetadataForLink(link);
-        });
-    }
-
-    // Load cached metadata for a specific link ONLY if already cached
-    async loadCachedMetadataForLink(link) {
-        const folder = link.dataset.folder;
-        const filename = link.dataset.filename;
-        const cacheKey = `${folder}/${filename}`;
-
-        // ONLY use cached data - don't fetch new metadata
-        if (this.metadataCache.has(cacheKey)) {
-            const metadata = this.metadataCache.get(cacheKey);
-            this.updateLinkDisplay(link, metadata);
-            // Re-index this link with updated metadata for better search
-            this.reindexLink(link);
-        }
-    }
-
-    // Re-index a single link after metadata is loaded
-    reindexLink(link) {
-        const linkIndex = this.allLinks.indexOf(link);
-        if (linkIndex !== -1) {
-            const searchData = this.extractSearchableData(link);
-            this.searchIndex.set(linkIndex, {
-                link: link,
-                searchText: searchData.combined.toLowerCase(),
-                data: searchData
-            });
-        }
-    }
 
     // Update link display with metadata
     updateLinkDisplay(link, metadata) {
@@ -486,6 +981,9 @@ class AudioHandler {
     async playAudio(audioSrc, link, metadataEndpoint = null) {
         console.log('Playing:', audioSrc);
 
+        // Build playlist from currently visible songs if starting fresh or playlist changed
+        this.updatePlaylist(link);
+
         // ALWAYS stop any currently playing audio first
         if (this.currentAudio) {
             console.log('Stopping current audio');
@@ -494,14 +992,14 @@ class AudioHandler {
             this.currentAudio.load();
         }
 
-        // If there's a current container, restore the original link
-        if (this.currentLink && this.currentMetadataDiv) {
-            this.currentMetadataDiv.parentNode.replaceChild(this.currentLink, this.currentMetadataDiv);
+        // Clear the sticky player container
+        if (this.stickyPlayerContainer) {
+            this.stickyPlayerContainer.innerHTML = '';
         }
 
         // Reset references
         this.currentAudio = null;
-        this.currentLink = null;
+        this.currentLink = link;
         this.currentMetadataDiv = null;
 
         // Create a new audio element
@@ -521,9 +1019,21 @@ class AudioHandler {
             console.error('Audio error details:', audio.error);
         });
 
+        // Save state on various events
+        audio.addEventListener('play', () => this.savePlayerState());
+        audio.addEventListener('pause', () => this.savePlayerState());
+        audio.addEventListener('timeupdate', () => {
+            // Throttle saves - only save every 2 seconds
+            if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 2000) {
+                this.savePlayerState();
+                this._lastSaveTime = Date.now();
+            }
+        });
+        audio.addEventListener('ratechange', () => this.savePlayerState());
+
         audio.src = audioSrc;
 
-        // Replace the link (or song-row) with audio and metadata
+        // Put player in sticky container instead of replacing the link
         const container = document.createElement('div');
         container.appendChild(metadataDiv);
 
@@ -535,15 +1045,12 @@ class AudioHandler {
 
         container.appendChild(audioWrapper);
 
-        // Check if link is inside a song-row
-        const songRow = link.closest('.song-row');
-        const elementToReplace = songRow || link;
+        // Add to sticky player container
+        this.stickyPlayerContainer.appendChild(container);
+        this.showStickyPlayer();
 
-        elementToReplace.parentNode.replaceChild(container, elementToReplace);
-
-        // Store references - store the original element to restore later
+        // Store references
         this.currentAudio = audio;
-        this.currentLink = elementToReplace;
         this.currentMetadataDiv = container;
 
         // Fetch and display metadata
@@ -556,44 +1063,56 @@ class AudioHandler {
             });
         }, 200);
 
-        // When the audio ends, replace everything with the original element
+        // When the audio ends, play next track
         audio.addEventListener('ended', () => {
-            const restoredElement = this.currentLink;
-            container.parentNode.replaceChild(restoredElement, container);
-            this.currentAudio = null;
-            this.currentLink = null;
-            this.currentMetadataDiv = null;
-
-            // Find next visible song (respects search filter)
-            // Need to find the next .link element, checking parent song-rows for visibility
-            let nextElement = restoredElement.nextElementSibling;
-            let nextLink = null;
-
-            while (nextElement) {
-                // If it's a song-row, check if it's hidden and get the link inside
-                if (nextElement.classList.contains('song-row')) {
-                    if (!nextElement.classList.contains('search-hidden')) {
-                        nextLink = nextElement.querySelector('.link');
-                        break;
-                    }
-                } else if (nextElement.classList.contains('link')) {
-                    // Direct link (no song-row wrapper)
-                    if (!nextElement.classList.contains('search-hidden')) {
-                        nextLink = nextElement;
-                        break;
-                    }
-                }
-                nextElement = nextElement.nextElementSibling;
-            }
-
-            if (nextLink) {
-                nextLink.click();
-            } else {
-                // No next song - restore the original page title
-                document.title = this.originalPageTitle;
-            }
+            this.playNextTrack();
         });
     }
+
+    // Update the current playlist based on visible songs
+    updatePlaylist(clickedLink) {
+        // Get all currently visible links (respects search filter and current folder)
+        const visibleLinks = Array.from(document.querySelectorAll('.link')).filter(link => {
+            const songRow = link.closest('.song-row');
+            if (songRow) {
+                return !songRow.classList.contains('search-hidden');
+            }
+            return !link.classList.contains('search-hidden');
+        });
+
+        this.currentPlaylist = visibleLinks;
+        this.currentTrackIndex = visibleLinks.indexOf(clickedLink);
+
+        console.log(`Playlist updated: ${visibleLinks.length} tracks, starting at index ${this.currentTrackIndex}`);
+    }
+
+    // Play the next track in the playlist
+    playNextTrack() {
+        if (this.currentPlaylist.length === 0) {
+            this.hideStickyPlayer();
+            this.clearPlayerState();
+            document.title = this.originalPageTitle;
+            return;
+        }
+
+        this.currentTrackIndex++;
+
+        if (this.currentTrackIndex >= this.currentPlaylist.length) {
+            // End of playlist
+            console.log('End of playlist reached');
+            this.hideStickyPlayer();
+            this.clearPlayerState();
+            document.title = this.originalPageTitle;
+            this.currentTrackIndex = -1;
+            return;
+        }
+
+        const nextLink = this.currentPlaylist[this.currentTrackIndex];
+        if (nextLink) {
+            nextLink.click();
+        }
+    }
+
 
     createMetadataDiv() {
         const metadataDiv = document.createElement('div');
@@ -632,14 +1151,14 @@ class AudioHandler {
 
         const speedValue = document.createElement('span');
         speedValue.className = 'speed-value';
-        speedValue.textContent = '1.0x';
+        speedValue.textContent = `${audio.playbackRate.toFixed(1)}x`;
 
         const slider = document.createElement('input');
         slider.type = 'range';
         slider.min = '0.5';
         slider.max = '2.5';
         slider.step = '0.1';
-        slider.value = '1.0';
+        slider.value = audio.playbackRate.toString();
         slider.className = 'speed-slider';
 
         slider.addEventListener('input', (e) => {
@@ -704,8 +1223,6 @@ class AudioHandler {
 
                 // Update the original link's display for when it returns
                 this.updateLinkDisplay(link, metadata);
-                // Re-index the link with new metadata
-                this.reindexLink(link);
             }
 
             this.displayMetadata(metadataDiv, metadata, metadataEndpoint);
@@ -716,19 +1233,42 @@ class AudioHandler {
     }
 
     displayMetadata(metadataDiv, metadata, metadataEndpoint) {
+        // Store for session persistence
+        this._currentMetadata = metadata;
+        this._currentMetadataEndpoint = metadataEndpoint;
+
         const imageFormat = metadataEndpoint === 'local' ? 'png' : 'jpeg';
         const artworkSrc = metadata.artwork ?
             `data:image/${imageFormat};base64,${metadata.artwork}` :
             'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">♪</text></svg>');
 
+        // Get folder information for navigation link
+        let folderLink = '';
+        if (this.currentLink) {
+            const audioType = this.currentLink.dataset.audioType;
+            const folder = this.currentLink.dataset.folder;
+
+            if (audioType === 'local') {
+                // Local file - create link to folder
+                const folderHref = folder ? `/?dir=${encodeURIComponent(folder)}` : '/';
+                const folderDisplay = folder ? folder.split('/').pop() : 'Home';
+                folderLink = `<a href="${folderHref}" class="folder-link" style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; text-decoration: none; border-radius: 3px; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,127,0.3)'" onmouseout="this.style.background='rgba(0,255,127,0.2)'">📁 ${folderDisplay}</a>`;
+            } else if (audioType === 'b2' && folder) {
+                // B2 file - don't create a clickable link since it crosses endpoints
+                // Just show the folder name as a badge
+                folderLink = `<span style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; border-radius: 3px; font-size: 12px;">📁 ${folder}</span>`;
+            }
+        }
+
         metadataDiv.innerHTML = `
             <img src="${artworkSrc}"
                  style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;"
                  onerror="this.style.display='none';">
-            <div>
+            <div style="flex: 1; min-width: 0;">
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${metadata.title}</div>
                 <div style="opacity: 0.9; margin-bottom: 3px;">${metadata.artist}</div>
                 <div style="opacity: 0.7; font-size: 14px;">${metadata.album}</div>
+                ${folderLink}
             </div>
         `;
 
@@ -736,37 +1276,6 @@ class AudioHandler {
         document.title = `${metadata.artist} - ${metadata.title}`;
     }
 
-    // Method to preload metadata for visible links
-    async preloadMetadataForVisibleLinks() {
-        const links = document.querySelectorAll('.link[data-folder]:not([data-metadata-loaded])');
-        for (const link of links) {
-            // Skip hidden links during search
-            if (this.isSearchActive && link.classList.contains('search-hidden')) {
-                continue;
-            }
-
-            const folder = link.dataset.folder;
-            const filename = link.dataset.filename;
-            const cacheKey = `${folder}/${filename}`;
-
-            if (!this.metadataCache.has(cacheKey)) {
-                try {
-                    const metadataUrl = link.dataset.metadataUrl;
-                    const response = await fetch(metadataUrl);
-                    const metadata = await response.json();
-
-                    this.metadataCache.set(cacheKey, metadata);
-                    this.updateLinkDisplay(link, metadata);
-                    this.reindexLink(link);
-                    link.setAttribute('data-metadata-loaded', 'true');
-
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                } catch (error) {
-                    console.error(`Failed to preload metadata for ${filename}:`, error);
-                }
-            }
-        }
-    }
 }
 
 // Global instance
