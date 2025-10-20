@@ -555,6 +555,12 @@ body.player-active {
         text-overflow: ellipsis;
     }
 
+    .sticky-audio-player .now-playing-metadata a {
+        font-size: 9px !important;
+        padding: 2px 5px !important;
+        margin-top: 2px !important;
+    }
+
     .sticky-audio-player .audio-player-wrapper {
         flex-direction: row;
         align-items: center;

@@ -1242,14 +1242,33 @@ class AudioHandler {
             `data:image/${imageFormat};base64,${metadata.artwork}` :
             'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">♪</text></svg>');
 
+        // Get folder information for navigation link
+        let folderLink = '';
+        if (this.currentLink) {
+            const audioType = this.currentLink.dataset.audioType;
+            const folder = this.currentLink.dataset.folder;
+
+            if (audioType === 'local' && folder) {
+                // Local file - create link to folder
+                const folderHref = folder ? `/?dir=${encodeURIComponent(folder)}` : '/';
+                const folderDisplay = folder ? folder.split('/').pop() : 'Root';
+                folderLink = `<a href="${folderHref}" class="folder-link" style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; text-decoration: none; border-radius: 3px; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,127,0.3)'" onmouseout="this.style.background='rgba(0,255,127,0.2)'">📁 ${folderDisplay}</a>`;
+            } else if (audioType === 'b2' && folder) {
+                // B2 file - create link to B2 endpoint
+                const folderHref = `/${folder}`;
+                folderLink = `<a href="${folderHref}" style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; text-decoration: none; border-radius: 3px; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,127,0.3)'" onmouseout="this.style.background='rgba(0,255,127,0.2)'">📁 ${folder}</a>`;
+            }
+        }
+
         metadataDiv.innerHTML = `
             <img src="${artworkSrc}"
                  style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;"
                  onerror="this.style.display='none';">
-            <div>
+            <div style="flex: 1; min-width: 0;">
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${metadata.title}</div>
                 <div style="opacity: 0.9; margin-bottom: 3px;">${metadata.artist}</div>
                 <div style="opacity: 0.7; font-size: 14px;">${metadata.album}</div>
+                ${folderLink}
             </div>
         `;
 
