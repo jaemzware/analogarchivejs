@@ -24,10 +24,156 @@ class AudioHandler {
         this.setupSearchBar();
         this.indexAllLinks();
         this.setupClickHandlers();
+        this.setupFolderNavigation();
         this.restorePlayerState();
 
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
+    }
+
+    // Setup folder navigation to avoid page reloads when player is active
+    setupFolderNavigation() {
+        document.addEventListener('click', (e) => {
+            // Only intercept if audio is playing
+            if (!this.currentAudio || this.currentAudio.paused) {
+                return;
+            }
+
+            const folderLink = e.target.closest('.folder-link, .breadcrumb-link');
+            if (!folderLink) return;
+
+            // Don't intercept if it's a link to a different page (B2 folders)
+            const href = folderLink.getAttribute('href');
+            if (!href || !href.startsWith('/?') && href !== '/') return;
+
+            e.preventDefault();
+
+            // Save current scroll position
+            const scrollPos = window.scrollY;
+
+            // Fetch the new page content
+            fetch(href)
+                .then(response => response.text())
+                .then(html => {
+                    // Parse the HTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+
+                    // Update the container content
+                    const newContainer = doc.querySelector('.container');
+                    const currentContainer = document.querySelector('.container');
+                    if (newContainer && currentContainer) {
+                        currentContainer.innerHTML = newContainer.innerHTML;
+                    }
+
+                    // Update breadcrumb
+                    const newBreadcrumb = doc.querySelector('.breadcrumb');
+                    const currentBreadcrumb = document.querySelector('.breadcrumb');
+                    if (newBreadcrumb && currentBreadcrumb) {
+                        currentBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
+                    }
+
+                    // Update page title (but not if audio is playing - that sets its own title)
+                    if (!this.currentAudio || this.currentAudio.paused) {
+                        document.title = doc.title;
+                    }
+
+                    // Update URL without reload
+                    window.history.pushState({}, '', href);
+
+                    // Update search bar if it exists in new content
+                    const newSearchContainer = doc.querySelector('.search-container');
+                    const currentSearchContainer = document.querySelector('.search-container');
+                    if (newSearchContainer && currentSearchContainer) {
+                        currentSearchContainer.innerHTML = newSearchContainer.innerHTML;
+                        this.attachSearchListeners();
+                    }
+
+                    // Re-index the new links
+                    this.indexAllLinks();
+
+                    // Update playlist to new folder's songs
+                    this.updatePlaylistToCurrentPage();
+
+                    // Restore scroll position or scroll to top
+                    window.scrollTo(0, 0);
+                })
+                .catch(error => {
+                    console.error('Failed to load folder:', error);
+                    // Fall back to regular navigation
+                    window.location.href = href;
+                });
+        });
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', () => {
+            if (this.currentAudio && !this.currentAudio.paused) {
+                // Reload content without full page refresh
+                fetch(window.location.href)
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+
+                        const newContainer = doc.querySelector('.container');
+                        const currentContainer = document.querySelector('.container');
+                        if (newContainer && currentContainer) {
+                            currentContainer.innerHTML = newContainer.innerHTML;
+                        }
+
+                        const newBreadcrumb = doc.querySelector('.breadcrumb');
+                        const currentBreadcrumb = document.querySelector('.breadcrumb');
+                        if (newBreadcrumb && currentBreadcrumb) {
+                            currentBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
+                        }
+
+                        const newSearchContainer = doc.querySelector('.search-container');
+                        const currentSearchContainer = document.querySelector('.search-container');
+                        if (newSearchContainer && currentSearchContainer) {
+                            currentSearchContainer.innerHTML = newSearchContainer.innerHTML;
+                            this.attachSearchListeners();
+                        }
+
+                        this.indexAllLinks();
+                        this.updatePlaylistToCurrentPage();
+                    });
+            }
+        });
+    }
+
+    // Update playlist to match current page without changing playback
+    updatePlaylistToCurrentPage() {
+        const visibleLinks = Array.from(document.querySelectorAll('.link')).filter(link => {
+            const songRow = link.closest('.song-row');
+            if (songRow) {
+                return !songRow.classList.contains('search-hidden');
+            }
+            return !link.classList.contains('search-hidden');
+        });
+
+        this.currentPlaylist = visibleLinks;
+
+        // Find if the currently playing track is on this page
+        if (this.currentLink) {
+            const currentLinkOnPage = visibleLinks.find(link => {
+                if (this.currentLink.dataset.audioType === 'local') {
+                    return link.dataset.relativePath === this.currentLink.dataset.relativePath;
+                } else {
+                    return link.dataset.filename === this.currentLink.dataset.filename &&
+                           link.dataset.folder === this.currentLink.dataset.folder;
+                }
+            });
+
+            if (currentLinkOnPage) {
+                this.currentTrackIndex = visibleLinks.indexOf(currentLinkOnPage);
+            } else {
+                // Current track not on this page
+                this.currentTrackIndex = -1;
+            }
+        }
+
+        console.log(`Playlist updated to current page: ${visibleLinks.length} tracks, current at index ${this.currentTrackIndex}`);
+        this.savePlayerState();
     }
 
     // Save player state to sessionStorage
@@ -483,6 +629,11 @@ class AudioHandler {
             if (searchLoading) {
                 searchLoading.classList.remove('active');
             }
+
+            // Update playlist if audio is currently playing
+            if (this.currentAudio && !this.currentAudio.paused) {
+                this.updatePlaylistToCurrentPage();
+            }
         }, 10);
     }
 
@@ -558,6 +709,11 @@ class AudioHandler {
         this.updateResultsCount(totalItems, totalItems);
         this.toggleClearButton(false);
         this.isSearchActive = false;
+
+        // Update playlist if audio is currently playing
+        if (this.currentAudio && !this.currentAudio.paused) {
+            this.updatePlaylistToCurrentPage();
+        }
 
         if (searchInput) {
             searchInput.focus();
