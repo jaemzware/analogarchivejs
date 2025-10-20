@@ -12,16 +12,185 @@ class AudioHandler {
         this.isSearchActive = false;
         // Store the original page title to restore later
         this.originalPageTitle = document.title;
+        // Sticky player
+        this.stickyPlayerContainer = null;
+        this.currentPlaylist = []; // Track visible songs at time of play
+        this.currentTrackIndex = -1; // Current position in playlist
     }
 
     // Initialize pages with search functionality
     initializePage() {
+        this.createStickyPlayer();
         this.setupSearchBar();
         this.indexAllLinks();
         this.setupClickHandlers();
+        this.restorePlayerState();
 
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
+    }
+
+    // Save player state to sessionStorage
+    savePlayerState() {
+        if (!this.currentAudio) return;
+
+        const state = {
+            audioSrc: this.currentAudio.src,
+            currentTime: this.currentAudio.currentTime,
+            playbackRate: this.currentAudio.playbackRate,
+            isPlaying: !this.currentAudio.paused,
+            playlist: this.currentPlaylist.map(link => ({
+                audioType: link.dataset.audioType,
+                relativePath: link.dataset.relativePath,
+                proxyUrl: link.dataset.proxyUrl,
+                filename: link.dataset.filename,
+                folder: link.dataset.folder
+            })),
+            currentTrackIndex: this.currentTrackIndex,
+            currentLinkData: this.currentLink ? {
+                audioType: this.currentLink.dataset.audioType,
+                relativePath: this.currentLink.dataset.relativePath,
+                proxyUrl: this.currentLink.dataset.proxyUrl,
+                filename: this.currentLink.dataset.filename,
+                folder: this.currentLink.dataset.folder
+            } : null,
+            metadata: this._currentMetadata || null,
+            metadataEndpoint: this._currentMetadataEndpoint || null
+        };
+
+        sessionStorage.setItem('audioPlayerState', JSON.stringify(state));
+    }
+
+    // Restore player state from sessionStorage
+    restorePlayerState() {
+        const stateJson = sessionStorage.getItem('audioPlayerState');
+        if (!stateJson) return;
+
+        try {
+            const state = JSON.parse(stateJson);
+
+            // Create audio element and restore playback first (without clicking any link)
+            const audio = new Audio();
+            audio.controls = true;
+            audio.src = state.audioSrc;
+            audio.currentTime = state.currentTime;
+            audio.playbackRate = state.playbackRate;
+
+            // Create metadata display from saved state
+            const metadataDiv = this.createMetadataDiv();
+
+            // Create speed control
+            const speedControlDiv = this.createSpeedControl(audio);
+
+            // Setup event listeners
+            audio.addEventListener('play', () => this.savePlayerState());
+            audio.addEventListener('pause', () => this.savePlayerState());
+            audio.addEventListener('timeupdate', () => {
+                if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 2000) {
+                    this.savePlayerState();
+                    this._lastSaveTime = Date.now();
+                }
+            });
+            audio.addEventListener('ratechange', () => this.savePlayerState());
+            audio.addEventListener('ended', () => {
+                this.playNextTrack();
+            });
+
+            // Add to sticky player
+            const container = document.createElement('div');
+            container.appendChild(metadataDiv);
+            const audioWrapper = document.createElement('div');
+            audioWrapper.className = 'audio-player-wrapper';
+            audioWrapper.appendChild(audio);
+            audioWrapper.appendChild(speedControlDiv);
+            container.appendChild(audioWrapper);
+
+            this.stickyPlayerContainer.appendChild(container);
+            this.showStickyPlayer();
+
+            this.currentAudio = audio;
+            this.currentMetadataDiv = container;
+
+            // Display saved metadata
+            if (state.metadata) {
+                this.displayMetadata(metadataDiv, state.metadata, state.metadataEndpoint);
+            }
+
+            // Update playlist to current page's songs
+            const visibleLinks = Array.from(document.querySelectorAll('.link')).filter(link => {
+                const songRow = link.closest('.song-row');
+                if (songRow) {
+                    return !songRow.classList.contains('search-hidden');
+                }
+                return !link.classList.contains('search-hidden');
+            });
+
+            this.currentPlaylist = visibleLinks;
+
+            // Find if the currently playing track is on this page
+            const currentLinkOnPage = visibleLinks.find(link => {
+                if (state.currentLinkData.audioType === 'local') {
+                    return link.dataset.relativePath === state.currentLinkData.relativePath;
+                } else {
+                    return link.dataset.filename === state.currentLinkData.filename &&
+                           link.dataset.folder === state.currentLinkData.folder;
+                }
+            });
+
+            if (currentLinkOnPage) {
+                this.currentTrackIndex = visibleLinks.indexOf(currentLinkOnPage);
+                this.currentLink = currentLinkOnPage;
+            } else {
+                // Current track not on this page, when it ends, start from beginning of new page
+                this.currentTrackIndex = -1;
+                this.currentLink = null;
+            }
+
+            console.log(`Player restored: ${visibleLinks.length} tracks in new playlist, current track at index ${this.currentTrackIndex}`);
+
+            // Resume playback if it was playing
+            if (state.isPlaying) {
+                audio.play().catch(e => {
+                    console.log('Auto-play prevented, user must interact first');
+                });
+            }
+
+        } catch (error) {
+            console.error('Failed to restore player state:', error);
+            sessionStorage.removeItem('audioPlayerState');
+        }
+    }
+
+    // Clear player state
+    clearPlayerState() {
+        sessionStorage.removeItem('audioPlayerState');
+    }
+
+    // Create the sticky audio player container
+    createStickyPlayer() {
+        if (this.stickyPlayerContainer) return; // Already created
+
+        const playerContainer = document.createElement('div');
+        playerContainer.id = 'sticky-audio-player';
+        playerContainer.className = 'sticky-audio-player hidden';
+        document.body.appendChild(playerContainer);
+        this.stickyPlayerContainer = playerContainer;
+    }
+
+    // Show the sticky player
+    showStickyPlayer() {
+        if (this.stickyPlayerContainer) {
+            this.stickyPlayerContainer.classList.remove('hidden');
+            document.body.classList.add('player-active');
+        }
+    }
+
+    // Hide the sticky player
+    hideStickyPlayer() {
+        if (this.stickyPlayerContainer) {
+            this.stickyPlayerContainer.classList.add('hidden');
+            document.body.classList.remove('player-active');
+        }
     }
 
     // Setup click handlers for audio links
@@ -486,6 +655,9 @@ class AudioHandler {
     async playAudio(audioSrc, link, metadataEndpoint = null) {
         console.log('Playing:', audioSrc);
 
+        // Build playlist from currently visible songs if starting fresh or playlist changed
+        this.updatePlaylist(link);
+
         // ALWAYS stop any currently playing audio first
         if (this.currentAudio) {
             console.log('Stopping current audio');
@@ -494,14 +666,14 @@ class AudioHandler {
             this.currentAudio.load();
         }
 
-        // If there's a current container, restore the original link
-        if (this.currentLink && this.currentMetadataDiv) {
-            this.currentMetadataDiv.parentNode.replaceChild(this.currentLink, this.currentMetadataDiv);
+        // Clear the sticky player container
+        if (this.stickyPlayerContainer) {
+            this.stickyPlayerContainer.innerHTML = '';
         }
 
         // Reset references
         this.currentAudio = null;
-        this.currentLink = null;
+        this.currentLink = link;
         this.currentMetadataDiv = null;
 
         // Create a new audio element
@@ -521,9 +693,21 @@ class AudioHandler {
             console.error('Audio error details:', audio.error);
         });
 
+        // Save state on various events
+        audio.addEventListener('play', () => this.savePlayerState());
+        audio.addEventListener('pause', () => this.savePlayerState());
+        audio.addEventListener('timeupdate', () => {
+            // Throttle saves - only save every 2 seconds
+            if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 2000) {
+                this.savePlayerState();
+                this._lastSaveTime = Date.now();
+            }
+        });
+        audio.addEventListener('ratechange', () => this.savePlayerState());
+
         audio.src = audioSrc;
 
-        // Replace the link (or song-row) with audio and metadata
+        // Put player in sticky container instead of replacing the link
         const container = document.createElement('div');
         container.appendChild(metadataDiv);
 
@@ -535,15 +719,12 @@ class AudioHandler {
 
         container.appendChild(audioWrapper);
 
-        // Check if link is inside a song-row
-        const songRow = link.closest('.song-row');
-        const elementToReplace = songRow || link;
+        // Add to sticky player container
+        this.stickyPlayerContainer.appendChild(container);
+        this.showStickyPlayer();
 
-        elementToReplace.parentNode.replaceChild(container, elementToReplace);
-
-        // Store references - store the original element to restore later
+        // Store references
         this.currentAudio = audio;
-        this.currentLink = elementToReplace;
         this.currentMetadataDiv = container;
 
         // Fetch and display metadata
@@ -556,43 +737,67 @@ class AudioHandler {
             });
         }, 200);
 
-        // When the audio ends, replace everything with the original element
+        // When the audio ends, play next track
         audio.addEventListener('ended', () => {
-            const restoredElement = this.currentLink;
-            container.parentNode.replaceChild(restoredElement, container);
-            this.currentAudio = null;
-            this.currentLink = null;
-            this.currentMetadataDiv = null;
-
-            // Find next visible song (respects search filter)
-            // Need to find the next .link element, checking parent song-rows for visibility
-            let nextElement = restoredElement.nextElementSibling;
-            let nextLink = null;
-
-            while (nextElement) {
-                // If it's a song-row, check if it's hidden and get the link inside
-                if (nextElement.classList.contains('song-row')) {
-                    if (!nextElement.classList.contains('search-hidden')) {
-                        nextLink = nextElement.querySelector('.link');
-                        break;
-                    }
-                } else if (nextElement.classList.contains('link')) {
-                    // Direct link (no song-row wrapper)
-                    if (!nextElement.classList.contains('search-hidden')) {
-                        nextLink = nextElement;
-                        break;
-                    }
-                }
-                nextElement = nextElement.nextElementSibling;
-            }
-
-            if (nextLink) {
-                nextLink.click();
-            } else {
-                // No next song - restore the original page title
-                document.title = this.originalPageTitle;
-            }
+            this.playNextTrack();
         });
+    }
+
+    // Update the current playlist based on visible songs
+    updatePlaylist(clickedLink) {
+        // Get all currently visible links (respects search filter and current folder)
+        const visibleLinks = Array.from(document.querySelectorAll('.link')).filter(link => {
+            const songRow = link.closest('.song-row');
+            if (songRow) {
+                return !songRow.classList.contains('search-hidden');
+            }
+            return !link.classList.contains('search-hidden');
+        });
+
+        this.currentPlaylist = visibleLinks;
+        this.currentTrackIndex = visibleLinks.indexOf(clickedLink);
+
+        console.log(`Playlist updated: ${visibleLinks.length} tracks, starting at index ${this.currentTrackIndex}`);
+    }
+
+    // Play the next track in the playlist
+    playNextTrack() {
+        if (this.currentPlaylist.length === 0) {
+            this.hideStickyPlayer();
+            this.clearPlayerState();
+            document.title = this.originalPageTitle;
+            return;
+        }
+
+        this.currentTrackIndex++;
+
+        if (this.currentTrackIndex >= this.currentPlaylist.length) {
+            // End of playlist
+            console.log('End of playlist reached');
+            this.hideStickyPlayer();
+            this.clearPlayerState();
+            document.title = this.originalPageTitle;
+            this.currentTrackIndex = -1;
+            return;
+        }
+
+        const nextLink = this.currentPlaylist[this.currentTrackIndex];
+        if (nextLink) {
+            nextLink.click();
+        }
+    }
+
+    // Play the previous track in the playlist
+    playPreviousTrack() {
+        if (this.currentPlaylist.length === 0 || this.currentTrackIndex <= 0) {
+            return;
+        }
+
+        this.currentTrackIndex--;
+        const prevLink = this.currentPlaylist[this.currentTrackIndex];
+        if (prevLink) {
+            prevLink.click();
+        }
     }
 
     createMetadataDiv() {
@@ -632,14 +837,14 @@ class AudioHandler {
 
         const speedValue = document.createElement('span');
         speedValue.className = 'speed-value';
-        speedValue.textContent = '1.0x';
+        speedValue.textContent = `${audio.playbackRate.toFixed(1)}x`;
 
         const slider = document.createElement('input');
         slider.type = 'range';
         slider.min = '0.5';
         slider.max = '2.5';
         slider.step = '0.1';
-        slider.value = '1.0';
+        slider.value = audio.playbackRate.toString();
         slider.className = 'speed-slider';
 
         slider.addEventListener('input', (e) => {
@@ -716,6 +921,10 @@ class AudioHandler {
     }
 
     displayMetadata(metadataDiv, metadata, metadataEndpoint) {
+        // Store for session persistence
+        this._currentMetadata = metadata;
+        this._currentMetadataEndpoint = metadataEndpoint;
+
         const imageFormat = metadataEndpoint === 'local' ? 'png' : 'jpeg';
         const artworkSrc = metadata.artwork ?
             `data:image/${imageFormat};base64,${metadata.artwork}` :

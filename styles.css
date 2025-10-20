@@ -444,3 +444,85 @@ audio {
 .search-loading.active {
     display: inline-block;
 }
+
+/* Sticky Audio Player */
+.sticky-audio-player {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+    border-top: 3px solid #333;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    padding: 15px 20px;
+    transition: transform 0.3s ease-in-out;
+}
+
+.sticky-audio-player.hidden {
+    transform: translateY(100%);
+}
+
+.sticky-audio-player .now-playing-metadata {
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.sticky-audio-player .audio-player-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    justify-content: center;
+}
+
+.sticky-audio-player audio {
+    flex: 1;
+    max-width: 600px;
+}
+
+/* Add padding to body to prevent content from being hidden behind sticky player */
+body {
+    padding-bottom: 0;
+    transition: padding-bottom 0.3s ease-in-out;
+}
+
+body.player-active {
+    padding-bottom: 200px;
+}
+
+/* Mobile responsive for sticky player */
+@media screen and (max-width: 768px) {
+    .sticky-audio-player {
+        padding: 10px 15px;
+    }
+
+    .sticky-audio-player .now-playing-metadata {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px;
+    }
+
+    .sticky-audio-player .now-playing-metadata img {
+        margin-bottom: 10px;
+    }
+
+    .sticky-audio-player .audio-player-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .sticky-audio-player audio {
+        max-width: 100%;
+    }
+
+    body.player-active {
+        padding-bottom: 250px;
+    }
+}
