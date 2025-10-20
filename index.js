@@ -400,6 +400,38 @@ app.get('/rescan', async (req, res) => {
     }
 });
 
+// API endpoint to get all files for search
+app.get('/api/all-files', async (req, res) => {
+    try {
+        if (!musicFilesCache) {
+            res.status(503).json({
+                success: false,
+                error: 'Music library not yet scanned'
+            });
+            return;
+        }
+
+        // Return all files with necessary metadata for search
+        const files = musicFilesCache.map(fileInfo => ({
+            fileName: fileInfo.fileName,
+            relativePath: fileInfo.relativePath,
+            folderPath: fileInfo.folderPath
+        }));
+
+        res.json({
+            success: true,
+            files: files,
+            total: files.length
+        });
+    } catch (err) {
+        console.error('Failed to get all files:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve files'
+        });
+    }
+});
+
 // Helper function to build directory structure
 function buildDirectoryStructure(musicFiles) {
     const structure = new Map();

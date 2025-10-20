@@ -27,8 +27,55 @@ class AudioHandler {
         this.setupFolderNavigation();
         this.restorePlayerState();
 
+        // Load all files for search if we're on the local music endpoint (not B2)
+        // Root is "/" and subdirectories are "/?dir=something"
+        const isLocalEndpoint = window.location.pathname === '/' &&
+                               !window.location.pathname.includes('/analog') &&
+                               !window.location.pathname.includes('/live');
+
+        if (isLocalEndpoint) {
+            this.loadAllFilesForSearch();
+        }
+
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
+    }
+
+    // Load all files from all folders for comprehensive search
+    async loadAllFilesForSearch() {
+        try {
+            const response = await fetch('/api/all-files');
+            const data = await response.json();
+
+            if (data.success && data.files) {
+                console.log(`Loaded ${data.files.length} files for search across all folders`);
+                this.allFilesData = data.files;
+                // Index these files for search
+                this.indexAllFiles(data.files);
+            }
+        } catch (error) {
+            console.error('Failed to load all files for search:', error);
+        }
+    }
+
+    // Index all files from all folders for search
+    indexAllFiles(filesData) {
+        filesData.forEach((fileInfo, index) => {
+            const searchData = {
+                filename: fileInfo.fileName,
+                folder: fileInfo.folderPath || '',
+                combined: `${fileInfo.fileName} ${fileInfo.folderPath || ''}`
+            };
+
+            this.searchIndex.set(`all-file-${index}`, {
+                fileInfo: fileInfo,
+                searchText: searchData.combined.toLowerCase(),
+                data: searchData,
+                type: 'all-file'
+            });
+        });
+
+        console.log(`Indexed ${filesData.length} files from all folders for search`);
     }
 
     // Setup folder navigation to avoid page reloads when player is active
@@ -590,40 +637,57 @@ class AudioHandler {
             this.isSearchActive = true;
             const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
             let visibleCount = 0;
+            const matchedAllFiles = [];
 
             this.searchIndex.forEach((item) => {
-                const { link, searchText } = item;
+                const { link, searchText, type, fileInfo } = item;
 
                 // Check if all search terms are found
                 const matches = searchTerms.every(term => searchText.includes(term));
 
-                // Re-query for songRow at search time instead of using cached reference
-                // This ensures we get the correct parent even if DOM was modified
-                const songRow = link.closest('.song-row');
-
-                if (matches) {
-                    // Hide/show the parent song-row if it exists, otherwise hide the link
-                    if (songRow) {
-                        songRow.classList.remove('search-hidden');
-                        // Also ensure the link itself doesn't have the class
-                        link.classList.remove('search-hidden');
-                    } else {
-                        link.classList.remove('search-hidden');
+                if (type === 'all-file') {
+                    // Handle all-file results separately
+                    if (matches) {
+                        matchedAllFiles.push(fileInfo);
+                        visibleCount++;
                     }
-                    this.highlightMatches(link, searchTerms);
-                    visibleCount++;
                 } else {
-                    if (songRow) {
-                        songRow.classList.add('search-hidden');
-                        // Also ensure the link itself doesn't have the class
-                        link.classList.remove('search-hidden');
+                    // Handle regular links (current page)
+                    // Re-query for songRow at search time instead of using cached reference
+                    const songRow = link ? link.closest('.song-row') : null;
+
+                    if (matches) {
+                        // Hide/show the parent song-row if it exists, otherwise hide the link
+                        if (songRow) {
+                            songRow.classList.remove('search-hidden');
+                            // Also ensure the link itself doesn't have the class
+                            if (link) link.classList.remove('search-hidden');
+                        } else if (link) {
+                            link.classList.remove('search-hidden');
+                        }
+                        if (link) this.highlightMatches(link, searchTerms);
+                        visibleCount++;
                     } else {
-                        link.classList.add('search-hidden');
+                        if (songRow) {
+                            songRow.classList.add('search-hidden');
+                            // Also ensure the link itself doesn't have the class
+                            if (link) link.classList.remove('search-hidden');
+                        } else if (link) {
+                            link.classList.add('search-hidden');
+                        }
                     }
                 }
             });
 
-            this.updateResultsCount(visibleCount, this.allLinks.length);
+            // Add matched files from other folders to the DOM
+            if (matchedAllFiles.length > 0) {
+                this.displayAllFileResults(matchedAllFiles, searchTerms);
+            } else {
+                // Remove any previously added all-file results
+                this.removeAllFileResults();
+            }
+
+            this.updateResultsCount(visibleCount, this.searchIndex.size);
             this.toggleClearButton(true);
 
             if (searchLoading) {
@@ -635,6 +699,85 @@ class AudioHandler {
                 this.updatePlaylistToCurrentPage();
             }
         }, 10);
+    }
+
+    // Display search results from all folders
+    displayAllFileResults(matchedFiles, searchTerms) {
+        // Remove any existing all-file results first
+        this.removeAllFileResults();
+
+        const container = document.querySelector('.container');
+        if (!container) return;
+
+        // Group files by folder
+        const filesByFolder = new Map();
+        matchedFiles.forEach(fileInfo => {
+            const folder = fileInfo.folderPath || 'Root';
+            if (!filesByFolder.has(folder)) {
+                filesByFolder.set(folder, []);
+            }
+            filesByFolder.get(folder).push(fileInfo);
+        });
+
+        // Create a container for all-file results
+        const resultsContainer = document.createElement('div');
+        resultsContainer.id = 'all-files-search-results';
+        resultsContainer.style.cssText = 'margin-top: 20px;';
+
+        filesByFolder.forEach((files, folder) => {
+            // Add folder header
+            const folderHeader = document.createElement('div');
+            folderHeader.className = 'search-folder-header';
+            folderHeader.style.cssText = `
+                background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
+                color: deepskyblue;
+                padding: 8px 15px;
+                margin: 15px 0 5px 0;
+                border-radius: 5px;
+                font-weight: 600;
+                font-size: 14px;
+                border-left: 4px solid lime;
+            `;
+            folderHeader.textContent = `📁 ${folder}`;
+            resultsContainer.appendChild(folderHeader);
+
+            // Add files from this folder
+            files.forEach(fileInfo => {
+                const songRow = document.createElement('div');
+                songRow.className = 'song-row all-file-result';
+                songRow.dataset.allFileResult = 'true';
+
+                const link = document.createElement('a');
+                link.className = 'link';
+                link.dataset.filename = fileInfo.fileName;
+                link.dataset.folder = fileInfo.folderPath || '';
+                link.dataset.relativePath = fileInfo.relativePath;
+                link.dataset.audioType = 'local';
+
+                // Highlight matching terms
+                let displayText = fileInfo.fileName;
+                searchTerms.forEach(term => {
+                    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+                    displayText = displayText.replace(regex, '<span class="search-highlight">$1</span>');
+                });
+
+                link.innerHTML = displayText;
+
+                songRow.appendChild(link);
+                resultsContainer.appendChild(songRow);
+            });
+        });
+
+        // Insert at the top of the container
+        container.insertBefore(resultsContainer, container.firstChild);
+    }
+
+    // Remove all-file search results from DOM
+    removeAllFileResults() {
+        const existingResults = document.getElementById('all-files-search-results');
+        if (existingResults) {
+            existingResults.remove();
+        }
     }
 
     // Highlight search terms in link content
@@ -680,6 +823,9 @@ class AudioHandler {
         if (searchInput) {
             searchInput.value = '';
         }
+
+        // Remove all-file search results
+        this.removeAllFileResults();
 
         // Clear search-hidden from both links and song-rows
         this.allLinks.forEach(link => {
