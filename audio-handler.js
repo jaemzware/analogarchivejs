@@ -81,17 +81,40 @@ class AudioHandler {
     // Setup folder navigation to avoid page reloads when player is active
     setupFolderNavigation() {
         document.addEventListener('click', (e) => {
-            // Only intercept if audio is playing
+            const folderLink = e.target.closest('.folder-link, .breadcrumb-link');
+            if (!folderLink) return;
+
+            const href = folderLink.getAttribute('href');
+            if (!href) return;
+
+            // Check if we're crossing endpoints (e.g., / -> /analog, or /analog -> /)
+            const currentEndpoint = this.getCurrentEndpoint();
+            const targetEndpoint = this.getEndpointFromHref(href);
+
+            if (currentEndpoint !== targetEndpoint) {
+                // Crossing endpoints - stop player and allow normal navigation
+                if (this.currentAudio) {
+                    this.hideStickyPlayer();
+                    this.clearPlayerState();
+                    if (this.currentAudio) {
+                        this.currentAudio.pause();
+                        this.currentAudio.removeAttribute('src');
+                        this.currentAudio.load();
+                    }
+                    this.currentAudio = null;
+                    this.currentLink = null;
+                }
+                // Allow normal page navigation
+                return;
+            }
+
+            // Same endpoint - only intercept if audio is playing
             if (!this.currentAudio || this.currentAudio.paused) {
                 return;
             }
 
-            const folderLink = e.target.closest('.folder-link, .breadcrumb-link');
-            if (!folderLink) return;
-
-            // Don't intercept if it's a link to a different page (B2 folders)
-            const href = folderLink.getAttribute('href');
-            if (!href || !href.startsWith('/?') && href !== '/') return;
+            // Don't intercept if it's not a local music navigation
+            if (!href.startsWith('/?') && href !== '/') return;
 
             e.preventDefault();
 
@@ -188,6 +211,31 @@ class AudioHandler {
         });
     }
 
+    // Get the current endpoint (root, analog, or live)
+    getCurrentEndpoint() {
+        const path = window.location.pathname;
+        if (path === '/' || path.startsWith('/?')) {
+            return 'root';
+        } else if (path.includes('/analog')) {
+            return 'analog';
+        } else if (path.includes('/live')) {
+            return 'live';
+        }
+        return 'root';
+    }
+
+    // Get the endpoint from a href
+    getEndpointFromHref(href) {
+        if (href.startsWith('/analog')) {
+            return 'analog';
+        } else if (href.startsWith('/live')) {
+            return 'live';
+        } else if (href === '/' || href.startsWith('/?')) {
+            return 'root';
+        }
+        return 'root';
+    }
+
     // Update playlist to match current page without changing playback
     updatePlaylistToCurrentPage() {
         const visibleLinks = Array.from(document.querySelectorAll('.link')).filter(link => {
@@ -248,7 +296,8 @@ class AudioHandler {
                 folder: this.currentLink.dataset.folder
             } : null,
             metadata: this._currentMetadata || null,
-            metadataEndpoint: this._currentMetadataEndpoint || null
+            metadataEndpoint: this._currentMetadataEndpoint || null,
+            endpoint: this.getCurrentEndpoint()
         };
 
         sessionStorage.setItem('audioPlayerState', JSON.stringify(state));
@@ -261,6 +310,16 @@ class AudioHandler {
 
         try {
             const state = JSON.parse(stateJson);
+
+            // Check if we're on the same endpoint - if not, clear state
+            const savedEndpoint = state.endpoint || 'root';
+            const currentEndpoint = this.getCurrentEndpoint();
+
+            if (savedEndpoint !== currentEndpoint) {
+                console.log(`Endpoint changed from ${savedEndpoint} to ${currentEndpoint}, clearing player state`);
+                this.clearPlayerState();
+                return;
+            }
 
             // Create audio element and restore playback first (without clicking any link)
             const audio = new Audio();
