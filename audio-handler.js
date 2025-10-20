@@ -579,9 +579,6 @@ class AudioHandler {
         this.allLinks = Array.from(document.querySelectorAll('.link'));
         // Also include folder links in search
         this.folderLinks = Array.from(document.querySelectorAll('.folder-link'));
-        // Track all rows (both song rows and folder rows)
-        this.songRows = Array.from(document.querySelectorAll('.song-row:not(.folder-row)'));
-        this.folderRows = Array.from(document.querySelectorAll('.folder-row'));
         this.searchIndex.clear();
 
         // Index audio links
@@ -886,26 +883,22 @@ class AudioHandler {
         // Remove all-file search results
         this.removeAllFileResults();
 
-        // Clear search-hidden from both links and song-rows
+        // Clear search-hidden from both links and their parent rows
         this.allLinks.forEach(link => {
             link.classList.remove('search-hidden');
+            const songRow = link.closest('.song-row');
+            if (songRow) {
+                songRow.classList.remove('search-hidden');
+            }
         });
 
         if (this.folderLinks) {
             this.folderLinks.forEach(link => {
                 link.classList.remove('search-hidden');
-            });
-        }
-
-        if (this.songRows) {
-            this.songRows.forEach(row => {
-                row.classList.remove('search-hidden');
-            });
-        }
-
-        if (this.folderRows) {
-            this.folderRows.forEach(row => {
-                row.classList.remove('search-hidden');
+                const folderRow = link.closest('.folder-row');
+                if (folderRow) {
+                    folderRow.classList.remove('search-hidden');
+                }
             });
         }
 
@@ -950,42 +943,6 @@ class AudioHandler {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    // Initialize B2 pages - ONLY load cached metadata, don't fetch new metadata
-    initializeB2Page() {
-        const links = document.querySelectorAll('.link[data-folder]');
-        links.forEach(link => {
-            // Only use metadata if it's already in cache (from previous play)
-            this.loadCachedMetadataForLink(link);
-        });
-    }
-
-    // Load cached metadata for a specific link ONLY if already cached
-    async loadCachedMetadataForLink(link) {
-        const folder = link.dataset.folder;
-        const filename = link.dataset.filename;
-        const cacheKey = `${folder}/${filename}`;
-
-        // ONLY use cached data - don't fetch new metadata
-        if (this.metadataCache.has(cacheKey)) {
-            const metadata = this.metadataCache.get(cacheKey);
-            this.updateLinkDisplay(link, metadata);
-            // Re-index this link with updated metadata for better search
-            this.reindexLink(link);
-        }
-    }
-
-    // Re-index a single link after metadata is loaded
-    reindexLink(link) {
-        const linkIndex = this.allLinks.indexOf(link);
-        if (linkIndex !== -1) {
-            const searchData = this.extractSearchableData(link);
-            this.searchIndex.set(linkIndex, {
-                link: link,
-                searchText: searchData.combined.toLowerCase(),
-                data: searchData
-            });
-        }
-    }
 
     // Update link display with metadata
     updateLinkDisplay(link, metadata) {
@@ -1148,18 +1105,6 @@ class AudioHandler {
         }
     }
 
-    // Play the previous track in the playlist
-    playPreviousTrack() {
-        if (this.currentPlaylist.length === 0 || this.currentTrackIndex <= 0) {
-            return;
-        }
-
-        this.currentTrackIndex--;
-        const prevLink = this.currentPlaylist[this.currentTrackIndex];
-        if (prevLink) {
-            prevLink.click();
-        }
-    }
 
     createMetadataDiv() {
         const metadataDiv = document.createElement('div');
@@ -1306,37 +1251,6 @@ class AudioHandler {
         document.title = `${metadata.artist} - ${metadata.title}`;
     }
 
-    // Method to preload metadata for visible links
-    async preloadMetadataForVisibleLinks() {
-        const links = document.querySelectorAll('.link[data-folder]:not([data-metadata-loaded])');
-        for (const link of links) {
-            // Skip hidden links during search
-            if (this.isSearchActive && link.classList.contains('search-hidden')) {
-                continue;
-            }
-
-            const folder = link.dataset.folder;
-            const filename = link.dataset.filename;
-            const cacheKey = `${folder}/${filename}`;
-
-            if (!this.metadataCache.has(cacheKey)) {
-                try {
-                    const metadataUrl = link.dataset.metadataUrl;
-                    const response = await fetch(metadataUrl);
-                    const metadata = await response.json();
-
-                    this.metadataCache.set(cacheKey, metadata);
-                    this.updateLinkDisplay(link, metadata);
-                    this.reindexLink(link);
-                    link.setAttribute('data-metadata-loaded', 'true');
-
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                } catch (error) {
-                    console.error(`Failed to preload metadata for ${filename}:`, error);
-                }
-            }
-        }
-    }
 }
 
 // Global instance
