@@ -1215,8 +1215,6 @@ class AudioHandler {
 
                 // Update the original link's display for when it returns
                 this.updateLinkDisplay(link, metadata);
-                // Re-index the link with new metadata
-                this.reindexLink(link);
             }
 
             this.displayMetadata(metadataDiv, metadata, metadataEndpoint);
