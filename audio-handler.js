@@ -828,6 +828,16 @@ class AudioHandler {
                 link.innerHTML = displayText;
 
                 songRow.appendChild(link);
+
+                // Add direct link button (same as in normal rendering)
+                const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                const directLink = document.createElement('a');
+                directLink.className = 'direct-link';
+                directLink.href = `/music/${encodedPath}`;
+                directLink.title = 'Direct link to file';
+                directLink.innerHTML = '&#128279;';
+                songRow.appendChild(directLink);
+
                 resultsContainer.appendChild(songRow);
             });
         });
