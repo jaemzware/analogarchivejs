@@ -507,18 +507,23 @@ app.get('/api/all-b2-files/:folder', async (req, res) => {
 function buildDirectoryStructure(musicFiles) {
     const structure = new Map();
 
+    // Initialize root directory
+    if (!structure.has('__root__')) {
+        structure.set('__root__', { files: [], subdirs: new Set() });
+    }
+
     musicFiles.forEach(fileInfo => {
         const parts = fileInfo.folderPath ? fileInfo.folderPath.split('/') : [];
 
         if (parts.length === 0) {
             // Files in root directory
-            if (!structure.has('__root__')) {
-                structure.set('__root__', { files: [], subdirs: new Set() });
-            }
             structure.get('__root__').files.push(fileInfo);
         } else {
             // Files in subdirectories
             const topLevel = parts[0];
+
+            // Add top-level directory to root's subdirs
+            structure.get('__root__').subdirs.add(topLevel);
 
             // Track top-level directory
             if (!structure.has(topLevel)) {
@@ -854,7 +859,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const folderUrl = `/${folderName}?dir=${encodeURIComponent(subdirPath)}`;
                 res.write(`
                 <div class="folder-row">
-                    <a href="${folderUrl}" class="folder-link">📁 ${subdir}</a>
+                    <a href="${folderUrl}" class="folder-link">${subdir}</a>
                 </div>`);
             }
         }

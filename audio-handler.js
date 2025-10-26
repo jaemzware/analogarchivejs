@@ -155,8 +155,14 @@ class AudioHandler {
                 return;
             }
 
-            // Don't intercept if it's not a local music navigation
-            if (!href.startsWith('/?') && href !== '/') return;
+            // Only intercept navigation within the same endpoint (local, analog, or live)
+            const isLocalNav = href.startsWith('/?') || href === '/';
+            const isAnalogNav = href.startsWith('/analog');
+            const isLiveNav = href.startsWith('/live');
+
+            if (!isLocalNav && !isAnalogNav && !isLiveNav) {
+                return;
+            }
 
             e.preventDefault();
 
@@ -849,7 +855,7 @@ class AudioHandler {
                 font-size: 14px;
                 border-left: 4px solid lime;
             `;
-            folderHeader.textContent = `📁 ${folder}`;
+            folderHeader.textContent = folder;
             resultsContainer.appendChild(folderHeader);
 
             // Add files from this folder
@@ -1329,11 +1335,11 @@ class AudioHandler {
                 // Local file - create link to folder
                 const folderHref = folder ? `/?dir=${encodeURIComponent(folder)}` : '/';
                 const folderDisplay = folder ? folder.split('/').pop() : 'Home';
-                folderLink = `<a href="${folderHref}" class="folder-link" style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; text-decoration: none; border-radius: 3px; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,127,0.3)'" onmouseout="this.style.background='rgba(0,255,127,0.2)'">📁 ${folderDisplay}</a>`;
+                folderLink = `<a href="${folderHref}" class="folder-link" style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; text-decoration: none; border-radius: 3px; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,127,0.3)'" onmouseout="this.style.background='rgba(0,255,127,0.2)'">${folderDisplay}</a>`;
             } else if (audioType === 'b2' && folder) {
                 // B2 file - don't create a clickable link since it crosses endpoints
                 // Just show the folder name as a badge
-                folderLink = `<span style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; border-radius: 3px; font-size: 12px;">📁 ${folder}</span>`;
+                folderLink = `<span style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; border-radius: 3px; font-size: 12px;">${folder}</span>`;
             }
         }
 
