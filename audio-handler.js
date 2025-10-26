@@ -27,14 +27,18 @@ class AudioHandler {
         this.setupFolderNavigation();
         this.restorePlayerState();
 
-        // Load all files for search if we're on the local music endpoint (not B2)
-        // Root is "/" and subdirectories are "/?dir=something"
-        const isLocalEndpoint = window.location.pathname === '/' &&
-                               !window.location.pathname.includes('/analog') &&
-                               !window.location.pathname.includes('/live');
+        // Determine current endpoint and load appropriate file index for search
+        const pathname = window.location.pathname;
 
-        if (isLocalEndpoint) {
+        if (pathname === '/') {
+            // Local music endpoint - load all local files
             this.loadAllFilesForSearch();
+        } else if (pathname === '/analog') {
+            // B2 analog endpoint - load all analog files
+            this.loadAllB2FilesForSearch('analog');
+        } else if (pathname === '/live') {
+            // B2 live endpoint - load all live files
+            this.loadAllB2FilesForSearch('live');
         }
 
         // DON'T preload metadata for B2 pages - only index filenames
@@ -58,6 +62,23 @@ class AudioHandler {
         }
     }
 
+    // Load all B2 files from a specific folder for comprehensive search
+    async loadAllB2FilesForSearch(folderName) {
+        try {
+            const response = await fetch(`/api/all-b2-files/${folderName}`);
+            const data = await response.json();
+
+            if (data.success && data.files) {
+                console.log(`Loaded ${data.files.length} B2 files for search from ${folderName} folder`);
+                this.allFilesData = data.files;
+                // Index these files for search with B2-specific type
+                this.indexAllB2Files(data.files, folderName);
+            }
+        } catch (error) {
+            console.error(`Failed to load B2 files for search from ${folderName}:`, error);
+        }
+    }
+
     // Index all files from all folders for search
     indexAllFiles(filesData) {
         filesData.forEach((fileInfo, index) => {
@@ -76,6 +97,27 @@ class AudioHandler {
         });
 
         console.log(`Indexed ${filesData.length} files from all folders for search`);
+    }
+
+    // Index all B2 files from a specific folder for search
+    indexAllB2Files(filesData, folderName) {
+        filesData.forEach((fileInfo, index) => {
+            const searchData = {
+                filename: fileInfo.fileName,
+                folder: fileInfo.folderPath || '',
+                combined: `${fileInfo.fileName} ${fileInfo.folderPath || ''}`
+            };
+
+            this.searchIndex.set(`all-b2-file-${index}`, {
+                fileInfo: fileInfo,
+                searchText: searchData.combined.toLowerCase(),
+                data: searchData,
+                type: 'all-b2-file',
+                folderName: folderName  // Store the root folder (analog/live)
+            });
+        });
+
+        console.log(`Indexed ${filesData.length} B2 files from ${folderName} folder for search`);
     }
 
     // Setup folder navigation to avoid page reloads when player is active
@@ -709,8 +751,8 @@ class AudioHandler {
                 // Check if all search terms are found
                 const matches = searchTerms.every(term => searchText.includes(term));
 
-                if (type === 'all-file') {
-                    // Handle all-file results separately
+                if (type === 'all-file' || type === 'all-b2-file') {
+                    // Handle all-file and all-b2-file results separately
                     if (matches) {
                         matchedAllFiles.push(fileInfo);
                         visibleCount++;
@@ -788,6 +830,11 @@ class AudioHandler {
         resultsContainer.id = 'all-files-search-results';
         resultsContainer.style.cssText = 'margin-top: 20px;';
 
+        // Determine if we're on a B2 endpoint
+        const pathname = window.location.pathname;
+        const isB2Endpoint = pathname === '/analog' || pathname === '/live';
+        const b2FolderName = pathname === '/analog' ? 'analog' : (pathname === '/live' ? 'live' : null);
+
         filesByFolder.forEach((files, folder) => {
             // Add folder header
             const folderHeader = document.createElement('div');
@@ -816,7 +863,19 @@ class AudioHandler {
                 link.dataset.filename = fileInfo.fileName;
                 link.dataset.folder = fileInfo.folderPath || '';
                 link.dataset.relativePath = fileInfo.relativePath;
-                link.dataset.audioType = 'local';
+
+                // Set appropriate data attributes based on endpoint type
+                if (isB2Endpoint && b2FolderName) {
+                    // B2 file - set proxy URLs and b2 audio type
+                    link.dataset.audioType = 'b2';
+                    const proxyUrl = `/b2proxy/${b2FolderName}/${encodeURIComponent(fileInfo.relativePath)}`;
+                    const metadataUrl = `/b2metadata/${b2FolderName}/${encodeURIComponent(fileInfo.relativePath)}`;
+                    link.dataset.proxyUrl = proxyUrl;
+                    link.dataset.metadataUrl = metadataUrl;
+                } else {
+                    // Local file
+                    link.dataset.audioType = 'local';
+                }
 
                 // Highlight matching terms
                 let displayText = fileInfo.fileName;
@@ -829,11 +888,19 @@ class AudioHandler {
 
                 songRow.appendChild(link);
 
-                // Add direct link button (same as in normal rendering)
+                // Add direct link button
                 const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
                 const directLink = document.createElement('a');
                 directLink.className = 'direct-link';
-                directLink.href = `/music/${encodedPath}`;
+
+                if (isB2Endpoint && b2FolderName) {
+                    // B2 proxy URL for direct link
+                    directLink.href = `/b2proxy/${b2FolderName}/${encodeURIComponent(fileInfo.relativePath)}`;
+                } else {
+                    // Local file URL
+                    directLink.href = `/music/${encodedPath}`;
+                }
+
                 directLink.title = 'Direct link to file';
                 directLink.innerHTML = '&#128279;';
                 songRow.appendChild(directLink);

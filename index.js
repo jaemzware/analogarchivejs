@@ -432,6 +432,77 @@ app.get('/api/all-files', async (req, res) => {
     }
 });
 
+// API endpoint to get all files from a B2 folder for search functionality
+app.get('/api/all-b2-files/:folder', async (req, res) => {
+    try {
+        const folderName = req.params.folder;
+
+        // Validate folder name (only allow 'analog' or 'live')
+        if (folderName !== 'analog' && folderName !== 'live') {
+            res.status(400).json({
+                success: false,
+                error: 'Invalid folder name. Must be "analog" or "live".'
+            });
+            return;
+        }
+
+        // Check if B2 credentials are configured
+        if (!process.env.B2_APPLICATION_KEY_ID || !process.env.B2_APPLICATION_KEY || !process.env.B2_BUCKET_NAME ||
+            process.env.B2_APPLICATION_KEY_ID === '' || process.env.B2_APPLICATION_KEY === '' || process.env.B2_BUCKET_NAME === '') {
+            res.status(503).json({
+                success: false,
+                error: 'B2 credentials not configured'
+            });
+            return;
+        }
+
+        await b2.authorize();
+
+        const bucket = await b2.getBucket({ bucketName });
+        const bucketId = bucket.data.buckets[0].bucketId;
+
+        const response = await b2.listFileNames({
+            bucketId: bucketId,
+            startFileName: `${folderName}/`,
+            prefix: `${folderName}/`,
+            maxFileCount: 10000
+        });
+
+        // Parse B2 files and extract directory structure
+        const b2Files = [];
+        for (const file of response.data.files) {
+            const lowerFileName = file.fileName.toLowerCase();
+            if ((lowerFileName.endsWith('.mp3') || lowerFileName.endsWith('.flac') || lowerFileName.endsWith('.m4b')) && file.fileName !== `${folderName}/`) {
+                // Remove the folderName prefix to get the relative path
+                const relativePath = file.fileName.substring(folderName.length + 1);
+                const fileName = relativePath.split('/').pop();
+                const folderPath = relativePath.includes('/')
+                    ? relativePath.substring(0, relativePath.lastIndexOf('/'))
+                    : '';
+
+                b2Files.push({
+                    fileName: fileName,
+                    relativePath: relativePath,
+                    folderPath: folderPath
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            files: b2Files,
+            total: b2Files.length,
+            folder: folderName
+        });
+    } catch (err) {
+        console.error('Failed to get B2 files:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve B2 files'
+        });
+    }
+});
+
 // Helper function to build directory structure
 function buildDirectoryStructure(musicFiles) {
     const structure = new Map();
@@ -664,7 +735,7 @@ app.get('/live', async (req, res) => {
     await handleB2FolderEndpoint('live', req, res);
 });
 
-// Shared function for B2 folder endpoints with enhanced search support
+// Shared function for B2 folder endpoints with enhanced search support and directory structure
 async function handleB2FolderEndpoint(folderName, req, res) {
     try {
         // Check if B2 credentials are configured
@@ -708,10 +779,64 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         console.log(`Found ${response.data.files.length} files in ${folderName} folder`);
 
-        // Build breadcrumb for B2 endpoints
-        const breadcrumbHtml = `<a href="/" class="breadcrumb-link">Home</a> / <span style="color: deepskyblue;">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</span>`;
+        // Get the current directory from query parameter (relative to the folderName root)
+        const currentDir = req.query.dir || '';
 
-        let fileNames = `<html>
+        // Parse B2 files and extract directory structure
+        const b2Files = [];
+        for (const file of response.data.files) {
+            const lowerFileName = file.fileName.toLowerCase();
+            if ((lowerFileName.endsWith('.mp3') || lowerFileName.endsWith('.flac') || lowerFileName.endsWith('.m4b')) && file.fileName !== `${folderName}/`) {
+                // Remove the folderName prefix to get the relative path
+                const relativePath = file.fileName.substring(folderName.length + 1);
+                const fileName = relativePath.split('/').pop();
+                const folderPath = relativePath.includes('/')
+                    ? relativePath.substring(0, relativePath.lastIndexOf('/'))
+                    : '';
+
+                b2Files.push({
+                    fileName: fileName,
+                    relativePath: relativePath,
+                    folderPath: folderPath,
+                    fullB2Path: file.fileName // Keep the full B2 path for proxy URLs
+                });
+            }
+        }
+
+        // Build directory structure using the existing function
+        const dirStructure = buildDirectoryStructure(b2Files);
+
+        // Determine which directory to display
+        const displayDir = currentDir || '__root__';
+        const currentDirData = dirStructure.get(displayDir);
+
+        if (!currentDirData) {
+            res.writeHead(404, { 'Content-Type': 'text/html' });
+            res.end('Directory not found');
+            return;
+        }
+
+        // Build breadcrumb navigation
+        let breadcrumbHtml = `<a href="/" class="breadcrumb-link">Home</a> / `;
+        breadcrumbHtml += `<a href="/${folderName}" class="breadcrumb-link">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</a>`;
+
+        if (currentDir) {
+            const pathParts = currentDir.split('/');
+            let accumulatedPath = '';
+            for (let i = 0; i < pathParts.length; i++) {
+                accumulatedPath += (i > 0 ? '/' : '') + pathParts[i];
+                const isLast = i === pathParts.length - 1;
+                if (isLast) {
+                    breadcrumbHtml += ` / <span style="color: deepskyblue;">${pathParts[i]}</span>`;
+                } else {
+                    breadcrumbHtml += ` / <a href="/${folderName}?dir=${encodeURIComponent(accumulatedPath)}" class="breadcrumb-link">${pathParts[i]}</a>`;
+                }
+            }
+        }
+
+        // Start HTML response
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.write(`<html>
 <head>
     <title>analogarchivejs - ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</title>
     <link rel="stylesheet" href="styles.css">
@@ -719,32 +844,47 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 </head>
 <body>
 <div class="breadcrumb">${breadcrumbHtml}</div>
-<div class="container">`;
+<div class="container">`);
 
-        for (const file of response.data.files) {
-            const lowerFileName = file.fileName.toLowerCase();
-            if ((lowerFileName.endsWith('.mp3') || lowerFileName.endsWith('.flac') || lowerFileName.endsWith('.m4b')) && file.fileName !== `${folderName}/`) {
-                const fileName = file.fileName.split('/').pop();
-                const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(fileName)}`;
-                const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(fileName)}`;
-
-                // Enhanced link with comprehensive data attributes for search
-                fileNames += `
-                <div class="song-row">
-                    <a class="link"
-                       data-filename="${fileName}"
-                       data-folder="${folderName}"
-                       data-proxy-url="${proxyUrl}"
-                       data-metadata-url="${metadataUrl}"
-                       data-audio-type="b2">
-                    ${fileName}
-                    </a>
-                    <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
-                </div>`;
+        // Render subdirectories (folders)
+        if (currentDirData.subdirs && currentDirData.subdirs.size > 0) {
+            const sortedSubdirs = Array.from(currentDirData.subdirs).sort();
+            for (const subdir of sortedSubdirs) {
+                const subdirPath = currentDir ? `${currentDir}/${subdir}` : subdir;
+                const folderUrl = `/${folderName}?dir=${encodeURIComponent(subdirPath)}`;
+                res.write(`
+                <div class="folder-row">
+                    <a href="${folderUrl}" class="folder-link">📁 ${subdir}</a>
+                </div>`);
             }
         }
 
-        fileNames += `</div>
+        // Render files in the current directory
+        if (currentDirData.files && currentDirData.files.length > 0) {
+            for (const file of currentDirData.files) {
+                // Build proxy URL with folder and full relative path
+                // The route pattern is /b2proxy/:folder/:filename(*) where :folder is the root folder (analog/live)
+                // and :filename(*) captures the rest of the path
+                const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
+                const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(file.relativePath)}`;
+
+                res.write(`
+                <div class="song-row">
+                    <a class="link"
+                       data-filename="${file.fileName}"
+                       data-folder="${file.folderPath}"
+                       data-relative-path="${file.relativePath}"
+                       data-proxy-url="${proxyUrl}"
+                       data-metadata-url="${metadataUrl}"
+                       data-audio-type="b2">
+                    ${file.fileName}
+                    </a>
+                    <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
+                </div>`);
+            }
+        }
+
+        res.write(`</div>
 <script src="/audio-handler.js"></script>
 <script>
     // Initialize search functionality for B2 pages
@@ -752,10 +892,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         audioHandler.initializePage();
     });
 </script>
-</body></html>`;
-
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.write(fileNames);
+</body></html>`);
         res.end();
     } catch (err) {
         console.error(`Error fetching ${folderName} folder:`, err);
