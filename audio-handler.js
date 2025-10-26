@@ -65,14 +65,19 @@ class AudioHandler {
     // Load all B2 files from a specific folder for comprehensive search
     async loadAllB2FilesForSearch(folderName) {
         try {
+            console.log(`Loading B2 files for search from ${folderName}...`);
             const response = await fetch(`/api/all-b2-files/${folderName}`);
             const data = await response.json();
+
+            console.log(`API response:`, data);
 
             if (data.success && data.files) {
                 console.log(`Loaded ${data.files.length} B2 files for search from ${folderName} folder`);
                 this.allFilesData = data.files;
                 // Index these files for search with B2-specific type
                 this.indexAllB2Files(data.files, folderName);
+            } else {
+                console.error(`Failed to load B2 files: ${data.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error(`Failed to load B2 files for search from ${folderName}:`, error);
@@ -101,6 +106,7 @@ class AudioHandler {
 
     // Index all B2 files from a specific folder for search
     indexAllB2Files(filesData, folderName) {
+        console.log(`Indexing ${filesData.length} B2 files...`);
         filesData.forEach((fileInfo, index) => {
             const searchData = {
                 filename: fileInfo.fileName,
@@ -118,6 +124,7 @@ class AudioHandler {
         });
 
         console.log(`Indexed ${filesData.length} B2 files from ${folderName} folder for search`);
+        console.log(`Total search index size: ${this.searchIndex.size}`);
     }
 
     // Setup folder navigation to avoid page reloads when player is active
