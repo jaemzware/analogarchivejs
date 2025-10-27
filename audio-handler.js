@@ -635,10 +635,10 @@ class AudioHandler {
         // Also include folder links in search
         this.folderLinks = Array.from(document.querySelectorAll('.folder-link'));
 
-        // Clear only the current page links from search index, preserve all-file entries
+        // Clear only the current page links from search index, preserve all-file and all-b2-file entries
         const keysToDelete = [];
         this.searchIndex.forEach((item, key) => {
-            if (item.type !== 'all-file') {
+            if (item.type !== 'all-file' && item.type !== 'all-b2-file') {
                 keysToDelete.push(key);
             }
         });
