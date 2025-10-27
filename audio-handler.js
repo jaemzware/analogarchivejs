@@ -214,6 +214,9 @@ class AudioHandler {
                         this.attachSearchListeners();
                     }
 
+                    // Clear any active search when navigating to new folder
+                    this.clearSearch();
+
                     // Re-index the new links
                     this.indexAllLinks();
 
@@ -258,6 +261,9 @@ class AudioHandler {
                             currentSearchContainer.innerHTML = newSearchContainer.innerHTML;
                             this.attachSearchListeners();
                         }
+
+                        // Clear any active search when navigating via browser back/forward
+                        this.clearSearch();
 
                         this.indexAllLinks();
                         this.updatePlaylistToCurrentPage();
