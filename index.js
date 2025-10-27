@@ -651,7 +651,7 @@ app.get('/', async (req,res) =>{
 
         // Build breadcrumb path
         const pathParts = currentPath ? currentPath.split('/') : [];
-        let breadcrumbHtml = '<a href="/" class="breadcrumb-link">Home</a>';
+        let breadcrumbHtml = '<a href="/" class="breadcrumb-link">Local Music</a>';
         let buildPath = '';
         pathParts.forEach(part => {
             buildPath += (buildPath ? '/' : '') + part;
@@ -661,11 +661,16 @@ app.get('/', async (req,res) =>{
         // Send HTML head right away
         res.write(`<html>
 <head>
-    <title>analogarchivejs - ${currentPath || 'Home'}</title>
+    <title>analogarchivejs - ${currentPath || 'Local Music'}</title>
     <link rel="stylesheet" href="styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
+<nav class="top-nav">
+    <a href="/" class="top-nav-link active">Local Music</a>
+    <a href="/analog" class="top-nav-link">Analog (Cloud)</a>
+    <a href="/live" class="top-nav-link">Live (Cloud)</a>
+</nav>
 <div class="breadcrumb">${breadcrumbHtml}</div>
 <div class="container">
 `);
@@ -822,8 +827,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
 
         // Build breadcrumb navigation
-        let breadcrumbHtml = `<a href="/" class="breadcrumb-link">Home</a> / `;
-        breadcrumbHtml += `<a href="/${folderName}" class="breadcrumb-link">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</a>`;
+        let breadcrumbHtml = `<a href="/${folderName}" class="breadcrumb-link">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</a>`;
 
         if (currentDir) {
             const pathParts = currentDir.split('/');
@@ -848,6 +852,11 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
+<nav class="top-nav">
+    <a href="/" class="top-nav-link">Local Music</a>
+    <a href="/analog" class="top-nav-link${folderName === 'analog' ? ' active' : ''}">Analog (Cloud)</a>
+    <a href="/live" class="top-nav-link${folderName === 'live' ? ' active' : ''}">Live (Cloud)</a>
+</nav>
 <div class="breadcrumb">${breadcrumbHtml}</div>
 <div class="container">`);
 
