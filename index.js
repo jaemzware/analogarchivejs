@@ -21,6 +21,16 @@ const directoryPathMusic = process.env.MUSIC_DIRECTORY || "./music";
 // Cache for music files - always scans fresh on startup
 let musicFilesCache = null;
 
+// In-memory cache for B2 metadata - ephemeral, privacy-focused
+const metadataCache = new Map();
+const folderListingCache = new Map();
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (configurable)
+
+// Helper function to check if cache entry is still valid
+function isCacheValid(cacheEntry) {
+    return cacheEntry && (Date.now() - cacheEntry.timestamp) < CACHE_TTL_MS;
+}
+
 // Backblaze B2 configuration
 const b2 = new B2({
     applicationKeyId: process.env.B2_APPLICATION_KEY_ID, // Set these in your environment
@@ -107,6 +117,15 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
         const fullPath = `${folder}/${filename}`;
 
         console.log(`Getting metadata for: ${fullPath}`);
+
+        // Check cache first
+        const cacheKey = fullPath;
+        const cachedData = metadataCache.get(cacheKey);
+        if (isCacheValid(cachedData)) {
+            console.log(`✓ Cache hit for metadata: ${fullPath}`);
+            return res.json(cachedData.data);
+        }
+        console.log(`✗ Cache miss for metadata: ${fullPath}`);
 
         // Download only first 10MB for metadata extraction (includes artwork)
         // Metadata and album art are typically in the first few MB of audio files
@@ -213,14 +232,24 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     console.log('No artwork found in metadata');
                 }
 
-                // Return metadata as JSON
-                res.json({
+                // Prepare metadata response
+                const metadataResponse = {
                     artist: metadata.common.artist || 'Unknown Artist',
                     album: metadata.common.album || 'Unknown Album',
                     title: metadata.common.title || filename,
                     artwork: artwork,
                     duration: metadata.format.duration || 0
+                };
+
+                // Cache the successful response
+                metadataCache.set(cacheKey, {
+                    data: metadataResponse,
+                    timestamp: Date.now()
                 });
+                console.log(`✓ Cached metadata for: ${fullPath}`);
+
+                // Return metadata as JSON
+                res.json(metadataResponse);
             } catch (tempFileError) {
                 console.error('Error with temp file approach:', tempFileError);
                 throw tempFileError;
@@ -458,34 +487,66 @@ app.get('/api/all-b2-files/:folder', async (req, res) => {
 
         await b2.authorize();
 
-        const bucket = await b2.getBucket({ bucketName });
-        const bucketId = bucket.data.buckets[0].bucketId;
+        // Check cache first for folder listings (reuse same cache as handleB2FolderEndpoint)
+        const folderCacheKey = folderName;
+        const cachedFolderData = folderListingCache.get(folderCacheKey);
+        let b2Files;
 
-        const response = await b2.listFileNames({
-            bucketId: bucketId,
-            startFileName: `${folderName}/`,
-            prefix: `${folderName}/`,
-            maxFileCount: 10000
-        });
+        if (isCacheValid(cachedFolderData)) {
+            console.log(`✓ Cache hit for API folder listing: ${folderName}`);
+            // Remove fullB2Path for API response (not needed)
+            b2Files = cachedFolderData.data.map(file => ({
+                fileName: file.fileName,
+                relativePath: file.relativePath,
+                folderPath: file.folderPath
+            }));
+        } else {
+            console.log(`✗ Cache miss for API folder listing: ${folderName}`);
 
-        // Parse B2 files and extract directory structure
-        const b2Files = [];
-        for (const file of response.data.files) {
-            const lowerFileName = file.fileName.toLowerCase();
-            if ((lowerFileName.endsWith('.mp3') || lowerFileName.endsWith('.flac') || lowerFileName.endsWith('.m4b')) && file.fileName !== `${folderName}/`) {
-                // Remove the folderName prefix to get the relative path
-                const relativePath = file.fileName.substring(folderName.length + 1);
-                const fileName = relativePath.split('/').pop();
-                const folderPath = relativePath.includes('/')
-                    ? relativePath.substring(0, relativePath.lastIndexOf('/'))
-                    : '';
+            const bucket = await b2.getBucket({ bucketName });
+            const bucketId = bucket.data.buckets[0].bucketId;
 
-                b2Files.push({
-                    fileName: fileName,
-                    relativePath: relativePath,
-                    folderPath: folderPath
-                });
+            const response = await b2.listFileNames({
+                bucketId: bucketId,
+                startFileName: `${folderName}/`,
+                prefix: `${folderName}/`,
+                maxFileCount: 10000
+            });
+
+            // Parse B2 files and extract directory structure
+            const b2FilesWithFullPath = [];
+            for (const file of response.data.files) {
+                const lowerFileName = file.fileName.toLowerCase();
+                if ((lowerFileName.endsWith('.mp3') || lowerFileName.endsWith('.flac') || lowerFileName.endsWith('.m4b')) && file.fileName !== `${folderName}/`) {
+                    // Remove the folderName prefix to get the relative path
+                    const relativePath = file.fileName.substring(folderName.length + 1);
+                    const fileName = relativePath.split('/').pop();
+                    const folderPath = relativePath.includes('/')
+                        ? relativePath.substring(0, relativePath.lastIndexOf('/'))
+                        : '';
+
+                    b2FilesWithFullPath.push({
+                        fileName: fileName,
+                        relativePath: relativePath,
+                        folderPath: folderPath,
+                        fullB2Path: file.fileName
+                    });
+                }
             }
+
+            // Cache the folder listing (with fullB2Path for handleB2FolderEndpoint compatibility)
+            folderListingCache.set(folderCacheKey, {
+                data: b2FilesWithFullPath,
+                timestamp: Date.now()
+            });
+            console.log(`✓ Cached API folder listing for: ${folderName} (${b2FilesWithFullPath.length} files)`);
+
+            // Remove fullB2Path for API response
+            b2Files = b2FilesWithFullPath.map(file => ({
+                fileName: file.fileName,
+                relativePath: file.relativePath,
+                folderPath: file.folderPath
+            }));
         }
 
         res.json({
@@ -776,42 +837,61 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         await b2.authorize();
 
-        const bucket = await b2.getBucket({ bucketName });
-        const bucketId = bucket.data.buckets[0].bucketId;
-        console.log(`Using bucket ID: ${bucketId}`);
+        // Check cache first for folder listings
+        const folderCacheKey = folderName;
+        const cachedFolderData = folderListingCache.get(folderCacheKey);
+        let b2Files;
 
-        const response = await b2.listFileNames({
-            bucketId: bucketId,
-            startFileName: `${folderName}/`,
-            prefix: `${folderName}/`,
-            maxFileCount: 10000
-        });
+        if (isCacheValid(cachedFolderData)) {
+            console.log(`✓ Cache hit for folder listing: ${folderName}`);
+            b2Files = cachedFolderData.data;
+        } else {
+            console.log(`✗ Cache miss for folder listing: ${folderName}`);
 
-        console.log(`Found ${response.data.files.length} files in ${folderName} folder`);
+            const bucket = await b2.getBucket({ bucketName });
+            const bucketId = bucket.data.buckets[0].bucketId;
+            console.log(`Using bucket ID: ${bucketId}`);
+
+            const response = await b2.listFileNames({
+                bucketId: bucketId,
+                startFileName: `${folderName}/`,
+                prefix: `${folderName}/`,
+                maxFileCount: 10000
+            });
+
+            console.log(`Found ${response.data.files.length} files in ${folderName} folder`);
+
+            // Parse B2 files and extract directory structure
+            b2Files = [];
+            for (const file of response.data.files) {
+                const lowerFileName = file.fileName.toLowerCase();
+                if ((lowerFileName.endsWith('.mp3') || lowerFileName.endsWith('.flac') || lowerFileName.endsWith('.m4b')) && file.fileName !== `${folderName}/`) {
+                    // Remove the folderName prefix to get the relative path
+                    const relativePath = file.fileName.substring(folderName.length + 1);
+                    const fileName = relativePath.split('/').pop();
+                    const folderPath = relativePath.includes('/')
+                        ? relativePath.substring(0, relativePath.lastIndexOf('/'))
+                        : '';
+
+                    b2Files.push({
+                        fileName: fileName,
+                        relativePath: relativePath,
+                        folderPath: folderPath,
+                        fullB2Path: file.fileName // Keep the full B2 path for proxy URLs
+                    });
+                }
+            }
+
+            // Cache the folder listing
+            folderListingCache.set(folderCacheKey, {
+                data: b2Files,
+                timestamp: Date.now()
+            });
+            console.log(`✓ Cached folder listing for: ${folderName} (${b2Files.length} files)`);
+        }
 
         // Get the current directory from query parameter (relative to the folderName root)
         const currentDir = req.query.dir || '';
-
-        // Parse B2 files and extract directory structure
-        const b2Files = [];
-        for (const file of response.data.files) {
-            const lowerFileName = file.fileName.toLowerCase();
-            if ((lowerFileName.endsWith('.mp3') || lowerFileName.endsWith('.flac') || lowerFileName.endsWith('.m4b')) && file.fileName !== `${folderName}/`) {
-                // Remove the folderName prefix to get the relative path
-                const relativePath = file.fileName.substring(folderName.length + 1);
-                const fileName = relativePath.split('/').pop();
-                const folderPath = relativePath.includes('/')
-                    ? relativePath.substring(0, relativePath.lastIndexOf('/'))
-                    : '';
-
-                b2Files.push({
-                    fileName: fileName,
-                    relativePath: relativePath,
-                    folderPath: folderPath,
-                    fullB2Path: file.fileName // Keep the full B2 path for proxy URLs
-                });
-            }
-        }
 
         // Build directory structure using the existing function
         const dirStructure = buildDirectoryStructure(b2Files);
