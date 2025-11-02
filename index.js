@@ -38,6 +38,164 @@ const b2 = new B2({
 });
 const bucketName = process.env.B2_BUCKET_NAME;
 
+// Helper to check if we have internet/B2 connectivity
+async function checkB2Connectivity() {
+    try {
+        // Set a short timeout for the connection check
+        await Promise.race([
+            b2.authorize(),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Connection timeout')), 5000)
+            )
+        ]);
+        return { connected: true };
+    } catch (err) {
+        console.log('B2 connectivity check failed:', err.message);
+        // Determine if it's a network error or auth error
+        const isNetworkError = 
+            err.code === 'ENOTFOUND' || 
+            err.code === 'ECONNREFUSED' || 
+            err.code === 'ETIMEDOUT' ||
+            err.code === 'EAI_AGAIN' ||
+            err.message.includes('timeout') ||
+            err.message.includes('network') ||
+            err.message.toLowerCase().includes('getaddrinfo');
+        
+        return { 
+            connected: false, 
+            isNetworkError,
+            error: err.message 
+        };
+    }
+}
+
+// Generate offline error page
+function generateOfflinePage(folderName) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <title>analogarchivejs - ${folderName.charAt(0).toUpperCase() + folderName.slice(1)} (Offline)</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .offline-container {
+            max-width: 600px;
+            margin: 100px auto;
+            padding: 40px;
+            text-align: center;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .offline-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        .offline-title {
+            color: #fff;
+            font-size: 32px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .offline-message {
+            color: #cce5ff;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .offline-details {
+            background: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        .offline-details h3 {
+            color: #fff;
+            margin-top: 0;
+            font-size: 18px;
+        }
+        .offline-details ul {
+            color: #cce5ff;
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .offline-details li {
+            margin: 10px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        .offline-details li:before {
+            content: "\\2022";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+        }
+        .back-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .back-button:hover {
+            background-color: #45a049;
+        }
+        .nav-links {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .nav-links a {
+            color: #cce5ff;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .nav-links a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-icon">&#127794;&#128225;</div>
+        <h1 class="offline-title">No Internet Gateway</h1>
+        <p class="offline-message">
+            You're connected to the local WiFi access point, but there's no internet connection available. 
+            Cloud storage locations (/${folderName}) require internet access.
+        </p>
+        
+        <div class="offline-details">
+            <h3>What's Still Available:</h3>
+            <ul>
+                <li>Local music collection works perfectly</li>
+                <li>All locally stored files are accessible</li>
+                <li>Full playback and metadata features</li>
+            </ul>
+        </div>
+
+        <p style="color: #cce5ff; font-size: 14px; margin-bottom: 20px;">
+            <strong>Why this happens:</strong><br>
+            The /${folderName} endpoint streams from Backblaze B2 cloud storage, which requires an active internet connection. 
+            When serving from a wireless access point without internet (like "in the woods"), only local storage is available.
+        </p>
+
+        <a href="/" class="back-button">View Local Music</a>
+        
+        <div class="nav-links">
+            <a href="/">Local Music</a> | 
+            <a href="/analog">Analog (Offline)</a> | 
+            <a href="/live">Live (Offline)</a>
+        </div>
+    </div>
+</body>
+</html>`;
+}
+
 //make files available in music subdirectory
 const musicStaticPath = directoryPathMusic.startsWith('./')
     ? join(__dirname, directoryPathMusic.substring(2))
@@ -834,6 +992,43 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             `);
             return;
         }
+
+        // Check internet connectivity before attempting to use B2
+        console.log('Checking B2 connectivity...');
+        const connectivity = await checkB2Connectivity();
+        
+        if (!connectivity.connected) {
+            if (connectivity.isNetworkError) {
+                // Show friendly offline page for network errors (no internet gateway)
+                console.log(`No internet gateway - showing offline page for /${folderName}`);
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(generateOfflinePage(folderName));
+                return;
+            } else {
+                // Show technical error for auth/config issues
+                console.error('B2 authentication error:', connectivity.error);
+                res.writeHead(500, { 'Content-Type': 'text/html' });
+                res.end(`
+                    <html>
+                    <head>
+                        <title>B2 Connection Error</title>
+                        <link rel="stylesheet" href="styles.css">
+                    </head>
+                    <body>
+                        <div class="container">
+                            <h1>B2 Authentication Error</h1>
+                            <p>Unable to connect to Backblaze B2: ${connectivity.error}</p>
+                            <p>Please check your B2 credentials and try again.</p>
+                            <p><a href="/">Back to Local Music</a></p>
+                        </div>
+                    </body>
+                    </html>
+                `);
+                return;
+            }
+        }
+        
+        console.log('✓ B2 connection successful');
 
         await b2.authorize();
 
