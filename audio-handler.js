@@ -157,11 +157,6 @@ class AudioHandler {
                 return;
             }
 
-            // Same endpoint - only intercept if audio is playing
-            if (!this.currentAudio || this.currentAudio.paused) {
-                return;
-            }
-
             // Only intercept navigation within the same endpoint (local, analog, or live)
             const isLocalNav = href.startsWith('/?') || href === '/';
             const isAnalogNav = href.startsWith('/analog');
@@ -171,10 +166,12 @@ class AudioHandler {
                 return;
             }
 
+            // Always save scroll position before navigating, even if audio isn't playing
+            // This allows us to restore position when using breadcrumbs
             e.preventDefault();
 
-            // Save current scroll position
-            const scrollPos = window.scrollY;
+            // Save current scroll position for this URL
+            this.saveScrollPosition();
 
             // Fetch the new page content
             fetch(href)
@@ -223,8 +220,8 @@ class AudioHandler {
                     // Update playlist to new folder's songs
                     this.updatePlaylistToCurrentPage();
 
-                    // Restore scroll position or scroll to top
-                    window.scrollTo(0, 0);
+                    // Restore scroll position for this URL, or scroll to top if new directory
+                    this.restoreScrollPosition();
                 })
                 .catch(error => {
                     console.error('Failed to load folder:', error);
@@ -267,9 +264,35 @@ class AudioHandler {
 
                         this.indexAllLinks();
                         this.updatePlaylistToCurrentPage();
+
+                        // Restore scroll position when using browser back/forward
+                        this.restoreScrollPosition();
                     });
             }
         });
+    }
+
+    // Save scroll position for the current URL
+    saveScrollPosition() {
+        const scrollPositions = JSON.parse(sessionStorage.getItem('scrollPositions') || '{}');
+        scrollPositions[window.location.pathname + window.location.search] = window.scrollY;
+        sessionStorage.setItem('scrollPositions', JSON.stringify(scrollPositions));
+    }
+
+    // Restore scroll position for the current URL
+    restoreScrollPosition() {
+        const scrollPositions = JSON.parse(sessionStorage.getItem('scrollPositions') || '{}');
+        const savedPosition = scrollPositions[window.location.pathname + window.location.search];
+
+        if (savedPosition !== undefined) {
+            // Use setTimeout to ensure DOM is ready
+            setTimeout(() => {
+                window.scrollTo(0, savedPosition);
+            }, 0);
+        } else {
+            // No saved position, scroll to top (new directory)
+            window.scrollTo(0, 0);
+        }
     }
 
     // Get the current endpoint (root, analog, or live)
