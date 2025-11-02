@@ -563,7 +563,7 @@ class AudioHandler {
 
         // Determine if we're on the local files page (root endpoint)
         const isLocalPage = window.location.pathname === '/';
-        const rescanButton = isLocalPage ? '<button class="rescan-button" id="rescanButton">🔄 Rescan</button>' : '';
+        const rescanButton = isLocalPage ? '<button class="rescan-button" id="rescanButton">&#128257; Rescan</button>' : '';
 
         const searchHTML = `
             <div class="search-container">
@@ -574,7 +574,7 @@ class AudioHandler {
                                id="musicSearch"
                                placeholder="Search songs, artists, albums, or filenames..."
                                autocomplete="off">
-                        <span class="search-icon">🔍</span>
+                        <span class="search-icon">&#128269;</span>
                     </div>
                     <button class="clear-search" id="clearSearch" style="display: none;">Clear</button>
                     ${rescanButton}
@@ -630,29 +630,29 @@ class AudioHandler {
     async triggerRescan(button) {
         try {
             button.disabled = true;
-            button.textContent = '⏳ Scanning...';
+            button.textContent = '\u23F3 Scanning...';
 
             const response = await fetch('/rescan');
             const result = await response.json();
 
             if (result.success) {
-                button.textContent = '✓ Complete!';
+                button.textContent = '\u2713 Complete!';
                 setTimeout(() => {
                     // Reload the page to show new files
                     window.location.reload();
                 }, 800);
             } else {
-                button.textContent = '✗ Failed';
+                button.textContent = '\u2717 Failed';
                 setTimeout(() => {
-                    button.textContent = '🔄 Rescan';
+                    button.textContent = '\u{1F501} Rescan';
                     button.disabled = false;
                 }, 2000);
             }
         } catch (error) {
             console.error('Rescan failed:', error);
-            button.textContent = '✗ Error';
+            button.textContent = '\u2717 Error';
             setTimeout(() => {
-                button.textContent = '🔄 Rescan';
+                button.textContent = '\u{1F501} Rescan';
                 button.disabled = false;
             }, 2000);
         }
@@ -1136,6 +1136,36 @@ class AudioHandler {
         audio.addEventListener('error', (e) => {
             console.error('Audio error:', e);
             console.error('Audio error details:', audio.error);
+            
+            // Show error in metadata div if it exists
+            if (metadataDiv) {
+                metadataDiv.innerHTML = `
+                    <div style="width: 80px; height: 80px; background: #d32f2f; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                        <span style="color: white; font-size: 30px;">&times;</span>
+                    </div>
+                    <div>
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #d32f2f;">Playback Error</div>
+                        <div style="opacity: 0.8;">File unavailable or deleted</div>
+                        <div style="opacity: 0.6; font-size: 12px; margin-top: 5px;">Error code: ${audio.error?.code || 'unknown'}</div>
+                    </div>
+                `;
+            }
+            
+            // Auto-skip to next song after error
+            setTimeout(() => {
+                if (container && container.parentNode && link) {
+                    container.parentNode.replaceChild(link, container);
+                    this.currentAudio = null;
+                    this.currentLink = null;
+                    this.currentMetadataDiv = null;
+                    
+                    let nextLink = link.nextElementSibling;
+                    if (nextLink != null && nextLink.classList.contains('link')) {
+                        console.log('Auto-skipping to next song after error');
+                        nextLink.click();
+                    }
+                }
+            }, 3000); // Wait 3 seconds before skipping
         });
 
         // Save state on various events
@@ -1249,7 +1279,7 @@ class AudioHandler {
 
         metadataDiv.innerHTML = `
             <div style="width: 80px; height: 80px; background: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
-                <span style="color: #888;">♪</span>
+                <span style="color: #888;">&#9834;</span>
             </div>
             <div>
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">Loading...</div>
@@ -1348,6 +1378,18 @@ class AudioHandler {
 
         } catch (metadataError) {
             console.error('Failed to load metadata:', metadataError);
+            
+            // Show basic info without metadata
+            const filename = audioSrc.split('/').pop();
+            metadataDiv.innerHTML = `
+                <div style="width: 80px; height: 80px; background: #666; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                    <span style="color: #ccc; font-size: 24px;">&#9834;</span>
+                </div>
+                <div>
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${decodeURIComponent(filename)}</div>
+                    <div style="opacity: 0.7; font-size: 14px;">Metadata unavailable</div>
+                </div>
+            `;
         }
     }
 
@@ -1359,7 +1401,7 @@ class AudioHandler {
         const imageFormat = metadataEndpoint === 'local' ? 'png' : 'jpeg';
         const artworkSrc = metadata.artwork ?
             `data:image/${imageFormat};base64,${metadata.artwork}` :
-            'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">♪</text></svg>');
+            'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">&#9834;</text></svg>');
 
         // Get folder information for navigation link
         let folderLink = '';
