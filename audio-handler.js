@@ -16,6 +16,8 @@ class AudioHandler {
         this.stickyPlayerContainer = null;
         this.currentPlaylist = []; // Track visible songs at time of play
         this.currentTrackIndex = -1; // Current position in playlist
+        // Track if the next action has user gesture (for autoplay policy)
+        this.hasUserGesture = false;
     }
 
     // Initialize pages with search functionality
@@ -419,15 +421,28 @@ class AudioHandler {
             const speedControlDiv = this.createSpeedControl(audio);
 
             // Setup event listeners
-            audio.addEventListener('play', () => this.savePlayerState());
-            audio.addEventListener('pause', () => this.savePlayerState());
+            audio.addEventListener('play', () => {
+                this.savePlayerState();
+                this.updateMediaSessionPlaybackState('playing');
+            });
+            audio.addEventListener('pause', () => {
+                this.savePlayerState();
+                this.updateMediaSessionPlaybackState('paused');
+            });
             audio.addEventListener('timeupdate', () => {
                 if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 2000) {
                     this.savePlayerState();
                     this._lastSaveTime = Date.now();
                 }
+                this.updateMediaSessionPosition();
             });
-            audio.addEventListener('ratechange', () => this.savePlayerState());
+            audio.addEventListener('ratechange', () => {
+                this.savePlayerState();
+                this.updateMediaSessionPosition();
+            });
+            audio.addEventListener('loadedmetadata', () => {
+                this.updateMediaSessionPosition();
+            });
             audio.addEventListener('ended', () => {
                 this.playNextTrack();
             });
@@ -447,9 +462,12 @@ class AudioHandler {
             this.currentAudio = audio;
             this.currentMetadataDiv = container;
 
-            // Display saved metadata
+            // Display saved metadata and initialize Media Session
             if (state.metadata) {
                 this.displayMetadata(metadataDiv, state.metadata, state.metadataEndpoint);
+            } else {
+                // Initialize Media Session even without full metadata
+                this.updateMediaSessionPlaybackState(state.isPlaying ? 'playing' : 'paused');
             }
 
             // Update playlist to current page's songs
@@ -539,6 +557,9 @@ class AudioHandler {
             if (!link) return;
 
             e.preventDefault();
+
+            // User clicked, so we have a gesture
+            this.hasUserGesture = true;
 
             const audioType = link.dataset.audioType;
             const relativePath = link.dataset.relativePath;
@@ -1097,125 +1118,161 @@ class AudioHandler {
     }
 
     // Enhanced playAudio method (existing functionality preserved)
-    async playAudio(audioSrc, link, metadataEndpoint = null) {
-        console.log('Playing:', audioSrc);
+    async playAudio(audioSrc, link, metadataEndpoint = null, autoPlay = true) {
+        // Check if we have a user gesture (from Media Session controls)
+        const hasGesture = this.hasUserGesture;
+        this.hasUserGesture = false; // Reset the flag
+
+        console.log('Playing:', audioSrc, 'autoPlay:', autoPlay, 'hasUserGesture:', hasGesture);
 
         // Build playlist from currently visible songs if starting fresh or playlist changed
         this.updatePlaylist(link);
 
-        // ALWAYS stop any currently playing audio first
+        let audio;
+        let isNewAudioElement = false;
+
+        // Reuse existing audio element if possible to maintain user gesture chain
         if (this.currentAudio) {
-            console.log('Stopping current audio');
-            this.currentAudio.pause();
-            this.currentAudio.removeAttribute('src');
-            this.currentAudio.load();
+            console.log('Reusing existing audio element');
+            audio = this.currentAudio;
+            // Pause and prepare for new source
+            audio.pause();
+            audio.currentTime = 0;
+        } else {
+            console.log('Creating new audio element');
+            isNewAudioElement = true;
+            // Create a new audio element
+            audio = new Audio();
+            audio.controls = true;
+            audio.preload = 'auto';
         }
 
-        // Clear the sticky player container
-        if (this.stickyPlayerContainer) {
-            this.stickyPlayerContainer.innerHTML = '';
-        }
-
-        // Reset references
-        this.currentAudio = null;
+        // Update link reference
         this.currentLink = link;
-        this.currentMetadataDiv = null;
 
-        // Create a new audio element
-        const audio = new Audio();
-        audio.controls = true;
+        // Only add event listeners if this is a new audio element
+        if (isNewAudioElement) {
+            audio.addEventListener('loadstart', () => console.log('Loading started:', audioSrc));
+            audio.addEventListener('canplay', () => console.log('Can start playing'));
+            audio.addEventListener('error', (e) => {
+                console.error('Audio error:', e);
+                console.error('Audio error details:', audio.error);
+
+                // Auto-skip to next song after error
+                setTimeout(() => {
+                    console.log('Auto-skipping to next song after error');
+                    this.playNextTrack();
+                }, 3000); // Wait 3 seconds before skipping
+            });
+
+            // Save state on various events
+            audio.addEventListener('play', () => {
+                this.savePlayerState();
+                this.updateMediaSessionPlaybackState('playing');
+            });
+            audio.addEventListener('pause', () => {
+                this.savePlayerState();
+                this.updateMediaSessionPlaybackState('paused');
+            });
+            audio.addEventListener('timeupdate', () => {
+                // Throttle saves - only save every 2 seconds
+                if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 2000) {
+                    this.savePlayerState();
+                    this._lastSaveTime = Date.now();
+                }
+                // Update Media Session position state for lock screen progress bar
+                this.updateMediaSessionPosition();
+            });
+            audio.addEventListener('ratechange', () => {
+                this.savePlayerState();
+                this.updateMediaSessionPosition();
+            });
+            audio.addEventListener('loadedmetadata', () => {
+                // Update position state when duration becomes available
+                this.updateMediaSessionPosition();
+            });
+            audio.addEventListener('ended', () => {
+                console.log('Audio ended, advancing to next track');
+
+                // Use the shared playNextTrack logic
+                this.playNextTrack();
+            });
+        }
 
         // Create metadata display container
         const metadataDiv = this.createMetadataDiv();
 
-        // Create speed control slider
-        const speedControlDiv = this.createSpeedControl(audio);
+        // Create speed control slider (only if new element)
+        const speedControlDiv = isNewAudioElement ? this.createSpeedControl(audio) : this.currentMetadataDiv.querySelector('.audio-player-wrapper');
 
-        audio.addEventListener('loadstart', () => console.log('Loading started:', audioSrc));
-        audio.addEventListener('canplay', () => console.log('Can start playing'));
-        audio.addEventListener('error', (e) => {
-            console.error('Audio error:', e);
-            console.error('Audio error details:', audio.error);
-            
-            // Show error in metadata div if it exists
-            if (metadataDiv) {
-                metadataDiv.innerHTML = `
-                    <div style="width: 80px; height: 80px; background: #d32f2f; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
-                        <span style="color: white; font-size: 30px;">&times;</span>
-                    </div>
-                    <div>
-                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #d32f2f;">Playback Error</div>
-                        <div style="opacity: 0.8;">File unavailable or deleted</div>
-                        <div style="opacity: 0.6; font-size: 12px; margin-top: 5px;">Error code: ${audio.error?.code || 'unknown'}</div>
-                    </div>
-                `;
-            }
-            
-            // Auto-skip to next song after error
-            setTimeout(() => {
-                if (container && container.parentNode && link) {
-                    container.parentNode.replaceChild(link, container);
-                    this.currentAudio = null;
-                    this.currentLink = null;
-                    this.currentMetadataDiv = null;
-                    
-                    let nextLink = link.nextElementSibling;
-                    if (nextLink != null && nextLink.classList.contains('link')) {
-                        console.log('Auto-skipping to next song after error');
-                        nextLink.click();
-                    }
-                }
-            }, 3000); // Wait 3 seconds before skipping
-        });
-
-        // Save state on various events
-        audio.addEventListener('play', () => this.savePlayerState());
-        audio.addEventListener('pause', () => this.savePlayerState());
-        audio.addEventListener('timeupdate', () => {
-            // Throttle saves - only save every 2 seconds
-            if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 2000) {
-                this.savePlayerState();
-                this._lastSaveTime = Date.now();
-            }
-        });
-        audio.addEventListener('ratechange', () => this.savePlayerState());
-
+        // Set the new source (this works whether it's new or reused element)
         audio.src = audioSrc;
 
-        // Put player in sticky container instead of replacing the link
-        const container = document.createElement('div');
-        container.appendChild(metadataDiv);
+        // Force load the new source
+        audio.load();
 
-        // Create audio player wrapper with controls
-        const audioWrapper = document.createElement('div');
-        audioWrapper.className = 'audio-player-wrapper';
-        audioWrapper.appendChild(audio);
-        audioWrapper.appendChild(speedControlDiv);
+        // Only rebuild UI if this is a new audio element
+        if (isNewAudioElement) {
+            // Clear the sticky player container
+            if (this.stickyPlayerContainer) {
+                this.stickyPlayerContainer.innerHTML = '';
+            }
 
-        container.appendChild(audioWrapper);
+            // Put player in sticky container
+            const container = document.createElement('div');
+            container.appendChild(metadataDiv);
 
-        // Add to sticky player container
-        this.stickyPlayerContainer.appendChild(container);
-        this.showStickyPlayer();
+            // Create audio player wrapper with controls
+            const audioWrapper = document.createElement('div');
+            audioWrapper.className = 'audio-player-wrapper';
+            audioWrapper.appendChild(audio);
+            audioWrapper.appendChild(speedControlDiv);
 
-        // Store references
-        this.currentAudio = audio;
-        this.currentMetadataDiv = container;
+            container.appendChild(audioWrapper);
 
-        // Fetch and display metadata
-        await this.loadMetadata(audioSrc, metadataDiv, metadataEndpoint, link);
+            // Add to sticky player container
+            this.stickyPlayerContainer.appendChild(container);
+            this.showStickyPlayer();
 
-        // Try to play after a short delay
-        setTimeout(() => {
-            audio.play().catch(e => {
-                console.error('Play failed:', e);
-            });
-        }, 200);
+            // Store references
+            this.currentAudio = audio;
+            this.currentMetadataDiv = container;
+        } else {
+            // Just update the metadata div content in the existing container
+            const existingMetadataDiv = this.currentMetadataDiv.querySelector('.now-playing-metadata');
+            if (existingMetadataDiv) {
+                // Will be updated by loadMetadata below
+                existingMetadataDiv.innerHTML = metadataDiv.innerHTML;
+            }
+        }
 
-        // When the audio ends, play next track
-        audio.addEventListener('ended', () => {
-            this.playNextTrack();
-        });
+        // CRITICAL FOR CHROME: Start playback IMMEDIATELY to use the user gesture
+        // before it expires, then load metadata asynchronously
+        let playPromise = null;
+        if (autoPlay || hasGesture) {
+            console.log('Starting playback immediately...', hasGesture ? '(has user gesture)' : '(automatic)');
+            // Start playing right away - don't wait for metadata
+            playPromise = audio.play();
+
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('Autoplay succeeded');
+                }).catch(error => {
+                    console.warn('Autoplay was prevented:', error.name, error.message);
+                    // Update Media Session to show paused state
+                    this.updateMediaSessionPlaybackState('paused');
+                    // On mobile, the user can tap the lock screen play button to resume
+                });
+            }
+        } else {
+            console.log('Autoplay disabled, waiting for user interaction');
+            this.updateMediaSessionPlaybackState('paused');
+        }
+
+        // Fetch and display metadata AFTER starting playback (or in parallel)
+        // Use the correct metadata div reference
+        const targetMetadataDiv = isNewAudioElement ? metadataDiv : this.currentMetadataDiv.querySelector('.now-playing-metadata');
+        await this.loadMetadata(audioSrc, targetMetadataDiv, metadataEndpoint, link);
     }
 
     // Update the current playlist based on visible songs
@@ -1237,7 +1294,10 @@ class AudioHandler {
 
     // Play the next track in the playlist
     playNextTrack() {
+        console.log('playNextTrack called, playlist length:', this.currentPlaylist.length, 'current index:', this.currentTrackIndex);
+
         if (this.currentPlaylist.length === 0) {
+            console.log('No playlist, stopping playback');
             this.hideStickyPlayer();
             this.clearPlayerState();
             document.title = this.originalPageTitle;
@@ -1245,6 +1305,7 @@ class AudioHandler {
         }
 
         this.currentTrackIndex++;
+        console.log('Advanced to index:', this.currentTrackIndex);
 
         if (this.currentTrackIndex >= this.currentPlaylist.length) {
             // End of playlist
@@ -1257,9 +1318,13 @@ class AudioHandler {
         }
 
         const nextLink = this.currentPlaylist[this.currentTrackIndex];
-        if (nextLink) {
-            nextLink.click();
+        if (!nextLink) {
+            console.error('Next link is null or undefined');
+            return;
         }
+
+        // Directly load and play the next track using the existing audio element
+        this.advanceToTrack(nextLink);
     }
 
 
@@ -1435,6 +1500,210 @@ class AudioHandler {
 
         // Update the page title with artist and song title
         document.title = `${metadata.artist} - ${metadata.title}`;
+
+        // Update Media Session API with metadata
+        this.updateMediaSession(metadata, artworkSrc);
+    }
+
+    // Media Session API integration for lock screen controls and background playback
+    updateMediaSession(metadata, artworkSrc) {
+        if ('mediaSession' in navigator) {
+            console.log('Updating Media Session with:', metadata);
+
+            // Set metadata for lock screen and notifications
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: metadata.title || 'Unknown Title',
+                artist: metadata.artist || 'Unknown Artist',
+                album: metadata.album || 'Unknown Album',
+                artwork: [
+                    { src: artworkSrc, sizes: '96x96', type: 'image/png' },
+                    { src: artworkSrc, sizes: '128x128', type: 'image/png' },
+                    { src: artworkSrc, sizes: '192x192', type: 'image/png' },
+                    { src: artworkSrc, sizes: '256x256', type: 'image/png' },
+                    { src: artworkSrc, sizes: '384x384', type: 'image/png' },
+                    { src: artworkSrc, sizes: '512x512', type: 'image/png' }
+                ]
+            });
+
+            // Set up action handlers for lock screen controls
+            navigator.mediaSession.setActionHandler('play', () => {
+                console.log('Media Session: Play button pressed');
+                if (this.currentAudio) {
+                    const playPromise = this.currentAudio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            console.log('Playback resumed from lock screen');
+                        }).catch(e => {
+                            console.error('Failed to play from lock screen:', e);
+                        });
+                    }
+                }
+            });
+
+            navigator.mediaSession.setActionHandler('pause', () => {
+                console.log('Media Session: Pause button pressed');
+                if (this.currentAudio) {
+                    this.currentAudio.pause();
+                }
+            });
+
+            navigator.mediaSession.setActionHandler('previoustrack', () => {
+                console.log('Media Session: Previous Track (user gesture)');
+                this.hasUserGesture = true;
+                this.playPreviousTrack();
+            });
+
+            navigator.mediaSession.setActionHandler('nexttrack', () => {
+                console.log('Media Session: Next Track (user gesture)');
+                this.hasUserGesture = true;
+                this.playNextTrack();
+            });
+
+            // Seek controls for lock screen
+            navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+                console.log('Media Session: Seek Backward');
+                if (this.currentAudio) {
+                    const skipTime = details.seekOffset || 10;
+                    this.currentAudio.currentTime = Math.max(this.currentAudio.currentTime - skipTime, 0);
+                }
+            });
+
+            navigator.mediaSession.setActionHandler('seekforward', (details) => {
+                console.log('Media Session: Seek Forward');
+                if (this.currentAudio) {
+                    const skipTime = details.seekOffset || 10;
+                    this.currentAudio.currentTime = Math.min(
+                        this.currentAudio.currentTime + skipTime,
+                        this.currentAudio.duration
+                    );
+                }
+            });
+
+            // Seek to specific position
+            navigator.mediaSession.setActionHandler('seekto', (details) => {
+                console.log('Media Session: Seek To', details.seekTime);
+                if (this.currentAudio && details.seekTime !== undefined) {
+                    this.currentAudio.currentTime = details.seekTime;
+                }
+            });
+
+            // Update position state for lock screen progress bar
+            if (this.currentAudio && !isNaN(this.currentAudio.duration)) {
+                navigator.mediaSession.setPositionState({
+                    duration: this.currentAudio.duration,
+                    playbackRate: this.currentAudio.playbackRate,
+                    position: this.currentAudio.currentTime
+                });
+            }
+
+            console.log('Media Session API configured successfully');
+        } else {
+            console.log('Media Session API not supported in this browser');
+        }
+    }
+
+    // Play the previous track in the playlist
+    playPreviousTrack() {
+        if (this.currentPlaylist.length === 0) {
+            return;
+        }
+
+        this.currentTrackIndex--;
+
+        if (this.currentTrackIndex < 0) {
+            // Loop to end of playlist
+            this.currentTrackIndex = this.currentPlaylist.length - 1;
+        }
+
+        const previousLink = this.currentPlaylist[this.currentTrackIndex];
+        if (previousLink) {
+            // Directly load and play the previous track
+            this.advanceToTrack(previousLink);
+        }
+    }
+
+    // Shared method to advance to a specific track without recreating the audio element
+    advanceToTrack(link) {
+        if (!this.currentAudio) {
+            console.error('No audio element to advance');
+            return;
+        }
+
+        console.log('Advancing to track:', link);
+
+        // Get the audio source info
+        const audioType = link.dataset.audioType;
+        let audioSrc = '';
+        let metadataEndpoint = '';
+
+        if (audioType === 'local') {
+            const relativePath = link.dataset.relativePath;
+            if (relativePath) {
+                const encodedPath = relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                audioSrc = `music/${encodedPath}`;
+                metadataEndpoint = 'local';
+            }
+        } else if (audioType === 'b2') {
+            audioSrc = link.dataset.proxyUrl;
+            metadataEndpoint = 'b2';
+        }
+
+        if (!audioSrc) {
+            console.error('Could not determine audio source');
+            return;
+        }
+
+        console.log('Loading track:', audioSrc);
+        this.currentLink = link;
+
+        // Change the source
+        this.currentAudio.src = audioSrc;
+        this.currentAudio.load();
+
+        // Start playing immediately
+        const playPromise = this.currentAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                console.log('Track playing successfully');
+            }).catch(error => {
+                console.warn('Autoplay prevented:', error.name);
+            });
+        }
+
+        // Update metadata asynchronously
+        const metadataDiv = this.currentMetadataDiv.querySelector('.now-playing-metadata');
+        if (metadataDiv) {
+            this.loadMetadata(audioSrc, metadataDiv, metadataEndpoint, link);
+        }
+
+        // Save state
+        this.savePlayerState();
+    }
+
+    // Update Media Session position state for lock screen progress
+    updateMediaSessionPosition() {
+        if ('mediaSession' in navigator && this.currentAudio) {
+            if (!isNaN(this.currentAudio.duration) && isFinite(this.currentAudio.duration)) {
+                try {
+                    navigator.mediaSession.setPositionState({
+                        duration: this.currentAudio.duration,
+                        playbackRate: this.currentAudio.playbackRate,
+                        position: this.currentAudio.currentTime
+                    });
+                } catch (e) {
+                    // Silently fail if position state update fails
+                    console.debug('Position state update failed:', e);
+                }
+            }
+        }
+    }
+
+    // Update Media Session playback state
+    updateMediaSessionPlaybackState(state) {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = state;
+            console.log('Media Session playback state:', state);
+        }
     }
 
 }
