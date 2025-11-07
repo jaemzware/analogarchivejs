@@ -456,7 +456,17 @@ class AudioHandler {
             audioWrapper.appendChild(speedControlDiv);
             container.appendChild(audioWrapper);
 
-            this.stickyPlayerContainer.appendChild(container);
+            // Clear placeholder and append to content wrapper
+            if (this.playerContentWrapper) {
+                // Remove placeholder if it exists
+                const placeholder = this.playerContentWrapper.querySelector('.player-placeholder');
+                if (placeholder) {
+                    placeholder.remove();
+                }
+                this.playerContentWrapper.appendChild(container);
+            } else {
+                this.stickyPlayerContainer.appendChild(container);
+            }
             this.showStickyPlayer();
 
             this.currentAudio = audio;
@@ -526,9 +536,67 @@ class AudioHandler {
 
         const playerContainer = document.createElement('div');
         playerContainer.id = 'sticky-audio-player';
-        playerContainer.className = 'sticky-audio-player hidden';
+        // Don't add 'hidden' class - show player immediately
+        playerContainer.className = 'sticky-audio-player';
+
+        // Create content wrapper (this is what gets hidden/shown)
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'player-content';
+
+        // Add placeholder content when no audio is playing
+        const placeholder = document.createElement('div');
+        placeholder.className = 'player-placeholder';
+        placeholder.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #666;">
+                <div style="font-size: 24px; margin-bottom: 10px;">🎵</div>
+                <div>Click a song to start playing</div>
+            </div>
+        `;
+        contentWrapper.appendChild(placeholder);
+        playerContainer.appendChild(contentWrapper);
+
+        // Create toggle button OUTSIDE the content wrapper
+        const toggleButton = document.createElement('button');
+        toggleButton.className = 'player-toggle-button';
+        toggleButton.innerHTML = '&#9660;'; // Down arrow (chevron)
+        toggleButton.title = 'Hide audio player';
+        toggleButton.setAttribute('aria-label', 'Toggle audio player visibility');
+
+        // Toggle handler
+        toggleButton.addEventListener('click', () => {
+            const isCollapsed = contentWrapper.classList.toggle('collapsed');
+            toggleButton.innerHTML = isCollapsed ? '&#9650;' : '&#9660;'; // Up or down arrow
+            toggleButton.title = isCollapsed ? 'Show audio player' : 'Hide audio player';
+
+            // Save the collapsed state
+            sessionStorage.setItem('audioPlayerCollapsed', isCollapsed ? 'true' : 'false');
+
+            // Adjust body padding based on collapsed state
+            this.adjustBodyPadding(isCollapsed);
+        });
+
+        playerContainer.appendChild(toggleButton);
         document.body.appendChild(playerContainer);
         this.stickyPlayerContainer = playerContainer;
+        this.playerContentWrapper = contentWrapper; // Store reference to content wrapper
+
+        // Show the player immediately and add body padding
+        document.body.classList.add('player-active');
+
+        // Only restore collapsed state if there's also audio player state being restored
+        // Otherwise, start expanded (placeholder should be visible)
+        const hasAudioState = sessionStorage.getItem('audioPlayerState');
+        const wasCollapsed = sessionStorage.getItem('audioPlayerCollapsed') === 'true';
+
+        if (hasAudioState && wasCollapsed) {
+            contentWrapper.classList.add('collapsed');
+            toggleButton.innerHTML = '&#9650;';
+            toggleButton.title = 'Show audio player';
+            this.adjustBodyPadding(true);
+        } else {
+            // Start expanded by default
+            this.adjustBodyPadding(false);
+        }
     }
 
     // Show the sticky player
@@ -536,6 +604,23 @@ class AudioHandler {
         if (this.stickyPlayerContainer) {
             this.stickyPlayerContainer.classList.remove('hidden');
             document.body.classList.add('player-active');
+
+            // Adjust padding based on whether it's collapsed
+            const isCollapsed = this.playerContentWrapper && this.playerContentWrapper.classList.contains('collapsed');
+            this.adjustBodyPadding(isCollapsed);
+        }
+    }
+
+    // Adjust body padding based on player state
+    adjustBodyPadding(isCollapsed) {
+        if (isCollapsed) {
+            // Smaller padding when collapsed - just enough for the toggle button
+            const isMobile = window.innerWidth <= 768;
+            document.body.style.paddingBottom = isMobile ? '40px' : '50px';
+        } else {
+            // Full padding when expanded
+            const isMobile = window.innerWidth <= 768;
+            document.body.style.paddingBottom = isMobile ? '95px' : '200px';
         }
     }
 
@@ -1213,9 +1298,10 @@ class AudioHandler {
 
         // Only rebuild UI if this is a new audio element
         if (isNewAudioElement) {
-            // Clear the sticky player container
-            if (this.stickyPlayerContainer) {
-                this.stickyPlayerContainer.innerHTML = '';
+            // DON'T clear the entire container - it destroys the toggle button!
+            // Just clear the content wrapper
+            if (this.playerContentWrapper) {
+                this.playerContentWrapper.innerHTML = '';
             }
 
             // Put player in sticky container
@@ -1230,8 +1316,12 @@ class AudioHandler {
 
             container.appendChild(audioWrapper);
 
-            // Add to sticky player container
-            this.stickyPlayerContainer.appendChild(container);
+            // Add to content wrapper (placeholder already cleared above)
+            if (this.playerContentWrapper) {
+                this.playerContentWrapper.appendChild(container);
+            } else {
+                this.stickyPlayerContainer.appendChild(container);
+            }
             this.showStickyPlayer();
 
             // Store references
