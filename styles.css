@@ -491,11 +491,64 @@ audio {
     border-top: 3px solid #333;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
     padding: 15px 20px;
-    transition: transform 0.3s ease-in-out;
+    transition: transform 0.3s ease-in-out, padding 0.3s ease-in-out;
 }
 
 .sticky-audio-player.hidden {
     transform: translateY(100%);
+}
+
+/* Content wrapper that can be collapsed */
+.player-content {
+    transition: all 0.3s ease-in-out;
+    max-height: 300px;
+    overflow: visible;
+}
+
+/* Collapsed state - hide content completely */
+.player-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+/* Toggle button for show/hide - always visible when player is active */
+.player-toggle-button {
+    position: absolute;
+    top: -30px;
+    right: 20px;
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    border: 2px solid #333;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    color: deepskyblue;
+    font-size: 16px;
+    width: 50px;
+    height: 30px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2001; /* Above player content */
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* When player is hidden, hide ONLY the button (keep with parent) */
+.sticky-audio-player.hidden {
+    transform: translateY(100%);
+}
+
+.player-toggle-button:hover {
+    background: linear-gradient(135deg, #2d2d2d, #3a3a3a);
+    color: lime;
+    border-color: lime;
+}
+
+.player-toggle-button:active {
+    transform: scale(0.95);
 }
 
 .sticky-audio-player .now-playing-metadata {
@@ -644,4 +697,15 @@ body.player-active {
     body.player-active {
         padding-bottom: 95px;
     }
+
+    /* Mobile styles for toggle button */
+    .player-toggle-button {
+        top: -25px;
+        right: 10px;
+        width: 40px;
+        height: 25px;
+        font-size: 14px;
+    }
+
+    /* No additional mobile-specific collapsed styles needed - content wrapper handles it */
 }
