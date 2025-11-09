@@ -587,6 +587,42 @@ app.get('/rescan', async (req, res) => {
     }
 });
 
+// Rescan B2 bucket folder (clear cache to force fresh fetch)
+app.get('/rescan-b2/:folder', async (req, res) => {
+    try {
+        const folderName = req.params.folder;
+
+        // Validate folder name
+        if (folderName !== 'analog' && folderName !== 'live') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid folder',
+                message: 'Folder must be either "analog" or "live"'
+            });
+        }
+
+        console.log(`Manual B2 rescan triggered for folder: ${folderName}`);
+
+        // Clear the cache for this folder
+        const folderCacheKey = folderName;
+        folderListingCache.delete(folderCacheKey);
+        console.log(`✓ Cleared cache for folder: ${folderName}`);
+
+        res.json({
+            success: true,
+            folder: folderName,
+            message: `B2 cache cleared for ${folderName}. Fresh data will be fetched on next page load.`
+        });
+    } catch (err) {
+        console.error('B2 rescan failed:', err);
+        res.status(500).json({
+            success: false,
+            error: 'B2 rescan failed',
+            message: err.message
+        });
+    }
+});
+
 // API endpoint to get all files for search
 app.get('/api/all-files', async (req, res) => {
     try {

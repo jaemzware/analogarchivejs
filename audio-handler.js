@@ -667,9 +667,13 @@ class AudioHandler {
         const container = document.querySelector('.container');
         if (!container) return;
 
-        // Determine if we're on the local files page (root endpoint)
-        const isLocalPage = window.location.pathname === '/';
-        const rescanButton = isLocalPage ? '<button class="rescan-button" id="rescanButton">&#128257; Rescan</button>' : '';
+        // Determine if we're on a page that supports rescanning
+        const pathname = window.location.pathname;
+        const isLocalPage = pathname === '/';
+        const isAnalogPage = pathname === '/analog';
+        const isLivePage = pathname === '/live';
+        const showRescanButton = isLocalPage || isAnalogPage || isLivePage;
+        const rescanButton = showRescanButton ? '<button class="rescan-button" id="rescanButton">&#128257; Rescan</button>' : '';
 
         const searchHTML = `
             <div class="search-container">
@@ -738,7 +742,17 @@ class AudioHandler {
             button.disabled = true;
             button.textContent = '\u23F3 Scanning...';
 
-            const response = await fetch('/rescan');
+            // Determine which endpoint to call based on current page
+            const pathname = window.location.pathname;
+            let rescanUrl = '/rescan'; // default for local files
+
+            if (pathname === '/analog') {
+                rescanUrl = '/rescan-b2/analog';
+            } else if (pathname === '/live') {
+                rescanUrl = '/rescan-b2/live';
+            }
+
+            const response = await fetch(rescanUrl);
             const result = await response.json();
 
             if (result.success) {
