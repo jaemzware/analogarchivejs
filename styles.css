@@ -7,7 +7,7 @@ body {
     color: #333;
 }
 
-/* Top Navigation Bar */
+/* Top Navigation Bar - Combined row */
 .top-nav {
     position: sticky;
     top: 0;
@@ -17,7 +17,14 @@ body {
     padding: 10px 20px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.5);
     display: flex;
+    flex-wrap: wrap;
     gap: 15px;
+    align-items: center;
+}
+
+.top-nav-left {
+    display: flex;
+    gap: 10px;
     align-items: center;
 }
 
@@ -29,6 +36,7 @@ body {
     transition: all 0.2s ease;
     font-weight: 500;
     font-size: 15px;
+    white-space: nowrap;
 }
 
 .top-nav-link:hover {
@@ -42,24 +50,25 @@ body {
     border: 1px solid lime;
 }
 
-/* Breadcrumb Navigation */
+/* Breadcrumb Navigation - now inside top-nav */
 .breadcrumb {
-    position: sticky;
-    top: 44px; /* Position below top-nav */
-    z-index: 1001;
-    background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
-    border-bottom: 2px solid #333;
-    padding: 12px 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    color: lime;
+    font-style: italic;
 }
 
 .breadcrumb-link {
     color: deepskyblue;
-    text-decoration: none;
-    padding: 5px 10px;
-    border-radius: 4px;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    padding: 4px 8px;
+    border-radius: 3px;
     transition: all 0.2s ease;
+    font-size: 13px;
 }
 
 .breadcrumb-link:hover {
@@ -67,26 +76,26 @@ body {
     color: lime;
 }
 
-/* Search Bar Styles */
-.search-container {
-    position: sticky;
-    top: 90px; /* Position below top-nav + breadcrumb */
-    z-index: 1000;
-    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
-    border-bottom: 3px solid #333;
-    padding: 15px 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    margin-bottom: 20px;
+.breadcrumb-current {
+    color: lime;
+    font-weight: 500;
 }
 
-.search-bar {
-    width: 100%;
-    max-width: 800px;
-    margin: 0 auto;
-    position: relative;
+/* Search Bar - now inside top-nav-right */
+.top-nav-right {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex: 1;
+    justify-content: flex-end;
+    min-width: 300px;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
 }
 
 .search-input {
@@ -173,6 +182,10 @@ body {
     display: none !important;
 }
 
+.folder-row.search-hidden {
+    display: none !important;
+}
+
 /* Highlight search matches */
 .search-highlight {
     background: rgba(255, 215, 0, 0.4);
@@ -196,28 +209,39 @@ body {
 .song-row {
     display: flex;
     align-items: stretch;
-    margin-bottom: 15px;
     gap: 5px;
+    margin-bottom: 15px;
 }
 
-/* Folder row styling */
+/* Folder row styling - flows horizontally like tags/chips */
 .folder-row {
-    margin-bottom: 15px;
+    display: inline-block; /* Flow horizontally like inline elements */
+    margin-right: 10px;
+    margin-bottom: 10px;
+    vertical-align: top;
+}
+
+/* Override song-row styles when it's also a folder-row */
+.song-row.folder-row {
+    display: inline-block;
+    margin-right: 10px;
+    margin-bottom: 10px;
 }
 
 .folder-link {
-    display: block;
-    padding: 18px 20px;
+    display: inline-block;
+    padding: 12px 16px;
     border: 2px solid #ccc;
     border-radius: 5px;
     background-color: #fff;
     text-decoration: none;
     transition: all 0.2s ease-in-out;
-    font-size: 20px;
+    font-size: 16px;
     color: #333;
     font-weight: 600;
     cursor: pointer;
     background: linear-gradient(135deg, #ffffff, #f5f5f5);
+    white-space: nowrap; /* Prevent text wrapping inside button */
 }
 
 .folder-link:hover {
@@ -306,15 +330,48 @@ body {
     letter-spacing: 0;
 }
 
+/* Tablet breakpoint - folders flow naturally */
+@media screen and (max-width: 1024px) {
+    .folder-link {
+        font-size: 15px;
+        padding: 10px 14px;
+    }
+}
+
 /* Make the links responsive */
 @media screen and (max-width: 768px) {
-    .search-container {
-        padding: 10px 15px;
+    .top-nav {
+        padding: 8px 12px;
+        gap: 10px;
+        width: 100vw;
+        max-width: 100%;
+        box-sizing: border-box;
+        margin: 0;
+        left: 0;
+        right: 0;
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+    }
+
+    .top-nav-right {
+        min-width: 100%;
+        order: 3; /* Search bar wraps to bottom on mobile */
+    }
+
+    .breadcrumb {
+        order: 2;
+        font-size: 12px;
     }
 
     .search-bar {
         flex-wrap: wrap;
         gap: 8px;
+    }
+
+    body {
+        overflow-x: hidden;
+        width: 100%;
+        position: relative;
     }
 
     .search-input {
@@ -347,14 +404,26 @@ body {
     }
 
     .container {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        grid-gap: 10px;
         padding: 20px;
+        gap: 10px;
     }
 
     .song-row {
-        margin-bottom: 10px;
         gap: 3px;
+    }
+
+    /* On mobile, allow folder names to wrap and take full width if needed */
+    .folder-link {
+        font-size: 14px;
+        padding: 10px 12px;
+        white-space: normal; /* Allow wrapping on mobile */
+        word-break: break-word; /* Break long words */
+        max-width: 100%; /* Don't overflow screen */
+    }
+
+    .folder-row,
+    .song-row.folder-row {
+        max-width: 100%; /* Folders can take full width on mobile if needed */
     }
 
     .link {
@@ -595,13 +664,25 @@ body.player-active {
 /* Mobile responsive for sticky player - make everything 50% smaller */
 @media screen and (max-width: 768px) {
     .sticky-audio-player {
-        padding: 5px 8px;
+        padding: 5px;
+        width: 100vw;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: visible !important; /* Allow toggle button to show */
+        margin: 0;
+        left: 0;
+        right: 0;
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
     }
 
     .sticky-audio-player .now-playing-metadata {
         padding: 6px 8px;
         margin-bottom: 5px;
         border-radius: 4px;
+        overflow: hidden;
     }
 
     .sticky-audio-player .now-playing-metadata img {
@@ -615,6 +696,7 @@ body.player-active {
     .sticky-audio-player .now-playing-metadata > div {
         flex: 1;
         min-width: 0;
+        overflow: hidden;
     }
 
     .sticky-audio-player .now-playing-metadata > div > div:nth-child(1) {
@@ -652,35 +734,38 @@ body.player-active {
     .sticky-audio-player .audio-player-wrapper {
         flex-direction: row;
         align-items: center;
-        gap: 5px;
+        gap: 3px;
         flex-wrap: wrap;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .sticky-audio-player audio {
         flex: 1;
-        min-width: 180px;
+        min-width: 150px;
         max-width: 100%;
         height: 32px;
     }
 
     .sticky-audio-player .speed-control {
-        padding: 4px 8px;
+        padding: 3px 5px;
         border-radius: 4px;
         font-size: 10px;
-        gap: 4px;
+        gap: 3px;
     }
 
     .sticky-audio-player .speed-control label {
-        margin-right: 4px;
+        margin-right: 2px;
+        display: none; /* Hide "Speed:" label on mobile to save space */
     }
 
     .sticky-audio-player .speed-value {
-        min-width: 32px;
-        font-size: 10px;
+        min-width: 28px;
+        font-size: 9px;
     }
 
     .sticky-audio-player .speed-slider {
-        width: 60px;
+        width: 40px;
         height: 4px;
     }
 
@@ -705,6 +790,10 @@ body.player-active {
         width: 40px;
         height: 25px;
         font-size: 14px;
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 2002;
     }
 
     /* No additional mobile-specific collapsed styles needed - content wrapper handles it */

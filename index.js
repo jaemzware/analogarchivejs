@@ -587,6 +587,42 @@ app.get('/rescan', async (req, res) => {
     }
 });
 
+// Rescan B2 bucket folder (clear cache to force fresh fetch)
+app.get('/rescan-b2/:folder', async (req, res) => {
+    try {
+        const folderName = req.params.folder;
+
+        // Validate folder name
+        if (folderName !== 'analog' && folderName !== 'live') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid folder',
+                message: 'Folder must be either "analog" or "live"'
+            });
+        }
+
+        console.log(`Manual B2 rescan triggered for folder: ${folderName}`);
+
+        // Clear the cache for this folder
+        const folderCacheKey = folderName;
+        folderListingCache.delete(folderCacheKey);
+        console.log(`✓ Cleared cache for folder: ${folderName}`);
+
+        res.json({
+            success: true,
+            folder: folderName,
+            message: `B2 cache cleared for ${folderName}. Fresh data will be fetched on next page load.`
+        });
+    } catch (err) {
+        console.error('B2 rescan failed:', err);
+        res.status(500).json({
+            success: false,
+            error: 'B2 rescan failed',
+            message: err.message
+        });
+    }
+});
+
 // API endpoint to get all files for search
 app.get('/api/all-files', async (req, res) => {
     try {
@@ -870,11 +906,18 @@ app.get('/', async (req,res) =>{
 
         // Build breadcrumb path
         const pathParts = currentPath ? currentPath.split('/') : [];
-        let breadcrumbHtml = '<a href="/" class="breadcrumb-link">Local Music</a>';
+        let breadcrumbHtml = pathParts.length > 0
+            ? '<a href="/" class="breadcrumb-link">Local Music</a>'
+            : '<span class="breadcrumb-current">Local Music</span>';
         let buildPath = '';
-        pathParts.forEach(part => {
+        pathParts.forEach((part, index) => {
             buildPath += (buildPath ? '/' : '') + part;
-            breadcrumbHtml += ` / <a href="/?dir=${encodeURIComponent(buildPath)}" class="breadcrumb-link">${part}</a>`;
+            const isLast = index === pathParts.length - 1;
+            if (isLast) {
+                breadcrumbHtml += ` / <span class="breadcrumb-current">${part}</span>`;
+            } else {
+                breadcrumbHtml += ` / <a href="/?dir=${encodeURIComponent(buildPath)}" class="breadcrumb-link">${part}</a>`;
+            }
         });
 
         // Send HTML head right away
@@ -886,11 +929,13 @@ app.get('/', async (req,res) =>{
 </head>
 <body>
 <nav class="top-nav">
-    <a href="/" class="top-nav-link active">Local Music</a>
-    <a href="/analog" class="top-nav-link">Analog (Cloud)</a>
-    <a href="/live" class="top-nav-link">Live (Cloud)</a>
+    <div class="top-nav-left">
+        <a href="/" class="top-nav-link active">Local Music</a>
+        <a href="/analog" class="top-nav-link">Analog (Cloud)</a>
+        <a href="/live" class="top-nav-link">Live (Cloud)</a>
+    </div>
+    <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
-<div class="breadcrumb">${breadcrumbHtml}</div>
 <div class="container">
 `);
 
@@ -1102,7 +1147,10 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
 
         // Build breadcrumb navigation
-        let breadcrumbHtml = `<a href="/${folderName}" class="breadcrumb-link">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</a>`;
+        const folderDisplayName = folderName.charAt(0).toUpperCase() + folderName.slice(1);
+        let breadcrumbHtml = currentDir
+            ? `<a href="/${folderName}" class="breadcrumb-link">${folderDisplayName}</a>`
+            : `<span class="breadcrumb-current">${folderDisplayName}</span>`;
 
         if (currentDir) {
             const pathParts = currentDir.split('/');
@@ -1111,7 +1159,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 accumulatedPath += (i > 0 ? '/' : '') + pathParts[i];
                 const isLast = i === pathParts.length - 1;
                 if (isLast) {
-                    breadcrumbHtml += ` / <span style="color: deepskyblue;">${pathParts[i]}</span>`;
+                    breadcrumbHtml += ` / <span class="breadcrumb-current">${pathParts[i]}</span>`;
                 } else {
                     breadcrumbHtml += ` / <a href="/${folderName}?dir=${encodeURIComponent(accumulatedPath)}" class="breadcrumb-link">${pathParts[i]}</a>`;
                 }
@@ -1128,11 +1176,13 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 </head>
 <body>
 <nav class="top-nav">
-    <a href="/" class="top-nav-link">Local Music</a>
-    <a href="/analog" class="top-nav-link${folderName === 'analog' ? ' active' : ''}">Analog (Cloud)</a>
-    <a href="/live" class="top-nav-link${folderName === 'live' ? ' active' : ''}">Live (Cloud)</a>
+    <div class="top-nav-left">
+        <a href="/" class="top-nav-link">Local Music</a>
+        <a href="/analog" class="top-nav-link${folderName === 'analog' ? ' active' : ''}">Analog (Cloud)</a>
+        <a href="/live" class="top-nav-link${folderName === 'live' ? ' active' : ''}">Live (Cloud)</a>
+    </div>
+    <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
-<div class="breadcrumb">${breadcrumbHtml}</div>
 <div class="container">`);
 
         // Render subdirectories (folders)
