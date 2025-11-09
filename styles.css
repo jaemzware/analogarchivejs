@@ -398,10 +398,18 @@ body {
         gap: 3px;
     }
 
-    /* On mobile, slightly smaller folder buttons */
+    /* On mobile, allow folder names to wrap and take full width if needed */
     .folder-link {
         font-size: 14px;
         padding: 10px 12px;
+        white-space: normal; /* Allow wrapping on mobile */
+        word-break: break-word; /* Break long words */
+        max-width: 100%; /* Don't overflow screen */
+    }
+
+    .folder-row,
+    .song-row.folder-row {
+        max-width: 100%; /* Folders can take full width on mobile if needed */
     }
 
     .link {
@@ -643,12 +651,16 @@ body.player-active {
 @media screen and (max-width: 768px) {
     .sticky-audio-player {
         padding: 5px 8px;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     .sticky-audio-player .now-playing-metadata {
         padding: 6px 8px;
         margin-bottom: 5px;
         border-radius: 4px;
+        overflow: hidden;
     }
 
     .sticky-audio-player .now-playing-metadata img {
@@ -662,6 +674,7 @@ body.player-active {
     .sticky-audio-player .now-playing-metadata > div {
         flex: 1;
         min-width: 0;
+        overflow: hidden;
     }
 
     .sticky-audio-player .now-playing-metadata > div > div:nth-child(1) {
