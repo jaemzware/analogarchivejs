@@ -188,7 +188,9 @@ body {
 
 /* Existing styles with enhancements */
 .container {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
     background-color: #fafafa;
     padding: 40px;
     padding-top: 20px; /* Reduced top padding since search bar adds spacing */
@@ -200,13 +202,23 @@ body {
 .song-row {
     display: flex;
     align-items: stretch;
-    margin-bottom: 15px;
     gap: 5px;
+    flex: 1 1 100%; /* Take full width */
+    min-width: 100%; /* Ensure it always takes full width */
 }
 
-/* Folder row styling */
+/* Folder row styling - flows horizontally (overrides song-row when both classes present) */
 .folder-row {
-    margin-bottom: 15px;
+    flex: 0 1 auto; /* Allow flexible sizing */
+    min-width: 200px; /* Minimum width for readability */
+    max-width: calc(33.333% - 10px); /* Max 3 columns on wide screens */
+}
+
+/* Override song-row styles when it's also a folder-row */
+.song-row.folder-row {
+    flex: 0 1 auto;
+    min-width: 200px;
+    max-width: calc(33.333% - 10px);
 }
 
 .folder-link {
@@ -310,6 +322,14 @@ body {
     letter-spacing: 0;
 }
 
+/* Tablet breakpoint - 2 columns for folders */
+@media screen and (max-width: 1024px) {
+    .folder-row,
+    .song-row.folder-row {
+        max-width: calc(50% - 7.5px); /* 2 columns on tablets */
+    }
+}
+
 /* Make the links responsive */
 @media screen and (max-width: 768px) {
     .search-container {
@@ -351,14 +371,19 @@ body {
     }
 
     .container {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        grid-gap: 10px;
         padding: 20px;
+        gap: 10px;
     }
 
     .song-row {
-        margin-bottom: 10px;
         gap: 3px;
+    }
+
+    /* On mobile, folders take up more width (2 columns max) */
+    .folder-row,
+    .song-row.folder-row {
+        min-width: 150px;
+        max-width: calc(50% - 5px); /* 2 columns on mobile */
     }
 
     .link {
