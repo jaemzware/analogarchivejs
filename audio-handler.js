@@ -921,13 +921,13 @@ class AudioHandler {
                     }
                 } else {
                     // Handle regular links (current page)
-                    // Re-query for songRow at search time instead of using cached reference
-                    const songRow = link ? link.closest('.song-row') : null;
+                    // Re-query for parent row at search time (could be song-row or folder-row)
+                    const parentRow = link ? link.closest('.song-row, .folder-row') : null;
 
                     if (matches) {
-                        // Hide/show the parent song-row if it exists, otherwise hide the link
-                        if (songRow) {
-                            songRow.classList.remove('search-hidden');
+                        // Hide/show the parent row if it exists, otherwise hide the link
+                        if (parentRow) {
+                            parentRow.classList.remove('search-hidden');
                             // Also ensure the link itself doesn't have the class
                             if (link) link.classList.remove('search-hidden');
                         } else if (link) {
@@ -936,8 +936,8 @@ class AudioHandler {
                         if (link) this.highlightMatches(link, searchTerms);
                         visibleCount++;
                     } else {
-                        if (songRow) {
-                            songRow.classList.add('search-hidden');
+                        if (parentRow) {
+                            parentRow.classList.add('search-hidden');
                             // Also ensure the link itself doesn't have the class
                             if (link) link.classList.remove('search-hidden');
                         } else if (link) {
@@ -1041,8 +1041,10 @@ class AudioHandler {
 
                 // Highlight matching terms
                 let displayText = fileInfo.fileName;
-                searchTerms.forEach(term => {
-                    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+                // Sort terms by length (longest first) to avoid partial matches
+                const sortedTerms = [...searchTerms].sort((a, b) => b.length - a.length);
+                sortedTerms.forEach(term => {
+                    const regex = new RegExp(`(?![^<]*>|[^<>]*</)(${this.escapeRegex(term)})`, 'gi');
                     displayText = displayText.replace(regex, '<span class="search-highlight">$1</span>');
                 });
 
@@ -1090,11 +1092,16 @@ class AudioHandler {
             link.dataset.originalContent = link.innerHTML;
         }
 
+        // Always start with clean original content
         let content = link.dataset.originalContent;
 
-        // Highlight each search term
-        searchTerms.forEach(term => {
-            const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+        // Sort terms by length (longest first) to avoid partial matches being highlighted first
+        const sortedTerms = [...searchTerms].sort((a, b) => b.length - a.length);
+
+        // Highlight each search term, but avoid re-highlighting already highlighted content
+        sortedTerms.forEach(term => {
+            // Match term only if it's not already inside a highlight span
+            const regex = new RegExp(`(?![^<]*>|[^<>]*</)(${ this.escapeRegex(term)})`, 'gi');
             content = content.replace(regex, '<span class="search-highlight">$1</span>');
         });
 

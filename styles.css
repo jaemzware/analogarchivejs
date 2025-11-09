@@ -173,6 +173,10 @@ body {
     display: none !important;
 }
 
+.folder-row.search-hidden {
+    display: none !important;
+}
+
 /* Highlight search matches */
 .search-highlight {
     background: rgba(255, 215, 0, 0.4);
