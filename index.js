@@ -922,11 +922,13 @@ app.get('/', async (req,res) =>{
 </head>
 <body>
 <nav class="top-nav">
-    <a href="/" class="top-nav-link active">Local Music</a>
-    <a href="/analog" class="top-nav-link">Analog (Cloud)</a>
-    <a href="/live" class="top-nav-link">Live (Cloud)</a>
+    <div class="top-nav-left">
+        <a href="/" class="top-nav-link active">Local Music</a>
+        <a href="/analog" class="top-nav-link">Analog (Cloud)</a>
+        <a href="/live" class="top-nav-link">Live (Cloud)</a>
+    </div>
+    <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
-<div class="breadcrumb">${breadcrumbHtml}</div>
 <div class="container">
 `);
 
@@ -1164,11 +1166,13 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 </head>
 <body>
 <nav class="top-nav">
-    <a href="/" class="top-nav-link">Local Music</a>
-    <a href="/analog" class="top-nav-link${folderName === 'analog' ? ' active' : ''}">Analog (Cloud)</a>
-    <a href="/live" class="top-nav-link${folderName === 'live' ? ' active' : ''}">Live (Cloud)</a>
+    <div class="top-nav-left">
+        <a href="/" class="top-nav-link">Local Music</a>
+        <a href="/analog" class="top-nav-link${folderName === 'analog' ? ' active' : ''}">Analog (Cloud)</a>
+        <a href="/live" class="top-nav-link${folderName === 'live' ? ' active' : ''}">Live (Cloud)</a>
+    </div>
+    <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
-<div class="breadcrumb">${breadcrumbHtml}</div>
 <div class="container">`);
 
         // Render subdirectories (folders)

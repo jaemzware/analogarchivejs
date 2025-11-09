@@ -664,8 +664,8 @@ class AudioHandler {
 
     // Setup search bar HTML and functionality
     setupSearchBar() {
-        const container = document.querySelector('.container');
-        if (!container) return;
+        const topNav = document.querySelector('.top-nav');
+        if (!topNav) return;
 
         // Determine if we're on a page that supports rescanning
         const pathname = window.location.pathname;
@@ -676,7 +676,7 @@ class AudioHandler {
         const rescanButton = showRescanButton ? '<button class="rescan-button" id="rescanButton">&#128257; Rescan</button>' : '';
 
         const searchHTML = `
-            <div class="search-container">
+            <div class="top-nav-right">
                 <div class="search-bar">
                     <div style="position: relative; flex: 1;">
                         <input type="text"
@@ -694,7 +694,7 @@ class AudioHandler {
             </div>
         `;
 
-        container.insertAdjacentHTML('beforebegin', searchHTML);
+        topNav.insertAdjacentHTML('beforeend', searchHTML);
         this.attachSearchListeners();
     }
 
