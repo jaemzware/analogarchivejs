@@ -668,8 +668,7 @@ body.player-active {
         width: 100vw;
         max-width: 100%;
         box-sizing: border-box;
-        overflow-x: hidden;
-        overflow-y: visible; /* Allow toggle button to show above player */
+        overflow: visible !important; /* Allow toggle button to show */
         margin: 0;
         left: 0;
         right: 0;
@@ -791,6 +790,10 @@ body.player-active {
         width: 40px;
         height: 25px;
         font-size: 14px;
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 2002;
     }
 
     /* No additional mobile-specific collapsed styles needed - content wrapper handles it */
