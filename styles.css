@@ -188,9 +188,7 @@ body {
 
 /* Existing styles with enhancements */
 .container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
+    display: block;
     background-color: #fafafa;
     padding: 40px;
     padding-top: 20px; /* Reduced top padding since search bar adds spacing */
@@ -203,37 +201,38 @@ body {
     display: flex;
     align-items: stretch;
     gap: 5px;
-    flex: 1 1 100%; /* Take full width */
-    min-width: 100%; /* Ensure it always takes full width */
+    margin-bottom: 15px;
 }
 
-/* Folder row styling - flows horizontally (overrides song-row when both classes present) */
+/* Folder row styling - flows horizontally like tags/chips */
 .folder-row {
-    flex: 0 1 auto; /* Allow flexible sizing */
-    min-width: 200px; /* Minimum width for readability */
-    max-width: calc(33.333% - 10px); /* Max 3 columns on wide screens */
+    display: inline-block; /* Flow horizontally like inline elements */
+    margin-right: 10px;
+    margin-bottom: 10px;
+    vertical-align: top;
 }
 
 /* Override song-row styles when it's also a folder-row */
 .song-row.folder-row {
-    flex: 0 1 auto;
-    min-width: 200px;
-    max-width: calc(33.333% - 10px);
+    display: inline-block;
+    margin-right: 10px;
+    margin-bottom: 10px;
 }
 
 .folder-link {
-    display: block;
-    padding: 18px 20px;
+    display: inline-block;
+    padding: 12px 16px;
     border: 2px solid #ccc;
     border-radius: 5px;
     background-color: #fff;
     text-decoration: none;
     transition: all 0.2s ease-in-out;
-    font-size: 20px;
+    font-size: 16px;
     color: #333;
     font-weight: 600;
     cursor: pointer;
     background: linear-gradient(135deg, #ffffff, #f5f5f5);
+    white-space: nowrap; /* Prevent text wrapping inside button */
 }
 
 .folder-link:hover {
@@ -322,11 +321,11 @@ body {
     letter-spacing: 0;
 }
 
-/* Tablet breakpoint - 2 columns for folders */
+/* Tablet breakpoint - folders flow naturally */
 @media screen and (max-width: 1024px) {
-    .folder-row,
-    .song-row.folder-row {
-        max-width: calc(50% - 7.5px); /* 2 columns on tablets */
+    .folder-link {
+        font-size: 15px;
+        padding: 10px 14px;
     }
 }
 
@@ -379,11 +378,10 @@ body {
         gap: 3px;
     }
 
-    /* On mobile, folders take up more width (2 columns max) */
-    .folder-row,
-    .song-row.folder-row {
-        min-width: 150px;
-        max-width: calc(50% - 5px); /* 2 columns on mobile */
+    /* On mobile, slightly smaller folder buttons */
+    .folder-link {
+        font-size: 14px;
+        padding: 10px 12px;
     }
 
     .link {
