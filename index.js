@@ -906,11 +906,18 @@ app.get('/', async (req,res) =>{
 
         // Build breadcrumb path
         const pathParts = currentPath ? currentPath.split('/') : [];
-        let breadcrumbHtml = '<a href="/" class="breadcrumb-link">Local Music</a>';
+        let breadcrumbHtml = pathParts.length > 0
+            ? '<a href="/" class="breadcrumb-link">Local Music</a>'
+            : '<span class="breadcrumb-current">Local Music</span>';
         let buildPath = '';
-        pathParts.forEach(part => {
+        pathParts.forEach((part, index) => {
             buildPath += (buildPath ? '/' : '') + part;
-            breadcrumbHtml += ` / <a href="/?dir=${encodeURIComponent(buildPath)}" class="breadcrumb-link">${part}</a>`;
+            const isLast = index === pathParts.length - 1;
+            if (isLast) {
+                breadcrumbHtml += ` / <span class="breadcrumb-current">${part}</span>`;
+            } else {
+                breadcrumbHtml += ` / <a href="/?dir=${encodeURIComponent(buildPath)}" class="breadcrumb-link">${part}</a>`;
+            }
         });
 
         // Send HTML head right away
@@ -1140,7 +1147,10 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
 
         // Build breadcrumb navigation
-        let breadcrumbHtml = `<a href="/${folderName}" class="breadcrumb-link">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</a>`;
+        const folderDisplayName = folderName.charAt(0).toUpperCase() + folderName.slice(1);
+        let breadcrumbHtml = currentDir
+            ? `<a href="/${folderName}" class="breadcrumb-link">${folderDisplayName}</a>`
+            : `<span class="breadcrumb-current">${folderDisplayName}</span>`;
 
         if (currentDir) {
             const pathParts = currentDir.split('/');
@@ -1149,7 +1159,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 accumulatedPath += (i > 0 ? '/' : '') + pathParts[i];
                 const isLast = i === pathParts.length - 1;
                 if (isLast) {
-                    breadcrumbHtml += ` / <span style="color: deepskyblue;">${pathParts[i]}</span>`;
+                    breadcrumbHtml += ` / <span class="breadcrumb-current">${pathParts[i]}</span>`;
                 } else {
                     breadcrumbHtml += ` / <a href="/${folderName}?dir=${encodeURIComponent(accumulatedPath)}" class="breadcrumb-link">${pathParts[i]}</a>`;
                 }

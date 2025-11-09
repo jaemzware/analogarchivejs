@@ -56,13 +56,15 @@ body {
     align-items: center;
     gap: 5px;
     font-size: 14px;
-    color: #999;
+    color: lime;
     font-style: italic;
 }
 
 .breadcrumb-link {
-    color: #888;
-    text-decoration: none;
+    color: deepskyblue;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
     padding: 4px 8px;
     border-radius: 3px;
     transition: all 0.2s ease;
@@ -70,8 +72,13 @@ body {
 }
 
 .breadcrumb-link:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #aaa;
+    background: rgba(0, 191, 255, 0.2);
+    color: lime;
+}
+
+.breadcrumb-current {
+    color: lime;
+    font-weight: 500;
 }
 
 /* Search Bar - now inside top-nav-right */
