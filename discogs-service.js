@@ -13,7 +13,8 @@ class DiscogsService {
         this.lastRequestTime = 0;
         this.minRequestInterval = 1100; // 60 requests/min = ~1000ms, adding buffer
 
-        this.loadConfig();
+        // Promise that resolves when config is loaded
+        this.configLoaded = this.loadConfig();
     }
 
     /**

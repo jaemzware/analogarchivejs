@@ -56,6 +56,8 @@ class AudioHandler {
     async initializeDiscogs() {
         if (typeof DiscogsService !== 'undefined') {
             this.discogsService = new DiscogsService();
+            // Wait for config to load
+            await this.discogsService.configLoaded;
         } else {
             console.warn('DiscogsService not loaded');
         }
@@ -404,7 +406,7 @@ class AudioHandler {
     }
 
     // Restore player state from sessionStorage
-    restorePlayerState() {
+    async restorePlayerState() {
         const stateJson = sessionStorage.getItem('audioPlayerState');
         if (!stateJson) return;
 
@@ -488,7 +490,7 @@ class AudioHandler {
 
             // Display saved metadata and initialize Media Session
             if (state.metadata) {
-                this.displayMetadata(metadataDiv, state.metadata, state.metadataEndpoint);
+                await this.displayMetadata(metadataDiv, state.metadata, state.metadataEndpoint);
             } else {
                 // Initialize Media Session even without full metadata
                 this.updateMediaSessionPlaybackState(state.isPlaying ? 'playing' : 'paused');
@@ -1542,7 +1544,7 @@ class AudioHandler {
                 if (this.metadataCache.has(cacheKey)) {
                     console.log('Using cached metadata for:', cacheKey);
                     const metadata = this.metadataCache.get(cacheKey);
-                    this.displayMetadata(metadataDiv, metadata, metadataEndpoint);
+                    await this.displayMetadata(metadataDiv, metadata, metadataEndpoint);
                     return;
                 }
             }
@@ -1564,7 +1566,7 @@ class AudioHandler {
                 this.updateLinkDisplay(link, metadata);
             }
 
-            this.displayMetadata(metadataDiv, metadata, metadataEndpoint);
+            await this.displayMetadata(metadataDiv, metadata, metadataEndpoint);
 
         } catch (metadataError) {
             console.error('Failed to load metadata:', metadataError);
@@ -1583,7 +1585,7 @@ class AudioHandler {
         }
     }
 
-    displayMetadata(metadataDiv, metadata, metadataEndpoint) {
+    async displayMetadata(metadataDiv, metadata, metadataEndpoint) {
         // Store for session persistence
         this._currentMetadata = metadata;
         this._currentMetadataEndpoint = metadataEndpoint;
@@ -1609,6 +1611,11 @@ class AudioHandler {
                 // Just show the folder name as a badge
                 folderLink = `<span style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: rgba(0,255,127,0.2); color: lime; border-radius: 3px; font-size: 12px;">${folder}</span>`;
             }
+        }
+
+        // Wait for Discogs config to load before checking collection URL
+        if (this.discogsService?.configLoaded) {
+            await this.discogsService.configLoaded;
         }
 
         // Build collection link if available
