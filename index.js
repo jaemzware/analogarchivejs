@@ -225,6 +225,18 @@ app.get('/audio-handler.js', function(req, res) {
     res.set('Content-Type', 'application/javascript');
     res.sendFile(__dirname + '/audio-handler.js');
 });
+app.get('/discogs-service.js', function(req, res) {
+    res.set('Content-Type', 'application/javascript');
+    res.sendFile(__dirname + '/discogs-service.js');
+});
+
+// Discogs configuration endpoint
+app.get('/api/discogs-config', function(req, res) {
+    res.json({
+        token: process.env.DISCOGS_API_TOKEN,
+        collectionUrl: process.env.DISCOGS_COLLECTION
+    });
+});
 
 // Local metadata endpoint for root endpoint files
 app.get('/localmetadata/:filename(.*)', async (req, res) => {
@@ -985,6 +997,7 @@ app.get('/', async (req,res) =>{
 
         // Send footer
         res.write(`</div>
+<script src="/discogs-service.js"></script>
 <script src="/audio-handler.js"></script>
 <script>
     window.addEventListener('DOMContentLoaded', function() {
@@ -1224,6 +1237,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
 
         res.write(`</div>
+<script src="/discogs-service.js"></script>
 <script src="/audio-handler.js"></script>
 <script>
     // Initialize search functionality for B2 pages

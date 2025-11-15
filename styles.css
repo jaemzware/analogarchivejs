@@ -798,3 +798,147 @@ body.player-active {
 
     /* No additional mobile-specific collapsed styles needed - content wrapper handles it */
 }
+
+/* Discogs Integration Styles */
+.discogs-result {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.discogs-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.discogs-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* In Collection style */
+.discogs-in-collection {
+    background: rgba(0, 255, 127, 0.15);
+    color: #00ff7f;
+    border-color: rgba(0, 255, 127, 0.3);
+}
+
+.discogs-in-collection:hover {
+    background: rgba(0, 255, 127, 0.25);
+}
+
+/* Match found style */
+.discogs-match {
+    background: rgba(135, 206, 250, 0.15);
+    color: #87ceeb;
+    border-color: rgba(135, 206, 250, 0.3);
+}
+
+.discogs-match:hover {
+    background: rgba(135, 206, 250, 0.25);
+}
+
+.confidence-badge {
+    display: inline-block;
+    margin: 0 4px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Search link style */
+.discogs-search, .discogs-error {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.7);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.discogs-search:hover, .discogs-error:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* More results link */
+.discogs-more {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    border: none;
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+.discogs-more:hover {
+    color: rgba(255, 255, 255, 0.8);
+    transform: none;
+    box-shadow: none;
+}
+
+/* Metadata badges */
+.discogs-year, .discogs-format {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Loading animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.discogs-loading {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    #discogs-info {
+        margin-top: 4px !important;
+    }
+
+    .discogs-result {
+        font-size: 10px;
+        gap: 4px;
+    }
+
+    .discogs-link {
+        padding: 2px 5px !important;
+        font-size: 9px !important;
+    }
+
+    .discogs-link svg {
+        width: 10px !important;
+        height: 10px !important;
+        margin-right: 3px !important;
+    }
+
+    .discogs-year, .discogs-format {
+        font-size: 8px;
+        padding: 1px 3px;
+    }
+
+    .discogs-more {
+        font-size: 8px;
+        padding: 1px 4px;
+    }
+
+    .discogs-loading,
+    .discogs-offline {
+        font-size: 9px !important;
+    }
+
+    .confidence-badge {
+        font-size: 10px;
+        margin: 0 2px;
+    }
+}

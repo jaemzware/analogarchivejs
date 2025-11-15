@@ -18,6 +18,8 @@ class AudioHandler {
         this.currentTrackIndex = -1; // Current position in playlist
         // Track if the next action has user gesture (for autoplay policy)
         this.hasUserGesture = false;
+        // Discogs integration
+        this.discogsService = null;
     }
 
     // Initialize pages with search functionality
@@ -28,6 +30,9 @@ class AudioHandler {
         this.setupClickHandlers();
         this.setupFolderNavigation();
         this.restorePlayerState();
+
+        // Initialize Discogs service
+        this.initializeDiscogs();
 
         // Determine current endpoint and load appropriate file index for search
         const pathname = window.location.pathname;
@@ -45,6 +50,15 @@ class AudioHandler {
 
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
+    }
+
+    // Initialize Discogs service
+    async initializeDiscogs() {
+        if (typeof DiscogsService !== 'undefined') {
+            this.discogsService = new DiscogsService();
+        } else {
+            console.warn('DiscogsService not loaded');
+        }
     }
 
     // Load all files from all folders for comprehensive search
@@ -1606,6 +1620,7 @@ class AudioHandler {
                 <div style="opacity: 0.9; margin-bottom: 3px;">${metadata.artist}</div>
                 <div style="opacity: 0.7; font-size: 14px;">${metadata.album}</div>
                 ${folderLink}
+                <div id="discogs-info" style="margin-top: 8px;"></div>
             </div>
         `;
 
@@ -1614,6 +1629,9 @@ class AudioHandler {
 
         // Update Media Session API with metadata
         this.updateMediaSession(metadata, artworkSrc);
+
+        // Fetch and display Discogs info
+        this.updateDiscogsInfo(metadata);
     }
 
     // Media Session API integration for lock screen controls and background playback
@@ -1814,6 +1832,123 @@ class AudioHandler {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = state;
             console.log('Media Session playback state:', state);
+        }
+    }
+
+    // Update Discogs information for current track
+    async updateDiscogsInfo(metadata) {
+        const discogsContainer = document.getElementById('discogs-info');
+        if (!discogsContainer || !this.discogsService) {
+            return;
+        }
+
+        // Show loading state
+        discogsContainer.innerHTML = `
+            <div class="discogs-loading" style="font-size: 12px; opacity: 0.6;">
+                <span style="display: inline-block; animation: spin 1s linear infinite;">⏳</span> Searching Discogs...
+            </div>
+        `;
+
+        try {
+            const info = await this.discogsService.getTrackInfo(metadata);
+
+            if (!info.found) {
+                // No results - show search link
+                const searchUrl = this.discogsService.getSearchUrl(metadata);
+                discogsContainer.innerHTML = `
+                    <a href="${searchUrl}" target="_blank" class="discogs-link discogs-search" title="Search Discogs for this release">
+                        <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+                            <circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <line x1="15" y1="15" x2="20" y2="20" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Search on Discogs
+                    </a>
+                `;
+                return;
+            }
+
+            // Build display based on what we found
+            const release = info.release;
+            let html = '';
+
+            if (info.inCollection) {
+                // In collection - show with badge
+                html = `
+                    <div class="discogs-result">
+                        <a href="https://www.discogs.com${release.uri}" target="_blank" class="discogs-link discogs-in-collection" title="View in your Discogs collection">
+                            <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+                                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                                <path d="M7 13l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            <span style="font-weight: 600;">In Your Collection</span>
+                        </a>
+                        ${release.year ? `<span class="discogs-year">${release.year}</span>` : ''}
+                        ${release.format ? `<span class="discogs-format">${release.format}</span>` : ''}
+                    </div>
+                `;
+            } else {
+                // Not in collection - show match info
+                const confidenceBadge = info.confidence === 'high' ? '✓' :
+                                       info.confidence === 'medium' ? '~' : '?';
+                const confidenceTitle = info.confidence === 'high' ? 'High confidence match' :
+                                       info.confidence === 'medium' ? 'Possible match' :
+                                       'Low confidence match';
+
+                html = `
+                    <div class="discogs-result">
+                        <a href="https://www.discogs.com${release.uri}" target="_blank" class="discogs-link discogs-match" title="${confidenceTitle} - ${info.strategy}">
+                            <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/>
+                            </svg>
+                            <span class="confidence-badge" title="${confidenceTitle}">${confidenceBadge}</span>
+                            ${release.title}
+                        </a>
+                        ${release.year ? `<span class="discogs-year">${release.year}</span>` : ''}
+                        ${release.format ? `<span class="discogs-format">${release.format}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            // Add "View all results" if multiple results
+            if (info.allResults && info.allResults.length > 1) {
+                const searchUrl = this.discogsService.getSearchUrl(metadata);
+                html += `
+                    <a href="${searchUrl}" target="_blank" class="discogs-link discogs-more" style="margin-left: 12px;">
+                        +${info.allResults.length - 1} more
+                    </a>
+                `;
+            }
+
+            discogsContainer.innerHTML = html;
+
+        } catch (error) {
+            console.error('Discogs lookup failed:', error);
+
+            // Check if it's a network error (offline)
+            if (error.isNetworkError || error.name === 'TypeError' || error.message.includes('Failed to fetch')) {
+                discogsContainer.innerHTML = `
+                    <div class="discogs-offline" style="font-size: 12px; color: rgba(255, 255, 255, 0.4); display: flex; align-items: center;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+                            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <line x1="7" y1="12" x2="17" y2="12" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Discogs offline
+                    </div>
+                `;
+            } else {
+                // Other error - show fallback search link
+                const searchUrl = this.discogsService.getSearchUrl(metadata);
+                discogsContainer.innerHTML = `
+                    <a href="${searchUrl}" target="_blank" class="discogs-link discogs-error" title="Search failed - click to search manually">
+                        <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+                            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="12" cy="16" r="1" fill="currentColor"/>
+                        </svg>
+                        Search on Discogs
+                    </a>
+                `;
+            }
         }
     }
 
