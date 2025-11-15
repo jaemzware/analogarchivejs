@@ -1867,47 +1867,29 @@ class AudioHandler {
                 return;
             }
 
-            // Build display based on what we found
+            // Show the best match
             const release = info.release;
-            let html = '';
+            const confidenceBadge = info.confidence === 'high' ? '✓' :
+                                   info.confidence === 'medium' ? '~' : '?';
+            const confidenceTitle = info.confidence === 'high' ? 'High confidence match' :
+                                   info.confidence === 'medium' ? 'Possible match' :
+                                   'Low confidence match';
 
-            if (info.inCollection) {
-                // In collection - show with badge
-                html = `
-                    <div class="discogs-result">
-                        <a href="https://www.discogs.com${release.uri}" target="_blank" class="discogs-link discogs-in-collection" title="View in your Discogs collection">
-                            <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
-                                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-                                <path d="M7 13l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2"/>
-                            </svg>
-                            <span style="font-weight: 600;">In Your Collection</span>
-                        </a>
-                        ${release.year ? `<span class="discogs-year">${release.year}</span>` : ''}
-                        ${release.format ? `<span class="discogs-format">${release.format}</span>` : ''}
-                    </div>
-                `;
-            } else {
-                // Not in collection - show match info
-                const confidenceBadge = info.confidence === 'high' ? '✓' :
-                                       info.confidence === 'medium' ? '~' : '?';
-                const confidenceTitle = info.confidence === 'high' ? 'High confidence match' :
-                                       info.confidence === 'medium' ? 'Possible match' :
-                                       'Low confidence match';
-
-                html = `
-                    <div class="discogs-result">
-                        <a href="https://www.discogs.com${release.uri}" target="_blank" class="discogs-link discogs-match" title="${confidenceTitle} - ${info.strategy}">
-                            <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/>
-                            </svg>
-                            <span class="confidence-badge" title="${confidenceTitle}">${confidenceBadge}</span>
-                            ${release.title}
-                        </a>
-                        ${release.year ? `<span class="discogs-year">${release.year}</span>` : ''}
-                        ${release.format ? `<span class="discogs-format">${release.format}</span>` : ''}
-                    </div>
-                `;
-            }
+            // Show simple "On Discogs" label instead of full title
+            let html = `
+                <div class="discogs-result">
+                    <a href="https://www.discogs.com${release.uri}" target="_blank" class="discogs-link discogs-match" title="${confidenceTitle}: ${release.title}">
+                        <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+                            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <path d="M7 13l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        <span class="confidence-badge" title="${confidenceTitle}">${confidenceBadge}</span>
+                        On Discogs
+                    </a>
+                    ${release.year ? `<span class="discogs-year">${release.year}</span>` : ''}
+                    ${release.format ? `<span class="discogs-format">${release.format}</span>` : ''}
+                </div>
+            `;
 
             // Add "View all results" if multiple results
             if (info.allResults && info.allResults.length > 1) {

@@ -824,17 +824,6 @@ body.player-active {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* In Collection style */
-.discogs-in-collection {
-    background: rgba(0, 255, 127, 0.15);
-    color: #00ff7f;
-    border-color: rgba(0, 255, 127, 0.3);
-}
-
-.discogs-in-collection:hover {
-    background: rgba(0, 255, 127, 0.25);
-}
-
 /* Match found style */
 .discogs-match {
     background: rgba(135, 206, 250, 0.15);

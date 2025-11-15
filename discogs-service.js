@@ -4,9 +4,7 @@
  */
 class DiscogsService {
     constructor() {
-        this.apiToken = null;
-        this.collectionUrl = null;
-        this.username = null;
+        this.hasToken = false;
         this.cache = new Map();
         this.requestQueue = [];
         this.isProcessingQueue = false;
@@ -24,15 +22,7 @@ class DiscogsService {
             const response = await fetch('/api/discogs-config');
             if (response.ok) {
                 const config = await response.json();
-                this.apiToken = config.token;
-                this.collectionUrl = config.collectionUrl;
-
-                // Extract username from collection URL
-                // Format: https://www.discogs.com/user/USERNAME/collection
-                const match = config.collectionUrl?.match(/\/user\/([^\/]+)/);
-                if (match) {
-                    this.username = match[1];
-                }
+                this.hasToken = config.hasToken;
             }
         } catch (error) {
             console.error('Failed to load Discogs config:', error);
@@ -72,20 +62,14 @@ class DiscogsService {
             const { url, resolve, reject } = this.requestQueue.shift();
 
             try {
-                const headers = {
-                    'User-Agent': 'AnalogArchive/1.0'
-                };
-
-                if (this.apiToken) {
-                    headers['Authorization'] = `Discogs token=${this.apiToken}`;
-                }
+                // Use server proxy to avoid CORS issues
+                const proxyUrl = `/api/discogs-proxy?url=${encodeURIComponent(url)}`;
 
                 // Add timeout for offline detection
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-                const response = await fetch(url, {
-                    headers,
+                const response = await fetch(proxyUrl, {
                     signal: controller.signal
                 });
                 clearTimeout(timeout);
@@ -93,7 +77,8 @@ class DiscogsService {
                 this.lastRequestTime = Date.now();
 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
                 }
 
                 const data = await response.json();
@@ -117,6 +102,17 @@ class DiscogsService {
         if (!str || str === 'undefined') return null;
 
         return str
+            // Remove vinyl/format-specific info (before other cleaning)
+            .replace(/^\d+\s*inch\s*-\s*/gi, '') // "7 inch - " at start
+            .replace(/^\d+"\s*-\s*/gi, '') // '7" - ' at start
+            .replace(/\b\d+\s*inch\b/gi, '') // "7 inch" anywhere
+            .replace(/\b\d+"\b/gi, '') // '7"' anywhere
+            .replace(/\bvinyl\b/gi, '')
+            .replace(/\bLP\b/gi, '')
+            .replace(/\bEP\b/gi, '')
+            // Remove B-side notation
+            .replace(/\s*b\/w\s*.*/gi, '') // "b/w ..." (backed with) - removes everything after
+            .replace(/\s*\(b-side:.*?\)/gi, '')
             // Remove common metadata artifacts
             .replace(/\(remaster(ed)?\)/gi, '')
             .replace(/\[deluxe( edition)?\]/gi, '')
@@ -128,9 +124,31 @@ class DiscogsService {
             .replace(/\s+ft\.?\s+/gi, ' ')
             .replace(/\s+feat\.?\s+/gi, ' ')
             .replace(/\s+featuring\s+/gi, ' ')
-            // Clean up
+            // Clean up whitespace and dashes
+            .replace(/\s*-\s*$/, '') // trailing dash
+            .replace(/^\s*-\s*/, '') // leading dash
             .trim()
             .replace(/\s+/g, ' ');
+    }
+
+    /**
+     * Check if title is a generic side marker
+     */
+    isGenericSideTitle(title) {
+        if (!title) return true;
+
+        const normalized = title.toLowerCase().trim();
+
+        // Common patterns for full album sides
+        return /^side\s*[a-d12]$/i.test(normalized) ||
+               /^sidea$/i.test(normalized) ||
+               /^sideb$/i.test(normalized) ||
+               /^sidec$/i.test(normalized) ||
+               /^sided$/i.test(normalized) ||
+               normalized === 'side 1' ||
+               normalized === 'side 2' ||
+               normalized === 'side one' ||
+               normalized === 'side two';
     }
 
     /**
@@ -139,25 +157,29 @@ class DiscogsService {
     buildSearchQuery(metadata) {
         const artist = this.cleanString(metadata.artist);
         const album = this.cleanString(metadata.album);
-        const title = this.cleanString(metadata.title);
+        const rawTitle = this.cleanString(metadata.title);
+
+        // Check if title is just a side marker (Side A, Side B, etc.)
+        const isGenericSide = this.isGenericSideTitle(rawTitle);
+        const title = isGenericSide ? null : rawTitle;
 
         const strategies = [];
 
-        // Strategy 1: Artist + Album (best for identifying releases)
+        // Strategy 1: Artist + Album (best for full album sides or when we have album info)
         if (artist && album) {
             strategies.push({
                 type: 'release',
-                query: `artist:"${artist}" release_title:"${album}"`,
+                query: `"${artist}" "${album}"`,
                 confidence: 'high',
-                label: 'Exact album match'
+                label: 'Album match'
             });
         }
 
-        // Strategy 2: Artist + Track (good for finding releases containing the track)
-        if (artist && title) {
+        // Strategy 2: Artist + Track (only if title is NOT a generic side marker)
+        if (artist && title && !isGenericSide) {
             strategies.push({
                 type: 'release',
-                query: `artist:"${artist}" track:"${title}"`,
+                query: `"${artist}" "${title}"`,
                 confidence: 'medium',
                 label: 'Track on release'
             });
@@ -166,20 +188,10 @@ class DiscogsService {
         // Strategy 3: Artist only (fallback)
         if (artist) {
             strategies.push({
-                type: 'artist',
-                query: `artist:"${artist}"`,
-                confidence: 'low',
-                label: 'Artist search'
-            });
-        }
-
-        // Strategy 4: Title only (last resort)
-        if (title) {
-            strategies.push({
                 type: 'release',
-                query: `"${title}"`,
+                query: `"${artist}"`,
                 confidence: 'low',
-                label: 'Title search'
+                label: 'Artist releases'
             });
         }
 
@@ -211,8 +223,10 @@ class DiscogsService {
             try {
                 const encodedQuery = encodeURIComponent(strategy.query);
                 const url = `https://api.discogs.com/database/search?q=${encodedQuery}&type=${strategy.type}&per_page=5`;
+                console.log(`Discogs: Trying strategy "${strategy.label}":`, strategy.query);
 
                 const data = await this.makeRequest(url);
+                console.log(`Discogs: Got ${data.results?.length || 0} results for "${strategy.label}"`);
 
                 if (data.results && data.results.length > 0) {
                     const result = {
@@ -234,6 +248,7 @@ class DiscogsService {
                     };
 
                     this.cache.set(cacheKey, result);
+                    console.log('Discogs: Returning successful result');
                     return result;
                 }
             } catch (error) {
@@ -253,105 +268,29 @@ class DiscogsService {
     }
 
     /**
-     * Check if a release is in user's collection
-     */
-    async checkInCollection(releaseId) {
-        if (!this.username) {
-            return { inCollection: false, message: 'Username not configured' };
-        }
-
-        const cacheKey = `collection_${releaseId}`;
-
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-
-        try {
-            const url = `https://api.discogs.com/users/${this.username}/collection/folders/0/releases/${releaseId}`;
-            const data = await this.makeRequest(url);
-
-            const result = {
-                inCollection: true,
-                instanceId: data.id,
-                dateAdded: data.date_added,
-                rating: data.rating
-            };
-
-            this.cache.set(cacheKey, result);
-            return result;
-        } catch (error) {
-            // 404 means not in collection
-            if (error.message.includes('404')) {
-                const result = { inCollection: false };
-                this.cache.set(cacheKey, result);
-                return result;
-            }
-
-            throw error;
-        }
-    }
-
-    /**
-     * Get full release details including tracklist
-     */
-    async getReleaseDetails(releaseId) {
-        const cacheKey = `release_${releaseId}`;
-
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-
-        try {
-            const url = `https://api.discogs.com/releases/${releaseId}`;
-            const data = await this.makeRequest(url);
-
-            const result = {
-                id: data.id,
-                title: data.title,
-                artists: data.artists?.map(a => a.name).join(', '),
-                year: data.year,
-                genres: data.genres,
-                styles: data.styles,
-                labels: data.labels?.map(l => l.name),
-                formats: data.formats?.map(f => `${f.name}${f.descriptions ? ' (' + f.descriptions.join(', ') + ')' : ''}`),
-                tracklist: data.tracklist,
-                images: data.images,
-                uri: data.uri,
-                discogsUrl: `https://www.discogs.com${data.uri}`
-            };
-
-            this.cache.set(cacheKey, result);
-            return result;
-        } catch (error) {
-            console.error('Failed to get release details:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get comprehensive info: search + collection check
+     * Get track info: just search, no collection check
      */
     async getTrackInfo(metadata) {
+        console.log('Discogs: Searching for', metadata);
         const searchResult = await this.search(metadata);
+        console.log('Discogs: Search result', searchResult);
 
         if (!searchResult.success || searchResult.results.length === 0) {
+            console.log('Discogs: No results found');
             return {
                 found: false,
                 searchResult
             };
         }
 
-        // Check if the top result is in collection
         const topResult = searchResult.results[0];
-        const collectionStatus = await this.checkInCollection(topResult.id);
+        console.log('Discogs: Top result', topResult);
 
         return {
             found: true,
             confidence: searchResult.confidence,
             strategy: searchResult.strategy,
             release: topResult,
-            inCollection: collectionStatus.inCollection,
-            collectionInfo: collectionStatus,
             allResults: searchResult.results
         };
     }

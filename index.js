@@ -233,9 +233,44 @@ app.get('/discogs-service.js', function(req, res) {
 // Discogs configuration endpoint
 app.get('/api/discogs-config', function(req, res) {
     res.json({
-        token: process.env.DISCOGS_API_TOKEN,
-        collectionUrl: process.env.DISCOGS_COLLECTION
+        hasToken: !!process.env.DISCOGS_API_TOKEN
     });
+});
+
+// Discogs API proxy endpoint
+app.get('/api/discogs-proxy', async (req, res) => {
+    try {
+        const { url } = req.query;
+
+        if (!url) {
+            return res.status(400).json({ error: 'Missing url parameter' });
+        }
+
+        // Verify it's a Discogs API URL
+        if (!url.startsWith('https://api.discogs.com/')) {
+            return res.status(400).json({ error: 'Invalid Discogs API URL' });
+        }
+
+        const headers = {
+            'User-Agent': 'AnalogArchive/1.0'
+        };
+
+        if (process.env.DISCOGS_API_TOKEN) {
+            headers['Authorization'] = `Discogs token=${process.env.DISCOGS_API_TOKEN}`;
+        }
+
+        const response = await fetch(url, { headers });
+        const data = await response.json();
+
+        if (!response.ok) {
+            return res.status(response.status).json(data);
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error('Discogs proxy error:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Local metadata endpoint for root endpoint files
