@@ -1611,6 +1611,19 @@ class AudioHandler {
             }
         }
 
+        // Build collection link if available
+        let collectionLink = '';
+        if (this.discogsService?.collectionUrl && this.discogsService?.username) {
+            collectionLink = `
+                <a href="${this.discogsService.collectionUrl}" target="_blank" class="discogs-link discogs-collection" style="display: inline-block; margin-top: 4px; margin-right: 8px;" title="View ${this.discogsService.username}'s Discogs collection">
+                    <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"/>
+                    </svg>
+                    ${this.discogsService.username}'s collection
+                </a>
+            `;
+        }
+
         metadataDiv.innerHTML = `
             <img src="${artworkSrc}"
                  style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;"
@@ -1619,7 +1632,7 @@ class AudioHandler {
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${metadata.title}</div>
                 <div style="opacity: 0.9; margin-bottom: 3px;">${metadata.artist}</div>
                 <div style="opacity: 0.7; font-size: 14px;">${metadata.album}</div>
-                ${folderLink}
+                ${folderLink}${collectionLink}
                 <div id="discogs-info" style="margin-top: 8px;"></div>
             </div>
         `;

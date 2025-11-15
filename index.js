@@ -233,7 +233,8 @@ app.get('/discogs-service.js', function(req, res) {
 // Discogs configuration endpoint
 app.get('/api/discogs-config', function(req, res) {
     res.json({
-        hasToken: !!process.env.DISCOGS_API_TOKEN
+        hasToken: !!process.env.DISCOGS_API_TOKEN,
+        collectionUrl: process.env.DISCOGS_COLLECTION_URL
     });
 });
 

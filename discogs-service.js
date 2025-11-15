@@ -5,6 +5,8 @@
 class DiscogsService {
     constructor() {
         this.hasToken = false;
+        this.collectionUrl = null;
+        this.username = null;
         this.cache = new Map();
         this.requestQueue = [];
         this.isProcessingQueue = false;
@@ -23,6 +25,14 @@ class DiscogsService {
             if (response.ok) {
                 const config = await response.json();
                 this.hasToken = config.hasToken;
+                this.collectionUrl = config.collectionUrl;
+
+                // Extract username from collection URL
+                // Format: https://www.discogs.com/user/USERNAME/collection
+                const match = config.collectionUrl?.match(/\/user\/([^\/]+)/);
+                if (match) {
+                    this.username = match[1];
+                }
             }
         } catch (error) {
             console.error('Failed to load Discogs config:', error);
