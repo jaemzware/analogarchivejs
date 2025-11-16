@@ -231,6 +231,15 @@ app.get('/discogs-service.js', function(req, res) {
     res.sendFile(__dirname + '/discogs-service.js');
 });
 
+// Cloud connectivity status endpoint
+app.get('/api/cloud-status', async (req, res) => {
+    const connectivity = await checkB2Connectivity();
+    res.json({
+        online: connectivity.connected,
+        isNetworkError: connectivity.isNetworkError || false
+    });
+});
+
 // Discogs configuration endpoint
 app.get('/api/discogs-config', function(req, res) {
     res.json({
@@ -981,42 +990,42 @@ app.get('/', async (req,res) =>{
     <div class="top-nav-left">
         <div class="source-selector" id="sourceSelector">
             <button class="source-selector-button" id="sourceSelectorButton">
-                <span class="source-selector-icon">💾</span>
+                <span class="source-selector-icon">&#x1F4BF;</span>
                 <span class="source-selector-text">Local Music</span>
-                <span class="source-selector-arrow">▼</span>
+                <span class="source-selector-arrow">&#x25BC;</span>
             </button>
             <div class="source-selector-dropdown">
                 <a href="/" class="source-selector-option active">
-                    <span class="source-option-icon">💾</span>
+                    <span class="source-option-icon">&#x1F4BF;</span>
                     <span class="source-option-text">
                         <span class="source-option-name">Local Music</span>
                         <span class="source-option-location">On Device</span>
                     </span>
-                    <span class="source-option-status local">●</span>
+                    <span class="source-option-status local">&#x25CF;</span>
                 </a>
                 <a href="/analog" class="source-selector-option">
-                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-icon">&#x2601;</span>
                     <span class="source-option-text">
                         <span class="source-option-name">Analog</span>
                         <span class="source-option-location">Cloud Storage</span>
                     </span>
-                    <span class="source-option-status online">●</span>
+                    <span class="source-option-status online">&#x25CF;</span>
                 </a>
                 <a href="/live" class="source-selector-option">
-                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-icon">&#x2601;</span>
                     <span class="source-option-text">
                         <span class="source-option-name">Live</span>
                         <span class="source-option-location">Cloud Storage</span>
                     </span>
-                    <span class="source-option-status online">●</span>
+                    <span class="source-option-status online">&#x25CF;</span>
                 </a>
                 <a href="/digital" class="source-selector-option">
-                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-icon">&#x2601;</span>
                     <span class="source-option-text">
                         <span class="source-option-name">Digital</span>
                         <span class="source-option-location">Cloud Storage</span>
                     </span>
-                    <span class="source-option-status online">●</span>
+                    <span class="source-option-status online">&#x25CF;</span>
                 </a>
             </div>
         </div>
@@ -1093,6 +1102,40 @@ app.get('/', async (req,res) =>{
                 }
             });
         }
+
+        // Check cloud connectivity status
+        async function updateCloudStatus() {
+            try {
+                const response = await fetch('/api/cloud-status');
+                const data = await response.json();
+
+                // Update all cloud endpoint status indicators
+                const cloudStatuses = document.querySelectorAll('.source-option-status.online, .source-option-status.offline');
+                cloudStatuses.forEach(status => {
+                    if (!status.classList.contains('local')) {
+                        if (data.online) {
+                            status.className = 'source-option-status online';
+                        } else {
+                            status.className = 'source-option-status offline';
+                        }
+                    }
+                });
+            } catch (error) {
+                // If fetch fails, mark as offline
+                const cloudStatuses = document.querySelectorAll('.source-option-status.online, .source-option-status.offline');
+                cloudStatuses.forEach(status => {
+                    if (!status.classList.contains('local')) {
+                        status.className = 'source-option-status offline';
+                    }
+                });
+            }
+        }
+
+        // Check status on load
+        updateCloudStatus();
+
+        // Check status every 30 seconds
+        setInterval(updateCloudStatus, 30000);
     })();
 
     window.addEventListener('DOMContentLoaded', function() {
@@ -1291,42 +1334,42 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     <div class="top-nav-left">
         <div class="source-selector" id="sourceSelector">
             <button class="source-selector-button" id="sourceSelectorButton">
-                <span class="source-selector-icon">☁️</span>
+                <span class="source-selector-icon">&#x2601;</span>
                 <span class="source-selector-text">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</span>
-                <span class="source-selector-arrow">▼</span>
+                <span class="source-selector-arrow">&#x25BC;</span>
             </button>
             <div class="source-selector-dropdown">
                 <a href="/" class="source-selector-option">
-                    <span class="source-option-icon">💾</span>
+                    <span class="source-option-icon">&#x1F4BF;</span>
                     <span class="source-option-text">
                         <span class="source-option-name">Local Music</span>
                         <span class="source-option-location">On Device</span>
                     </span>
-                    <span class="source-option-status local">●</span>
+                    <span class="source-option-status local">&#x25CF;</span>
                 </a>
                 <a href="/analog" class="source-selector-option${folderName === 'analog' ? ' active' : ''}">
-                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-icon">&#x2601;</span>
                     <span class="source-option-text">
                         <span class="source-option-name">Analog</span>
                         <span class="source-option-location">Cloud Storage</span>
                     </span>
-                    <span class="source-option-status online">●</span>
+                    <span class="source-option-status online">&#x25CF;</span>
                 </a>
                 <a href="/live" class="source-selector-option${folderName === 'live' ? ' active' : ''}">
-                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-icon">&#x2601;</span>
                     <span class="source-option-text">
                         <span class="source-option-name">Live</span>
                         <span class="source-option-location">Cloud Storage</span>
                     </span>
-                    <span class="source-option-status online">●</span>
+                    <span class="source-option-status online">&#x25CF;</span>
                 </a>
                 <a href="/digital" class="source-selector-option${folderName === 'digital' ? ' active' : ''}">
-                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-icon">&#x2601;</span>
                     <span class="source-option-text">
                         <span class="source-option-name">Digital</span>
                         <span class="source-option-location">Cloud Storage</span>
                     </span>
-                    <span class="source-option-status online">●</span>
+                    <span class="source-option-status online">&#x25CF;</span>
                 </a>
             </div>
         </div>
@@ -1395,6 +1438,40 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 }
             });
         }
+
+        // Check cloud connectivity status
+        async function updateCloudStatus() {
+            try {
+                const response = await fetch('/api/cloud-status');
+                const data = await response.json();
+
+                // Update all cloud endpoint status indicators
+                const cloudStatuses = document.querySelectorAll('.source-option-status.online, .source-option-status.offline');
+                cloudStatuses.forEach(status => {
+                    if (!status.classList.contains('local')) {
+                        if (data.online) {
+                            status.className = 'source-option-status online';
+                        } else {
+                            status.className = 'source-option-status offline';
+                        }
+                    }
+                });
+            } catch (error) {
+                // If fetch fails, mark as offline
+                const cloudStatuses = document.querySelectorAll('.source-option-status.online, .source-option-status.offline');
+                cloudStatuses.forEach(status => {
+                    if (!status.classList.contains('local')) {
+                        status.className = 'source-option-status offline';
+                    }
+                });
+            }
+        }
+
+        // Check status on load
+        updateCloudStatus();
+
+        // Check status every 30 seconds
+        setInterval(updateCloudStatus, 30000);
     })();
 
     // Initialize search functionality for B2 pages
