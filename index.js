@@ -979,10 +979,47 @@ app.get('/', async (req,res) =>{
 <body>
 <nav class="top-nav">
     <div class="top-nav-left">
-        <a href="/" class="top-nav-link active">Local Music</a>
-        <a href="/analog" class="top-nav-link">Analog (Cloud)</a>
-        <a href="/live" class="top-nav-link">Live (Cloud)</a>
-        <a href="/digital" class="top-nav-link">Digital (Cloud)</a>
+        <div class="source-selector" id="sourceSelector">
+            <button class="source-selector-button" id="sourceSelectorButton">
+                <span class="source-selector-icon">💾</span>
+                <span class="source-selector-text">Local Music</span>
+                <span class="source-selector-arrow">▼</span>
+            </button>
+            <div class="source-selector-dropdown">
+                <a href="/" class="source-selector-option active">
+                    <span class="source-option-icon">💾</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Local Music</span>
+                        <span class="source-option-location">On Device</span>
+                    </span>
+                    <span class="source-option-status local">●</span>
+                </a>
+                <a href="/analog" class="source-selector-option">
+                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Analog</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">●</span>
+                </a>
+                <a href="/live" class="source-selector-option">
+                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Live</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">●</span>
+                </a>
+                <a href="/digital" class="source-selector-option">
+                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Digital</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">●</span>
+                </a>
+            </div>
+        </div>
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
@@ -1038,6 +1075,26 @@ app.get('/', async (req,res) =>{
 <script src="/discogs-service.js"></script>
 <script src="/audio-handler.js"></script>
 <script>
+    // Source selector dropdown
+    (function() {
+        const selector = document.getElementById('sourceSelector');
+        const button = document.getElementById('sourceSelectorButton');
+
+        if (selector && button) {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                selector.classList.toggle('open');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!selector.contains(e.target)) {
+                    selector.classList.remove('open');
+                }
+            });
+        }
+    })();
+
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
     });
@@ -1232,10 +1289,47 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 <body>
 <nav class="top-nav">
     <div class="top-nav-left">
-        <a href="/" class="top-nav-link">Local Music</a>
-        <a href="/analog" class="top-nav-link${folderName === 'analog' ? ' active' : ''}">Analog (Cloud)</a>
-        <a href="/live" class="top-nav-link${folderName === 'live' ? ' active' : ''}">Live (Cloud)</a>
-        <a href="/digital" class="top-nav-link${folderName === 'digital' ? ' active' : ''}">Digital (Cloud)</a>
+        <div class="source-selector" id="sourceSelector">
+            <button class="source-selector-button" id="sourceSelectorButton">
+                <span class="source-selector-icon">☁️</span>
+                <span class="source-selector-text">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</span>
+                <span class="source-selector-arrow">▼</span>
+            </button>
+            <div class="source-selector-dropdown">
+                <a href="/" class="source-selector-option">
+                    <span class="source-option-icon">💾</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Local Music</span>
+                        <span class="source-option-location">On Device</span>
+                    </span>
+                    <span class="source-option-status local">●</span>
+                </a>
+                <a href="/analog" class="source-selector-option${folderName === 'analog' ? ' active' : ''}">
+                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Analog</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">●</span>
+                </a>
+                <a href="/live" class="source-selector-option${folderName === 'live' ? ' active' : ''}">
+                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Live</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">●</span>
+                </a>
+                <a href="/digital" class="source-selector-option${folderName === 'digital' ? ' active' : ''}">
+                    <span class="source-option-icon">☁️</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Digital</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">●</span>
+                </a>
+            </div>
+        </div>
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
@@ -1283,6 +1377,26 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 <script src="/discogs-service.js"></script>
 <script src="/audio-handler.js"></script>
 <script>
+    // Source selector dropdown
+    (function() {
+        const selector = document.getElementById('sourceSelector');
+        const button = document.getElementById('sourceSelectorButton');
+
+        if (selector && button) {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                selector.classList.toggle('open');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!selector.contains(e.target)) {
+                    selector.classList.remove('open');
+                }
+            });
+        }
+    })();
+
     // Initialize search functionality for B2 pages
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
