@@ -46,6 +46,9 @@ class AudioHandler {
         } else if (pathname === '/live') {
             // B2 live endpoint - load all live files
             this.loadAllB2FilesForSearch('live');
+        } else if (pathname === '/digital') {
+            // B2 digital endpoint - load all digital files
+            this.loadAllB2FilesForSearch('digital');
         }
 
         // DON'T preload metadata for B2 pages - only index filenames
@@ -175,12 +178,13 @@ class AudioHandler {
                 return;
             }
 
-            // Only intercept navigation within the same endpoint (local, analog, or live)
+            // Only intercept navigation within the same endpoint (local, analog, live, or digital)
             const isLocalNav = href.startsWith('/?') || href === '/';
             const isAnalogNav = href.startsWith('/analog');
             const isLiveNav = href.startsWith('/live');
+            const isDigitalNav = href.startsWith('/digital');
 
-            if (!isLocalNav && !isAnalogNav && !isLiveNav) {
+            if (!isLocalNav && !isAnalogNav && !isLiveNav && !isDigitalNav) {
                 return;
             }
 
@@ -313,7 +317,7 @@ class AudioHandler {
         }
     }
 
-    // Get the current endpoint (root, analog, or live)
+    // Get the current endpoint (root, analog, live, or digital)
     getCurrentEndpoint() {
         const path = window.location.pathname;
         if (path === '/' || path.startsWith('/?')) {
@@ -322,6 +326,8 @@ class AudioHandler {
             return 'analog';
         } else if (path.includes('/live')) {
             return 'live';
+        } else if (path.includes('/digital')) {
+            return 'digital';
         }
         return 'root';
     }
@@ -332,6 +338,8 @@ class AudioHandler {
             return 'analog';
         } else if (href.startsWith('/live')) {
             return 'live';
+        } else if (href.startsWith('/digital')) {
+            return 'digital';
         } else if (href === '/' || href.startsWith('/?')) {
             return 'root';
         }
@@ -688,7 +696,8 @@ class AudioHandler {
         const isLocalPage = pathname === '/';
         const isAnalogPage = pathname === '/analog';
         const isLivePage = pathname === '/live';
-        const showRescanButton = isLocalPage || isAnalogPage || isLivePage;
+        const isDigitalPage = pathname === '/digital';
+        const showRescanButton = isLocalPage || isAnalogPage || isLivePage || isDigitalPage;
         const rescanButton = showRescanButton ? '<button class="rescan-button" id="rescanButton">&#128257; Rescan</button>' : '';
 
         const searchHTML = `
@@ -766,6 +775,8 @@ class AudioHandler {
                 rescanUrl = '/rescan-b2/analog';
             } else if (pathname === '/live') {
                 rescanUrl = '/rescan-b2/live';
+            } else if (pathname === '/digital') {
+                rescanUrl = '/rescan-b2/digital';
             }
 
             const response = await fetch(rescanUrl);
@@ -1010,8 +1021,8 @@ class AudioHandler {
 
         // Determine if we're on a B2 endpoint
         const pathname = window.location.pathname;
-        const isB2Endpoint = pathname === '/analog' || pathname === '/live';
-        const b2FolderName = pathname === '/analog' ? 'analog' : (pathname === '/live' ? 'live' : null);
+        const isB2Endpoint = pathname === '/analog' || pathname === '/live' || pathname === '/digital';
+        const b2FolderName = pathname === '/analog' ? 'analog' : (pathname === '/live' ? 'live' : (pathname === '/digital' ? 'digital' : null));
 
         filesByFolder.forEach((files, folder) => {
             // Add folder header
@@ -1424,10 +1435,12 @@ class AudioHandler {
         console.log('playNextTrack called, playlist length:', this.currentPlaylist.length, 'current index:', this.currentTrackIndex);
 
         if (this.currentPlaylist.length === 0) {
-            console.log('No playlist, stopping playback');
-            this.hideStickyPlayer();
-            this.clearPlayerState();
-            document.title = this.originalPageTitle;
+            console.log('No next song available (empty playlist) - keeping player visible');
+            // Don't hide the player or clear state - just stop playback
+            // This allows the user to still see the current song and interact with the player
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+            }
             return;
         }
 
@@ -1435,11 +1448,11 @@ class AudioHandler {
         console.log('Advanced to index:', this.currentTrackIndex);
 
         if (this.currentTrackIndex >= this.currentPlaylist.length) {
-            // End of playlist
-            console.log('End of playlist reached');
-            this.hideStickyPlayer();
-            this.clearPlayerState();
-            document.title = this.originalPageTitle;
+            // End of playlist - keep player visible but stop playback
+            console.log('End of playlist reached - keeping player visible');
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+            }
             this.currentTrackIndex = -1;
             return;
         }

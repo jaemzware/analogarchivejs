@@ -184,6 +184,7 @@ To have the server automatically start when your Raspberry Pi boots:
 | `/` | Local music collection | `./music` directory |
 | `/analog` | Analog bucket collection | Backblaze B2 `analog` folder |
 | `/live` | Live recordings collection | Backblaze B2 `live` folder |
+| `/digital` | Digital music collection | Backblaze B2 `digital` folder |
 
 ## ☁️ Backblaze B2 Setup (Optional)
 
@@ -202,12 +203,34 @@ For cloud storage support:
    ├── analog/
    │   ├── song1.mp3
    │   └── song2.mp3
-   └── live/
-       ├── recording1.mp3
-       └── recording2.mp3
+   ├── live/
+   │   ├── recording1.mp3
+   │   └── recording2.mp3
+   └── digital/
+       ├── album1.flac
+       └── album2.mp3
    ```
 
 4. **Configure environment variables** in `.env`
+
+## 🎵 Discogs Integration (Optional)
+
+For Discogs integration support:
+
+1. **Get a Discogs API token**:
+   - Go to [discogs.com/settings/developers](https://www.discogs.com/settings/developers)
+   - Generate a new personal access token
+   - Note the token for your `.env` file
+
+2. **Configure environment variables** in `.env`:
+   ```
+   DISCOGS_API_TOKEN=your_discogs_api_token
+   DISCOGS_COLLECTION_URL=https://www.discogs.com/user/your-username/collection
+   ```
+
+**What these do**:
+- **DISCOGS_API_TOKEN**: Enables searching Discogs to find a particular release link for albums in your collection
+- **DISCOGS_COLLECTION_URL**: Adds a hardcoded collection button that links to your Discogs collection page (can be any URL you want)
 
 ## 🎨 How It Works
 
@@ -273,6 +296,7 @@ analogarchivejs/
 - `https://localhost:55557/` - Audio player for onboard music folders (scanned from Pi's hard drives)
 - `https://localhost:55557/analog` - Backblaze B2 bucket audio library (requires home WiFi with gateway)
 - `https://localhost:55557/live` - Backblaze B2 live recordings library (requires home WiFi with gateway)
+- `https://localhost:55557/digital` - Backblaze B2 digital music library (requires home WiFi with gateway)
 
 ## 🤝 Contributing
 

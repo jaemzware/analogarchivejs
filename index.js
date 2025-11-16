@@ -187,9 +187,10 @@ function generateOfflinePage(folderName) {
         <a href="/" class="back-button">View Local Music</a>
         
         <div class="nav-links">
-            <a href="/">Local Music</a> | 
-            <a href="/analog">Analog (Offline)</a> | 
-            <a href="/live">Live (Offline)</a>
+            <a href="/">Local Music</a> |
+            <a href="/analog">Analog (Offline)</a> |
+            <a href="/live">Live (Offline)</a> |
+            <a href="/digital">Digital (Offline)</a>
         </div>
     </div>
 </body>
@@ -228,6 +229,15 @@ app.get('/audio-handler.js', function(req, res) {
 app.get('/discogs-service.js', function(req, res) {
     res.set('Content-Type', 'application/javascript');
     res.sendFile(__dirname + '/discogs-service.js');
+});
+
+// Cloud connectivity status endpoint
+app.get('/api/cloud-status', async (req, res) => {
+    const connectivity = await checkB2Connectivity();
+    res.json({
+        online: connectivity.connected,
+        isNetworkError: connectivity.isNetworkError || false
+    });
 });
 
 // Discogs configuration endpoint
@@ -641,11 +651,11 @@ app.get('/rescan-b2/:folder', async (req, res) => {
         const folderName = req.params.folder;
 
         // Validate folder name
-        if (folderName !== 'analog' && folderName !== 'live') {
+        if (folderName !== 'analog' && folderName !== 'live' && folderName !== 'digital') {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid folder',
-                message: 'Folder must be either "analog" or "live"'
+                message: 'Folder must be "analog", "live", or "digital"'
             });
         }
 
@@ -708,11 +718,11 @@ app.get('/api/all-b2-files/:folder', async (req, res) => {
     try {
         const folderName = req.params.folder;
 
-        // Validate folder name (only allow 'analog' or 'live')
-        if (folderName !== 'analog' && folderName !== 'live') {
+        // Validate folder name (only allow 'analog', 'live', or 'digital')
+        if (folderName !== 'analog' && folderName !== 'live' && folderName !== 'digital') {
             res.status(400).json({
                 success: false,
-                error: 'Invalid folder name. Must be "analog" or "live".'
+                error: 'Invalid folder name. Must be "analog", "live", or "digital".'
             });
             return;
         }
@@ -978,9 +988,47 @@ app.get('/', async (req,res) =>{
 <body>
 <nav class="top-nav">
     <div class="top-nav-left">
-        <a href="/" class="top-nav-link active">Local Music</a>
-        <a href="/analog" class="top-nav-link">Analog (Cloud)</a>
-        <a href="/live" class="top-nav-link">Live (Cloud)</a>
+        <div class="source-selector" id="sourceSelector">
+            <button class="source-selector-button" id="sourceSelectorButton">
+                <span class="source-selector-icon">&#x1F4BF;</span>
+                <span class="source-selector-text">Local Music</span>
+                <span class="source-selector-arrow">&#x25BC;</span>
+            </button>
+            <div class="source-selector-dropdown">
+                <a href="/" class="source-selector-option active">
+                    <span class="source-option-icon">&#x1F4BF;</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Local Music</span>
+                        <span class="source-option-location">On Device</span>
+                    </span>
+                    <span class="source-option-status local">&#x25CF;</span>
+                </a>
+                <a href="/analog" class="source-selector-option">
+                    <span class="source-option-icon">&#x2601;</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Analog</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">&#x25CF;</span>
+                </a>
+                <a href="/live" class="source-selector-option">
+                    <span class="source-option-icon">&#x2601;</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Live</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">&#x25CF;</span>
+                </a>
+                <a href="/digital" class="source-selector-option">
+                    <span class="source-option-icon">&#x2601;</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Digital</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">&#x25CF;</span>
+                </a>
+            </div>
+        </div>
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
@@ -1036,6 +1084,60 @@ app.get('/', async (req,res) =>{
 <script src="/discogs-service.js"></script>
 <script src="/audio-handler.js"></script>
 <script>
+    // Source selector dropdown
+    (function() {
+        const selector = document.getElementById('sourceSelector');
+        const button = document.getElementById('sourceSelectorButton');
+
+        if (selector && button) {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                selector.classList.toggle('open');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!selector.contains(e.target)) {
+                    selector.classList.remove('open');
+                }
+            });
+        }
+
+        // Check cloud connectivity status
+        async function updateCloudStatus() {
+            try {
+                const response = await fetch('/api/cloud-status');
+                const data = await response.json();
+
+                // Update all cloud endpoint status indicators
+                const cloudStatuses = document.querySelectorAll('.source-option-status.online, .source-option-status.offline');
+                cloudStatuses.forEach(status => {
+                    if (!status.classList.contains('local')) {
+                        if (data.online) {
+                            status.className = 'source-option-status online';
+                        } else {
+                            status.className = 'source-option-status offline';
+                        }
+                    }
+                });
+            } catch (error) {
+                // If fetch fails, mark as offline
+                const cloudStatuses = document.querySelectorAll('.source-option-status.online, .source-option-status.offline');
+                cloudStatuses.forEach(status => {
+                    if (!status.classList.contains('local')) {
+                        status.className = 'source-option-status offline';
+                    }
+                });
+            }
+        }
+
+        // Check status on load
+        updateCloudStatus();
+
+        // Check status every 30 seconds
+        setInterval(updateCloudStatus, 30000);
+    })();
+
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
     });
@@ -1056,6 +1158,10 @@ app.get('/analog', async (req, res) => {
 
 app.get('/live', async (req, res) => {
     await handleB2FolderEndpoint('live', req, res);
+});
+
+app.get('/digital', async (req, res) => {
+    await handleB2FolderEndpoint('digital', req, res);
 });
 
 // Shared function for B2 folder endpoints with enhanced search support and directory structure
@@ -1226,9 +1332,47 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 <body>
 <nav class="top-nav">
     <div class="top-nav-left">
-        <a href="/" class="top-nav-link">Local Music</a>
-        <a href="/analog" class="top-nav-link${folderName === 'analog' ? ' active' : ''}">Analog (Cloud)</a>
-        <a href="/live" class="top-nav-link${folderName === 'live' ? ' active' : ''}">Live (Cloud)</a>
+        <div class="source-selector" id="sourceSelector">
+            <button class="source-selector-button" id="sourceSelectorButton">
+                <span class="source-selector-icon">&#x2601;</span>
+                <span class="source-selector-text">${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</span>
+                <span class="source-selector-arrow">&#x25BC;</span>
+            </button>
+            <div class="source-selector-dropdown">
+                <a href="/" class="source-selector-option">
+                    <span class="source-option-icon">&#x1F4BF;</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Local Music</span>
+                        <span class="source-option-location">On Device</span>
+                    </span>
+                    <span class="source-option-status local">&#x25CF;</span>
+                </a>
+                <a href="/analog" class="source-selector-option${folderName === 'analog' ? ' active' : ''}">
+                    <span class="source-option-icon">&#x2601;</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Analog</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">&#x25CF;</span>
+                </a>
+                <a href="/live" class="source-selector-option${folderName === 'live' ? ' active' : ''}">
+                    <span class="source-option-icon">&#x2601;</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Live</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">&#x25CF;</span>
+                </a>
+                <a href="/digital" class="source-selector-option${folderName === 'digital' ? ' active' : ''}">
+                    <span class="source-option-icon">&#x2601;</span>
+                    <span class="source-option-text">
+                        <span class="source-option-name">Digital</span>
+                        <span class="source-option-location">Cloud Storage</span>
+                    </span>
+                    <span class="source-option-status online">&#x25CF;</span>
+                </a>
+            </div>
+        </div>
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
@@ -1276,6 +1420,60 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 <script src="/discogs-service.js"></script>
 <script src="/audio-handler.js"></script>
 <script>
+    // Source selector dropdown
+    (function() {
+        const selector = document.getElementById('sourceSelector');
+        const button = document.getElementById('sourceSelectorButton');
+
+        if (selector && button) {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                selector.classList.toggle('open');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!selector.contains(e.target)) {
+                    selector.classList.remove('open');
+                }
+            });
+        }
+
+        // Check cloud connectivity status
+        async function updateCloudStatus() {
+            try {
+                const response = await fetch('/api/cloud-status');
+                const data = await response.json();
+
+                // Update all cloud endpoint status indicators
+                const cloudStatuses = document.querySelectorAll('.source-option-status.online, .source-option-status.offline');
+                cloudStatuses.forEach(status => {
+                    if (!status.classList.contains('local')) {
+                        if (data.online) {
+                            status.className = 'source-option-status online';
+                        } else {
+                            status.className = 'source-option-status offline';
+                        }
+                    }
+                });
+            } catch (error) {
+                // If fetch fails, mark as offline
+                const cloudStatuses = document.querySelectorAll('.source-option-status.online, .source-option-status.offline');
+                cloudStatuses.forEach(status => {
+                    if (!status.classList.contains('local')) {
+                        status.className = 'source-option-status offline';
+                    }
+                });
+            }
+        }
+
+        // Check status on load
+        updateCloudStatus();
+
+        // Check status every 30 seconds
+        setInterval(updateCloudStatus, 30000);
+    })();
+
     // Initialize search functionality for B2 pages
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
@@ -1318,6 +1516,7 @@ createServer(options, app).listen(port, async () => {
     console.log(`Server listening on https://localhost:${port}`);
     console.log(`Server listening on https://localhost:${port}/analog`);
     console.log(`Server listening on https://localhost:${port}/live`);
+    console.log(`Server listening on https://localhost:${port}/digital`);
 
     // Scan music directory on startup
     scanMusicFiles();
