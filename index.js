@@ -225,6 +225,54 @@ app.get('/audio-handler.js', function(req, res) {
     res.set('Content-Type', 'application/javascript');
     res.sendFile(__dirname + '/audio-handler.js');
 });
+app.get('/discogs-service.js', function(req, res) {
+    res.set('Content-Type', 'application/javascript');
+    res.sendFile(__dirname + '/discogs-service.js');
+});
+
+// Discogs configuration endpoint
+app.get('/api/discogs-config', function(req, res) {
+    res.json({
+        hasToken: !!process.env.DISCOGS_API_TOKEN,
+        collectionUrl: process.env.DISCOGS_COLLECTION_URL
+    });
+});
+
+// Discogs API proxy endpoint
+app.get('/api/discogs-proxy', async (req, res) => {
+    try {
+        const { url } = req.query;
+
+        if (!url) {
+            return res.status(400).json({ error: 'Missing url parameter' });
+        }
+
+        // Verify it's a Discogs API URL
+        if (!url.startsWith('https://api.discogs.com/')) {
+            return res.status(400).json({ error: 'Invalid Discogs API URL' });
+        }
+
+        const headers = {
+            'User-Agent': 'AnalogArchive/1.0'
+        };
+
+        if (process.env.DISCOGS_API_TOKEN) {
+            headers['Authorization'] = `Discogs token=${process.env.DISCOGS_API_TOKEN}`;
+        }
+
+        const response = await fetch(url, { headers });
+        const data = await response.json();
+
+        if (!response.ok) {
+            return res.status(response.status).json(data);
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error('Discogs proxy error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Local metadata endpoint for root endpoint files
 app.get('/localmetadata/:filename(.*)', async (req, res) => {
@@ -985,6 +1033,7 @@ app.get('/', async (req,res) =>{
 
         // Send footer
         res.write(`</div>
+<script src="/discogs-service.js"></script>
 <script src="/audio-handler.js"></script>
 <script>
     window.addEventListener('DOMContentLoaded', function() {
@@ -1224,6 +1273,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
 
         res.write(`</div>
+<script src="/discogs-service.js"></script>
 <script src="/audio-handler.js"></script>
 <script>
     // Initialize search functionality for B2 pages
