@@ -1424,10 +1424,12 @@ class AudioHandler {
         console.log('playNextTrack called, playlist length:', this.currentPlaylist.length, 'current index:', this.currentTrackIndex);
 
         if (this.currentPlaylist.length === 0) {
-            console.log('No playlist, stopping playback');
-            this.hideStickyPlayer();
-            this.clearPlayerState();
-            document.title = this.originalPageTitle;
+            console.log('No next song available (empty playlist) - keeping player visible');
+            // Don't hide the player or clear state - just stop playback
+            // This allows the user to still see the current song and interact with the player
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+            }
             return;
         }
 
@@ -1435,11 +1437,11 @@ class AudioHandler {
         console.log('Advanced to index:', this.currentTrackIndex);
 
         if (this.currentTrackIndex >= this.currentPlaylist.length) {
-            // End of playlist
-            console.log('End of playlist reached');
-            this.hideStickyPlayer();
-            this.clearPlayerState();
-            document.title = this.originalPageTitle;
+            // End of playlist - keep player visible but stop playback
+            console.log('End of playlist reached - keeping player visible');
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+            }
             this.currentTrackIndex = -1;
             return;
         }
