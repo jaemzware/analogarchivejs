@@ -187,9 +187,10 @@ function generateOfflinePage(folderName) {
         <a href="/" class="back-button">View Local Music</a>
         
         <div class="nav-links">
-            <a href="/">Local Music</a> | 
-            <a href="/analog">Analog (Offline)</a> | 
-            <a href="/live">Live (Offline)</a>
+            <a href="/">Local Music</a> |
+            <a href="/analog">Analog (Offline)</a> |
+            <a href="/live">Live (Offline)</a> |
+            <a href="/digital">Digital (Offline)</a>
         </div>
     </div>
 </body>
@@ -641,11 +642,11 @@ app.get('/rescan-b2/:folder', async (req, res) => {
         const folderName = req.params.folder;
 
         // Validate folder name
-        if (folderName !== 'analog' && folderName !== 'live') {
+        if (folderName !== 'analog' && folderName !== 'live' && folderName !== 'digital') {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid folder',
-                message: 'Folder must be either "analog" or "live"'
+                message: 'Folder must be "analog", "live", or "digital"'
             });
         }
 
@@ -708,11 +709,11 @@ app.get('/api/all-b2-files/:folder', async (req, res) => {
     try {
         const folderName = req.params.folder;
 
-        // Validate folder name (only allow 'analog' or 'live')
-        if (folderName !== 'analog' && folderName !== 'live') {
+        // Validate folder name (only allow 'analog', 'live', or 'digital')
+        if (folderName !== 'analog' && folderName !== 'live' && folderName !== 'digital') {
             res.status(400).json({
                 success: false,
-                error: 'Invalid folder name. Must be "analog" or "live".'
+                error: 'Invalid folder name. Must be "analog", "live", or "digital".'
             });
             return;
         }
@@ -981,6 +982,7 @@ app.get('/', async (req,res) =>{
         <a href="/" class="top-nav-link active">Local Music</a>
         <a href="/analog" class="top-nav-link">Analog (Cloud)</a>
         <a href="/live" class="top-nav-link">Live (Cloud)</a>
+        <a href="/digital" class="top-nav-link">Digital (Cloud)</a>
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
@@ -1056,6 +1058,10 @@ app.get('/analog', async (req, res) => {
 
 app.get('/live', async (req, res) => {
     await handleB2FolderEndpoint('live', req, res);
+});
+
+app.get('/digital', async (req, res) => {
+    await handleB2FolderEndpoint('digital', req, res);
 });
 
 // Shared function for B2 folder endpoints with enhanced search support and directory structure
@@ -1229,6 +1235,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         <a href="/" class="top-nav-link">Local Music</a>
         <a href="/analog" class="top-nav-link${folderName === 'analog' ? ' active' : ''}">Analog (Cloud)</a>
         <a href="/live" class="top-nav-link${folderName === 'live' ? ' active' : ''}">Live (Cloud)</a>
+        <a href="/digital" class="top-nav-link${folderName === 'digital' ? ' active' : ''}">Digital (Cloud)</a>
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
@@ -1318,6 +1325,7 @@ createServer(options, app).listen(port, async () => {
     console.log(`Server listening on https://localhost:${port}`);
     console.log(`Server listening on https://localhost:${port}/analog`);
     console.log(`Server listening on https://localhost:${port}/live`);
+    console.log(`Server listening on https://localhost:${port}/digital`);
 
     // Scan music directory on startup
     scanMusicFiles();

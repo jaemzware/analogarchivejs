@@ -184,6 +184,7 @@ To have the server automatically start when your Raspberry Pi boots:
 | `/` | Local music collection | `./music` directory |
 | `/analog` | Analog bucket collection | Backblaze B2 `analog` folder |
 | `/live` | Live recordings collection | Backblaze B2 `live` folder |
+| `/digital` | Digital music collection | Backblaze B2 `digital` folder |
 
 ## ☁️ Backblaze B2 Setup (Optional)
 
@@ -202,9 +203,12 @@ For cloud storage support:
    ├── analog/
    │   ├── song1.mp3
    │   └── song2.mp3
-   └── live/
-       ├── recording1.mp3
-       └── recording2.mp3
+   ├── live/
+   │   ├── recording1.mp3
+   │   └── recording2.mp3
+   └── digital/
+       ├── album1.flac
+       └── album2.mp3
    ```
 
 4. **Configure environment variables** in `.env`
@@ -292,6 +296,7 @@ analogarchivejs/
 - `https://localhost:55557/` - Audio player for onboard music folders (scanned from Pi's hard drives)
 - `https://localhost:55557/analog` - Backblaze B2 bucket audio library (requires home WiFi with gateway)
 - `https://localhost:55557/live` - Backblaze B2 live recordings library (requires home WiFi with gateway)
+- `https://localhost:55557/digital` - Backblaze B2 digital music library (requires home WiFi with gateway)
 
 ## 🤝 Contributing
 
