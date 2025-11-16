@@ -209,6 +209,25 @@ For cloud storage support:
 
 4. **Configure environment variables** in `.env`
 
+## 🎵 Discogs Integration (Optional)
+
+For Discogs integration support:
+
+1. **Get a Discogs API token**:
+   - Go to [discogs.com/settings/developers](https://www.discogs.com/settings/developers)
+   - Generate a new personal access token
+   - Note the token for your `.env` file
+
+2. **Configure environment variables** in `.env`:
+   ```
+   DISCOGS_API_TOKEN=your_discogs_api_token
+   DISCOGS_COLLECTION_URL=https://www.discogs.com/user/your-username/collection
+   ```
+
+**What these do**:
+- **DISCOGS_API_TOKEN**: Enables searching Discogs to find a particular release link for albums in your collection
+- **DISCOGS_COLLECTION_URL**: Adds a hardcoded collection button that links to your Discogs collection page (can be any URL you want)
+
 ## 🎨 How It Works
 
 - **Metadata Extraction**: Uses `music-metadata` to read ID3 tags from audio files (downloads only first 10MB for efficiency)
