@@ -311,7 +311,7 @@ app.get('/localmetadata/:filename(.*)', async (req, res) => {
         console.log('Album:', metadata.common.album);
 
         // Get file stats for size and dates
-        const stats = await fs.promises.stat(filePath);
+        const stats = await promises.stat(filePath);
 
         // Return metadata as JSON
         res.json({
@@ -466,32 +466,13 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     console.log('No artwork found in metadata');
                 }
 
-                // Get file info from B2
-                const fileInfo = await b2.getFileInfo({
-                    fileId: fileData.fileId
-                });
-
-                // Prepare metadata response
+                // Prepare metadata response (for B2, we already parse ID3 tags for artwork)
                 const metadataResponse = {
                     artist: metadata.common.artist || 'Unknown Artist',
                     album: metadata.common.album || 'Unknown Album',
                     title: metadata.common.title || filename,
                     artwork: artwork,
-                    duration: metadata.format.duration || 0,
-                    // Additional metadata
-                    year: metadata.common.year,
-                    genre: metadata.common.genre?.[0],
-                    trackNumber: metadata.common.track?.no,
-                    composer: metadata.common.composer?.[0],
-                    comment: metadata.common.comment?.[0],
-                    // Format info
-                    bitrate: metadata.format.bitrate,
-                    sampleRate: metadata.format.sampleRate,
-                    codec: metadata.format.codec,
-                    numberOfChannels: metadata.format.numberOfChannels,
-                    // File info
-                    fileSize: fileInfo?.data?.contentLength || fileData.contentLength,
-                    uploadDate: fileInfo?.data?.uploadTimestamp || fileData.uploadTimestamp
+                    duration: metadata.format.duration || 0
                 };
 
                 // Cache the successful response
@@ -654,7 +635,9 @@ async function findMusicFiles(dir, baseDir = dir, files = []) {
                 fullPath,
                 relativePath,
                 fileName: item,
-                folderPath
+                folderPath,
+                size: stats.size,
+                modified: stats.mtime
             });
         }
     }
@@ -1092,6 +1075,19 @@ app.get('/', async (req,res) =>{
             const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
             const directUrl = `/music/${encodedPath}`;
 
+            // Format file size
+            const formatSize = (bytes) => {
+                const mb = bytes / (1024 * 1024);
+                return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
+            };
+
+            // Format date
+            const formatDate = (date) => {
+                return date.toLocaleDateString();
+            };
+
+            const fileMeta = `<span style="font-size: 11px; opacity: 0.7; margin-left: 8px;"><strong>Size:</strong> ${formatSize(fileInfo.size)} <strong style="margin-left: 8px;">Modified:</strong> ${formatDate(fileInfo.modified)}</span>`;
+
             chunk += `
             <div class="song-row">
                 <a class="link"
@@ -1100,6 +1096,7 @@ app.get('/', async (req,res) =>{
                    data-relative-path="${fileInfo.relativePath}"
                    data-audio-type="local">
                 ${fileInfo.fileName}
+                ${fileMeta}
                 </a>
                 <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
             </div>`;
