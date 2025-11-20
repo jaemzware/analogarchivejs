@@ -466,13 +466,30 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     console.log('No artwork found in metadata');
                 }
 
+                // Get file size from response headers
+                const contentLength = fileData.headers?.['content-length'] ||
+                                     fileData.headers?.['Content-Length'];
+
                 // Prepare metadata response (for B2, we already parse ID3 tags for artwork)
                 const metadataResponse = {
                     artist: metadata.common.artist || 'Unknown Artist',
                     album: metadata.common.album || 'Unknown Album',
                     title: metadata.common.title || filename,
                     artwork: artwork,
-                    duration: metadata.format.duration || 0
+                    duration: metadata.format.duration || 0,
+                    // Additional metadata from ID3 tags
+                    year: metadata.common.year,
+                    genre: metadata.common.genre?.[0],
+                    trackNumber: metadata.common.track?.no,
+                    composer: metadata.common.composer?.[0],
+                    comment: metadata.common.comment?.[0],
+                    // Format info
+                    bitrate: metadata.format.bitrate,
+                    sampleRate: metadata.format.sampleRate,
+                    codec: metadata.format.codec,
+                    numberOfChannels: metadata.format.numberOfChannels,
+                    // File info from B2
+                    fileSize: contentLength ? parseInt(contentLength) : undefined
                 };
 
                 // Cache the successful response
@@ -1513,7 +1530,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
 
-        // Load durations for B2 files
+        // Load metadata for B2 files
         const links = document.querySelectorAll('a.link[data-audio-type="b2"]');
         links.forEach(async (link) => {
             const metadataUrl = link.dataset.metadataUrl;
@@ -1522,12 +1539,28 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 try {
                     const response = await fetch(metadataUrl);
                     const metadata = await response.json();
+
+                    let metaInfo = '';
+
+                    // Add duration
                     if (metadata.duration) {
                         const mins = Math.floor(metadata.duration / 60);
                         const secs = Math.floor(metadata.duration % 60);
                         const durationStr = mins + ':' + secs.toString().padStart(2, '0');
-                        placeholder.innerHTML = '<strong>Duration:</strong> ' + durationStr;
+                        metaInfo += '<strong>Duration:</strong> ' + durationStr;
                     }
+
+                    // Add file size
+                    if (metadata.fileSize) {
+                        const mb = metadata.fileSize / (1024 * 1024);
+                        const sizeStr = mb >= 1
+                            ? mb.toFixed(2) + ' MB'
+                            : (metadata.fileSize / 1024).toFixed(2) + ' KB';
+                        if (metaInfo) metaInfo += ' ';
+                        metaInfo += '<strong style="margin-left: 8px;">Size:</strong> ' + sizeStr;
+                    }
+
+                    placeholder.innerHTML = metaInfo;
                 } catch (err) {
                     // Silently fail if metadata can't be loaded
                 }
