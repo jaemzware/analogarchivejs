@@ -310,13 +310,31 @@ app.get('/localmetadata/:filename(.*)', async (req, res) => {
         console.log('Title:', metadata.common.title);
         console.log('Album:', metadata.common.album);
 
+        // Get file stats for size and dates
+        const stats = await fs.promises.stat(filePath);
+
         // Return metadata as JSON
         res.json({
             artist: metadata.common.artist || 'Unknown Artist',
             album: metadata.common.album || 'Unknown Album',
             title: metadata.common.title || filename,
             artwork: artwork,
-            duration: metadata.format.duration || 0
+            duration: metadata.format.duration || 0,
+            // Additional metadata
+            year: metadata.common.year,
+            genre: metadata.common.genre?.[0],
+            trackNumber: metadata.common.track?.no,
+            composer: metadata.common.composer?.[0],
+            comment: metadata.common.comment?.[0],
+            // Format info
+            bitrate: metadata.format.bitrate,
+            sampleRate: metadata.format.sampleRate,
+            codec: metadata.format.codec,
+            numberOfChannels: metadata.format.numberOfChannels,
+            // File info
+            fileSize: stats.size,
+            createdDate: stats.birthtime,
+            modifiedDate: stats.mtime
         });
     } catch (err) {
         console.error('Error getting local metadata:', err);
@@ -448,13 +466,32 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     console.log('No artwork found in metadata');
                 }
 
+                // Get file info from B2
+                const fileInfo = await b2.getFileInfo({
+                    fileId: fileData.fileId
+                });
+
                 // Prepare metadata response
                 const metadataResponse = {
                     artist: metadata.common.artist || 'Unknown Artist',
                     album: metadata.common.album || 'Unknown Album',
                     title: metadata.common.title || filename,
                     artwork: artwork,
-                    duration: metadata.format.duration || 0
+                    duration: metadata.format.duration || 0,
+                    // Additional metadata
+                    year: metadata.common.year,
+                    genre: metadata.common.genre?.[0],
+                    trackNumber: metadata.common.track?.no,
+                    composer: metadata.common.composer?.[0],
+                    comment: metadata.common.comment?.[0],
+                    // Format info
+                    bitrate: metadata.format.bitrate,
+                    sampleRate: metadata.format.sampleRate,
+                    codec: metadata.format.codec,
+                    numberOfChannels: metadata.format.numberOfChannels,
+                    // File info
+                    fileSize: fileInfo?.data?.contentLength || fileData.contentLength,
+                    uploadDate: fileInfo?.data?.uploadTimestamp || fileData.uploadTimestamp
                 };
 
                 // Cache the successful response
