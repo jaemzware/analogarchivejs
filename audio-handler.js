@@ -1644,6 +1644,64 @@ class AudioHandler {
             `;
         }
 
+        // Helper function to format metadata field
+        const formatField = (label, value, formatter = null) => {
+            if (value === undefined || value === null || value === '') return '';
+            const displayValue = formatter ? formatter(value) : value;
+            return `<span style="display: inline-block; margin-right: 12px; margin-bottom: 4px; font-size: 11px; white-space: nowrap;"><strong>${label}:</strong> ${displayValue}</span>`;
+        };
+
+        // Format file size
+        const formatFileSize = (bytes) => {
+            if (!bytes) return '';
+            const mb = bytes / (1024 * 1024);
+            return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
+        };
+
+        // Format bitrate
+        const formatBitrate = (bps) => {
+            if (!bps) return '';
+            return `${Math.round(bps / 1000)} kbps`;
+        };
+
+        // Format sample rate
+        const formatSampleRate = (hz) => {
+            if (!hz) return '';
+            return `${(hz / 1000).toFixed(1)} kHz`;
+        };
+
+        // Format date
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString();
+        };
+
+        // Format duration
+        const formatDuration = (seconds) => {
+            if (!seconds) return '';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        // Build additional metadata fields
+        const additionalMetadata = [
+            formatField('Duration', metadata.duration, formatDuration),
+            formatField('Year', metadata.year),
+            formatField('Genre', metadata.genre),
+            formatField('Track', metadata.trackNumber),
+            formatField('Composer', metadata.composer),
+            formatField('Bitrate', metadata.bitrate, formatBitrate),
+            formatField('Sample Rate', metadata.sampleRate, formatSampleRate),
+            formatField('Codec', metadata.codec),
+            formatField('Channels', metadata.numberOfChannels),
+            formatField('File Size', metadata.fileSize, formatFileSize),
+            formatField('Created', metadata.createdDate, formatDate),
+            formatField('Modified', metadata.modifiedDate, formatDate),
+            formatField('Uploaded', metadata.uploadDate, formatDate)
+        ].filter(field => field !== '').join('');
+
         metadataDiv.innerHTML = `
             <img src="${artworkSrc}"
                  style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;"
@@ -1651,7 +1709,10 @@ class AudioHandler {
             <div style="flex: 1; min-width: 0;">
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${metadata.title}</div>
                 <div style="opacity: 0.9; margin-bottom: 3px;">${metadata.artist}</div>
-                <div style="opacity: 0.7; font-size: 14px;">${metadata.album}</div>
+                <div style="opacity: 0.7; font-size: 14px; margin-bottom: 8px;">${metadata.album}</div>
+                <div style="display: flex; flex-wrap: wrap; opacity: 0.8; line-height: 1.6; margin-bottom: 4px;">
+                    ${additionalMetadata}
+                </div>
                 ${folderLink}${collectionLink}
                 <div id="discogs-info" style="margin-top: 8px;"></div>
             </div>
