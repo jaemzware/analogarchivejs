@@ -1444,6 +1444,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                        data-metadata-url="${metadataUrl}"
                        data-audio-type="b2">
                     ${file.fileName}
+                    <span class="b2-duration-placeholder" style="font-size: 11px; opacity: 0.7; margin-left: 8px;"></span>
                     </a>
                     <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
                 </div>`);
@@ -1511,6 +1512,27 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     // Initialize search functionality for B2 pages
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
+
+        // Load durations for B2 files
+        const links = document.querySelectorAll('a.link[data-audio-type="b2"]');
+        links.forEach(async (link) => {
+            const metadataUrl = link.dataset.metadataUrl;
+            const placeholder = link.querySelector('.b2-duration-placeholder');
+            if (metadataUrl && placeholder) {
+                try {
+                    const response = await fetch(metadataUrl);
+                    const metadata = await response.json();
+                    if (metadata.duration) {
+                        const mins = Math.floor(metadata.duration / 60);
+                        const secs = Math.floor(metadata.duration % 60);
+                        const durationStr = mins + ':' + secs.toString().padStart(2, '0');
+                        placeholder.innerHTML = '<strong>Duration:</strong> ' + durationStr;
+                    }
+                } catch (err) {
+                    // Silently fail if metadata can't be loaded
+                }
+            }
+        });
     });
 </script>
 </body></html>`);
