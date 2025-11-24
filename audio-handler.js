@@ -30,6 +30,7 @@ class AudioHandler {
         this.setupClickHandlers();
         this.setupFolderNavigation();
         this.restorePlayerState();
+        this.setupVideoPlaylist();
 
         // Initialize Discogs service
         this.initializeDiscogs();
@@ -2025,6 +2026,74 @@ class AudioHandler {
                     </a>
                 `;
             }
+        }
+    }
+
+    // Setup video playlist functionality
+    setupVideoPlaylist() {
+        // Find all video elements on the page
+        const videos = document.querySelectorAll('.video-item video');
+
+        videos.forEach((video, index) => {
+            // Add ended event listener to auto-play next video
+            video.addEventListener('ended', () => {
+                console.log(`Video ${index} ended, playing next...`);
+                this.playNextVideo(videos, index);
+            });
+
+            // Add playing event listener to highlight current video
+            video.addEventListener('play', () => {
+                this.highlightCurrentVideo(videos, index);
+            });
+
+            // Add pause event listener to remove highlight
+            video.addEventListener('pause', () => {
+                const videoItem = video.closest('.video-item');
+                if (videoItem) {
+                    videoItem.classList.remove('playing');
+                }
+            });
+        });
+
+        console.log(`Video playlist initialized with ${videos.length} videos`);
+    }
+
+    // Play the next video in sequence
+    playNextVideo(videos, currentIndex) {
+        const nextIndex = currentIndex + 1;
+
+        if (nextIndex < videos.length) {
+            const nextVideo = videos[nextIndex];
+
+            // Scroll the next video into view
+            nextVideo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Wait a bit for scroll to complete, then play
+            setTimeout(() => {
+                nextVideo.play().catch(err => {
+                    console.log('Auto-play prevented:', err);
+                });
+            }, 500);
+        } else {
+            console.log('End of video playlist reached');
+        }
+    }
+
+    // Highlight the currently playing video
+    highlightCurrentVideo(videos, currentIndex) {
+        // Remove highlight from all videos
+        videos.forEach(video => {
+            const videoItem = video.closest('.video-item');
+            if (videoItem) {
+                videoItem.classList.remove('playing');
+            }
+        });
+
+        // Add highlight to current video
+        const currentVideo = videos[currentIndex];
+        const videoItem = currentVideo.closest('.video-item');
+        if (videoItem) {
+            videoItem.classList.add('playing');
         }
     }
 
