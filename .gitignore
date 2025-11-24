@@ -6,3 +6,9 @@ sslcert/
 .env
 deploy*.sh
 output.log
+
+# Ignore everything in music folder
+music/*
+
+# Except the one sample MP3 file
+!music/pixies-imamazed-brokenface-demo.mp3
