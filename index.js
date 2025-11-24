@@ -1071,8 +1071,11 @@ app.get('/', async (req,res) =>{
         // Get current directory from query parameter
         const currentPath = req.query.dir || '';
 
+        // Combine all media files for directory structure
+        const allMediaFiles = [...musicFiles, ...imageFiles, ...videoFiles];
+
         // Build directory structure
-        const dirStructure = buildDirectoryStructure(musicFiles);
+        const dirStructure = buildDirectoryStructure(allMediaFiles);
 
         // Get content for current directory
         let currentContent;
@@ -1275,10 +1278,19 @@ app.get('/', async (req,res) =>{
                 const videoUrl = `/music/${encodedPath}`;
                 const videoPoster = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150"><rect fill="#333" width="200" height="150"/><g transform="translate(100, 75)"><rect x="-40" y="-20" width="60" height="40" fill="#666" rx="4"/><circle cx="-10" cy="0" r="12" fill="#888"/><circle cx="-10" cy="0" r="8" fill="#555"/><polygon points="20,-10 35,0 20,10" fill="#888"/></g><text x="100" y="130" text-anchor="middle" font-size="12" fill="#888">Click to play</text></svg>');
 
+                // Determine proper video MIME type
+                const videoExt = fileInfo.fileName.split('.').pop().toLowerCase();
+                let videoMimeType = 'video/mp4'; // default
+                if (videoExt === 'mov') videoMimeType = 'video/quicktime';
+                else if (videoExt === 'webm') videoMimeType = 'video/webm';
+                else if (videoExt === 'ogv') videoMimeType = 'video/ogg';
+                else if (videoExt === 'avi') videoMimeType = 'video/x-msvideo';
+                else if (videoExt === 'mkv') videoMimeType = 'video/x-matroska';
+
                 chunk += `
                 <div class="video-item" data-media-type="video">
                     <video controls preload="metadata" poster="${videoPoster}">
-                        <source src="${videoUrl}" type="video/${fileInfo.fileName.split('.').pop().toLowerCase()}">
+                        <source src="${videoUrl}" type="${videoMimeType}">
                         Your browser does not support the video tag.
                     </video>
                     <div class="video-filename">${fileInfo.fileName}</div>
@@ -1666,10 +1678,19 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 for (const file of videoFiles) {
                     const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
 
+                    // Determine proper video MIME type
+                    const videoExt = file.fileName.split('.').pop().toLowerCase();
+                    let videoMimeType = 'video/mp4'; // default
+                    if (videoExt === 'mov') videoMimeType = 'video/quicktime';
+                    else if (videoExt === 'webm') videoMimeType = 'video/webm';
+                    else if (videoExt === 'ogv') videoMimeType = 'video/ogg';
+                    else if (videoExt === 'avi') videoMimeType = 'video/x-msvideo';
+                    else if (videoExt === 'mkv') videoMimeType = 'video/x-matroska';
+
                     res.write(`
                     <div class="video-item" data-media-type="video">
                         <video controls preload="metadata" poster="${videoPoster}">
-                            <source src="${proxyUrl}" type="video/${file.fileName.split('.').pop().toLowerCase()}">
+                            <source src="${proxyUrl}" type="${videoMimeType}">
                             Your browser does not support the video tag.
                         </video>
                         <div class="video-filename">${file.fileName}</div>
