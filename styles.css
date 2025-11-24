@@ -1197,6 +1197,13 @@ body.player-active {
     overflow: hidden;
     background: #2d2d2d;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
+}
+
+.video-item.playing {
+    box-shadow: 0 0 20px rgba(0,255,127,0.6);
+    border: 2px solid lime;
+    transform: scale(1.02);
 }
 
 .video-item video {
