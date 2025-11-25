@@ -20,6 +20,8 @@ class AudioHandler {
         this.hasUserGesture = false;
         // Discogs integration
         this.discogsService = null;
+        // Track folder navigation fetch to prevent race conditions
+        this.folderNavigationController = null;
     }
 
     // Initialize pages with search functionality
@@ -257,11 +259,26 @@ class AudioHandler {
             // This allows us to restore position when using breadcrumbs
             e.preventDefault();
 
+            // Abort any pending folder navigation to prevent race conditions
+            if (this.folderNavigationController) {
+                this.folderNavigationController.abort();
+            }
+
+            // Create new abort controller for this navigation
+            this.folderNavigationController = new AbortController();
+            const signal = this.folderNavigationController.signal;
+
             // Save current scroll position for this URL
             this.saveScrollPosition();
 
+            // Show loading overlay while fetching
+            const overlay = document.getElementById('endpointLoadingOverlay');
+            if (overlay) {
+                overlay.classList.add('active');
+            }
+
             // Fetch the new page content
-            fetch(href)
+            fetch(href, { signal })
                 .then(response => response.text())
                 .then(html => {
                     // Parse the HTML
@@ -309,8 +326,26 @@ class AudioHandler {
 
                     // Restore scroll position for this URL, or scroll to top if new directory
                     this.restoreScrollPosition();
+
+                    // Hide loading overlay after navigation completes
+                    if (overlay) {
+                        overlay.classList.remove('active');
+                    }
+                    this.folderNavigationController = null;
                 })
                 .catch(error => {
+                    // Hide loading overlay on error
+                    if (overlay) {
+                        overlay.classList.remove('active');
+                    }
+                    this.folderNavigationController = null;
+
+                    // Don't log abort errors (user-initiated)
+                    if (error.name === 'AbortError') {
+                        console.log('Folder navigation aborted');
+                        return;
+                    }
+
                     console.error('Failed to load folder:', error);
                     // Fall back to regular navigation
                     window.location.href = href;
@@ -1751,7 +1786,7 @@ class AudioHandler {
         const formatField = (label, value, formatter = null) => {
             if (value === undefined || value === null || value === '') return '';
             const displayValue = formatter ? formatter(value) : value;
-            return `<span style="display: inline-block; margin-right: 12px; margin-bottom: 4px; font-size: 11px; white-space: nowrap;"><strong>${label}:</strong> ${displayValue}</span>`;
+            return `<strong>${label}:</strong> ${displayValue}`;
         };
 
         // Format file size
@@ -1803,7 +1838,7 @@ class AudioHandler {
             formatField('Created', metadata.createdDate, formatDate),
             formatField('Modified', metadata.modifiedDate, formatDate),
             formatField('Uploaded', metadata.uploadDate, formatDate)
-        ].filter(field => field !== '').join('');
+        ].filter(field => field !== '').join(' • ');
 
         metadataDiv.innerHTML = `
             <img src="${artworkSrc}"
@@ -1813,7 +1848,7 @@ class AudioHandler {
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${metadata.title}</div>
                 <div style="opacity: 0.9; margin-bottom: 3px;">${metadata.artist}</div>
                 <div style="opacity: 0.7; font-size: 14px; margin-bottom: 8px;">${metadata.album}</div>
-                <div style="display: flex; flex-wrap: wrap; opacity: 0.8; line-height: 1.6; margin-bottom: 4px;">
+                <div style="opacity: 0.8; font-size: 11px; line-height: 1.5; margin-bottom: 8px; word-wrap: break-word;">
                     ${additionalMetadata}
                 </div>
                 ${folderLink}${collectionLink}
