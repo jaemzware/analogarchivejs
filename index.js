@@ -1021,11 +1021,14 @@ function buildDirectoryStructure(musicFiles) {
 
 // Helper function to get N most recent songs from a file list
 function getMostRecentSongs(files, limit = 5) {
+    const startTime = Date.now();
     // Filter only audio files and sort by modified date (newest first)
     const audioFiles = files.filter(f => !f.mediaType || f.mediaType === 'audio');
-    return audioFiles
+    const result = audioFiles
         .sort((a, b) => b.modified.getTime() - a.modified.getTime())
         .slice(0, limit);
+    console.log(`getMostRecentSongs took ${Date.now() - startTime}ms for ${files.length} files`);
+    return result;
 }
 
 // Helper function to build breadcrumb path for a file
@@ -1560,17 +1563,21 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                         ? relativePath.substring(0, relativePath.lastIndexOf('/'))
                         : '';
 
+                    // B2 uploadTimestamp is in milliseconds since epoch
+                    const timestamp = file.uploadTimestamp || Date.now();
+
                     b2Files.push({
                         fileName: fileName,
                         relativePath: relativePath,
                         folderPath: folderPath,
                         fullB2Path: file.fileName, // Keep the full B2 path for proxy URLs
                         mediaType: mediaType,
-                        modified: new Date(file.uploadTimestamp || 0), // B2 upload timestamp
+                        modified: new Date(timestamp),
                         size: file.contentLength || 0
                     });
                 }
             }
+            console.log(`Parsed ${b2Files.length} media files from B2`);
 
             // Cache the folder listing
             folderListingCache.set(folderCacheKey, {
