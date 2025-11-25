@@ -40,34 +40,65 @@ const b2 = new B2({
 });
 const bucketName = process.env.B2_BUCKET_NAME;
 
+// Cache the connectivity check result to avoid hammering B2 API
+let connectivityCache = {
+    result: null,
+    timestamp: 0
+};
+const CONNECTIVITY_CACHE_MS = 5 * 60 * 1000; // 5 minutes
+
 // Helper to check if we have internet/B2 connectivity
 async function checkB2Connectivity() {
+    // Return cached result if still valid
+    if (connectivityCache.result &&
+        (Date.now() - connectivityCache.timestamp) < CONNECTIVITY_CACHE_MS) {
+        console.log('B2 connectivity check - using cached result');
+        return connectivityCache.result;
+    }
+
+    console.log('B2 connectivity check - performing fresh check');
     try {
-        // Set a short timeout for the connection check
+        // Set a timeout for the connection check
         await Promise.race([
             b2.authorize(),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Connection timeout')), 5000)
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Connection timeout')), 30000)
             )
         ]);
-        return { connected: true };
+        const result = { connected: true };
+
+        // Cache the successful result
+        connectivityCache = {
+            result: result,
+            timestamp: Date.now()
+        };
+
+        return result;
     } catch (err) {
         console.log('B2 connectivity check failed:', err.message);
         // Determine if it's a network error or auth error
-        const isNetworkError = 
-            err.code === 'ENOTFOUND' || 
-            err.code === 'ECONNREFUSED' || 
+        const isNetworkError =
+            err.code === 'ENOTFOUND' ||
+            err.code === 'ECONNREFUSED' ||
             err.code === 'ETIMEDOUT' ||
             err.code === 'EAI_AGAIN' ||
             err.message.includes('timeout') ||
             err.message.includes('network') ||
             err.message.toLowerCase().includes('getaddrinfo');
-        
-        return { 
-            connected: false, 
+
+        const result = {
+            connected: false,
             isNetworkError,
-            error: err.message 
+            error: err.message
         };
+
+        // Cache the failed result
+        connectivityCache = {
+            result: result,
+            timestamp: Date.now()
+        };
+
+        return result;
     }
 }
 
@@ -1019,6 +1050,31 @@ function buildDirectoryStructure(musicFiles) {
     return structure;
 }
 
+// Helper function to get N most recent songs from a file list
+function getMostRecentSongs(files, limit = 5) {
+    const startTime = Date.now();
+    // Filter only audio files and sort by modified date (newest first)
+    const audioFiles = files.filter(f => !f.mediaType || f.mediaType === 'audio');
+    const result = audioFiles
+        .sort((a, b) => b.modified.getTime() - a.modified.getTime())
+        .slice(0, limit);
+    console.log(`getMostRecentSongs took ${Date.now() - startTime}ms for ${files.length} files`);
+    return result;
+}
+
+// Helper function to build breadcrumb path for a file
+function buildFileBreadcrumb(relativePath) {
+    const parts = relativePath.split('/');
+    const fileName = parts[parts.length - 1];
+    const folders = parts.slice(0, -1);
+
+    if (folders.length === 0) {
+        return fileName;
+    }
+
+    return folders.join(' / ') + ' / ' + fileName;
+}
+
 // Original local music endpoint with directory navigation
 app.get('/', async (req,res) =>{
     try {
@@ -1184,11 +1240,60 @@ app.get('/', async (req,res) =>{
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
+<div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
+    <div class="endpoint-loading-content">
+        <div class="endpoint-loading-spinner">⏳</div>
+        <div class="endpoint-loading-text">Downloading track information...</div>
+    </div>
+</div>
 <div class="container">
 `);
 
-        // Stream subdirectories first
+        // Add recent songs section if we're at the root
         let chunk = '';
+        if (currentPath === '') {
+            const recentSongs = getMostRecentSongs(musicFiles, 5);
+            if (recentSongs.length > 0) {
+                chunk += '<div class="recent-songs-section">';
+                chunk += '<h2 class="recent-songs-header">Recently Added</h2>';
+                chunk += '<div class="recent-songs-list">';
+
+                for (const song of recentSongs) {
+                    const encodedPath = song.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const directUrl = `/music/${encodedPath}`;
+                    const breadcrumbPath = buildFileBreadcrumb(song.relativePath);
+                    const formatSize = (bytes) => {
+                        const mb = bytes / (1024 * 1024);
+                        return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
+                    };
+                    const formatDate = (date) => {
+                        return date.toLocaleDateString();
+                    };
+
+                    chunk += `
+                    <div class="recent-song-item">
+                        <a class="recent-song-link link"
+                           data-filename="${song.fileName}"
+                           data-folder="${song.folderPath}"
+                           data-relative-path="${song.relativePath}"
+                           data-audio-type="local">
+                            <div class="recent-song-breadcrumb">${breadcrumbPath}</div>
+                            <div class="recent-song-meta">
+                                <span><strong>Size:</strong> ${formatSize(song.size)}</span>
+                                <span><strong>Added:</strong> ${formatDate(song.modified)}</span>
+                            </div>
+                        </a>
+                    </div>`;
+                }
+
+                chunk += '</div></div>';
+            }
+        }
+
+        // Stream subdirectories first
+        if (currentContent.subdirs.length > 0) {
+            chunk += '<div class="media-section directory-section"><h2 class="section-header">Directories</h2>';
+        }
         for (const subdir of currentContent.subdirs) {
             const subdirPath = currentPath ? `${currentPath}/${subdir}` : subdir;
             chunk += `
@@ -1197,6 +1302,9 @@ app.get('/', async (req,res) =>{
                 ${subdir}
                 </a>
             </div>`;
+        }
+        if (currentContent.subdirs.length > 0) {
+            chunk += '</div>';
         }
 
         // Separate files by media type
@@ -1217,7 +1325,7 @@ app.get('/', async (req,res) =>{
 
         // Render audio files
         if (audioFiles.length > 0) {
-            chunk += '<div class="media-section audio-section">';
+            chunk += '<div class="media-section audio-section"><h2 class="section-header">Songs</h2>';
             for (let i = 0; i < audioFiles.length; i++) {
                 const fileInfo = audioFiles[i];
                 const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
@@ -1333,6 +1441,26 @@ app.get('/', async (req,res) =>{
             });
         }
 
+        // Show loading overlay when switching endpoints
+        const endpointOptions = document.querySelectorAll('.source-selector-option');
+        endpointOptions.forEach(option => {
+            option.addEventListener('click', function(e) {
+                // Don't show overlay if clicking the current endpoint
+                if (option.classList.contains('active')) {
+                    return;
+                }
+
+                // Show loading overlay
+                const overlay = document.getElementById('endpointLoadingOverlay');
+                if (overlay) {
+                    overlay.classList.add('active');
+                }
+
+                // Store state to persist across navigation
+                sessionStorage.setItem('endpointSwitching', 'true');
+            });
+        });
+
         // Check cloud connectivity status
         async function updateCloudStatus() {
             try {
@@ -1368,8 +1496,26 @@ app.get('/', async (req,res) =>{
         setInterval(updateCloudStatus, 30000);
     })();
 
+    // Check if we should show loading overlay on page load
+    (function() {
+        const overlay = document.getElementById('endpointLoadingOverlay');
+        if (sessionStorage.getItem('endpointSwitching') === 'true' && overlay) {
+            overlay.classList.add('active');
+        }
+    })();
+
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
+
+        // Hide loading overlay after page is fully loaded
+        const overlay = document.getElementById('endpointLoadingOverlay');
+        if (overlay) {
+            // Wait a bit for files to load, then hide overlay
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                sessionStorage.removeItem('endpointSwitching');
+            }, 500);
+        }
     });
 </script>
 </body></html>`);
@@ -1498,15 +1644,21 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                         ? relativePath.substring(0, relativePath.lastIndexOf('/'))
                         : '';
 
+                    // B2 uploadTimestamp is in milliseconds since epoch
+                    const timestamp = file.uploadTimestamp || Date.now();
+
                     b2Files.push({
                         fileName: fileName,
                         relativePath: relativePath,
                         folderPath: folderPath,
                         fullB2Path: file.fileName, // Keep the full B2 path for proxy URLs
-                        mediaType: mediaType
+                        mediaType: mediaType,
+                        modified: new Date(timestamp),
+                        size: file.contentLength || 0
                     });
                 }
             }
+            console.log(`Parsed ${b2Files.length} media files from B2`);
 
             // Cache the folder listing
             folderListingCache.set(folderCacheKey, {
@@ -1607,10 +1759,60 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
+<div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
+    <div class="endpoint-loading-content">
+        <div class="endpoint-loading-spinner">⏳</div>
+        <div class="endpoint-loading-text">Downloading track information...</div>
+    </div>
+</div>
 <div class="container">`);
+
+        // Add recent songs section if we're at the root
+        if (currentDir === '') {
+            const recentSongs = getMostRecentSongs(b2Files, 5);
+            if (recentSongs.length > 0) {
+                const formatSize = (bytes) => {
+                    const mb = bytes / (1024 * 1024);
+                    return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
+                };
+                const formatDate = (date) => {
+                    return date.toLocaleDateString();
+                };
+
+                res.write('<div class="recent-songs-section">');
+                res.write('<h2 class="recent-songs-header">Recently Added</h2>');
+                res.write('<div class="recent-songs-list">');
+
+                for (const song of recentSongs) {
+                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(song.relativePath)}`;
+                    const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(song.relativePath)}`;
+                    const breadcrumbPath = buildFileBreadcrumb(song.relativePath);
+
+                    res.write(`
+                    <div class="recent-song-item">
+                        <a class="recent-song-link link"
+                           data-filename="${song.fileName}"
+                           data-folder="${song.folderPath}"
+                           data-relative-path="${song.relativePath}"
+                           data-proxy-url="${proxyUrl}"
+                           data-metadata-url="${metadataUrl}"
+                           data-audio-type="b2">
+                            <div class="recent-song-breadcrumb">${breadcrumbPath}</div>
+                            <div class="recent-song-meta">
+                                <span><strong>Size:</strong> ${formatSize(song.size)}</span>
+                                <span><strong>Added:</strong> ${formatDate(song.modified)}</span>
+                            </div>
+                        </a>
+                    </div>`);
+                }
+
+                res.write('</div></div>');
+            }
+        }
 
         // Render subdirectories (folders)
         if (currentDirData.subdirs && currentDirData.subdirs.size > 0) {
+            res.write('<div class="media-section directory-section"><h2 class="section-header">Directories</h2>');
             const sortedSubdirs = Array.from(currentDirData.subdirs).sort();
             for (const subdir of sortedSubdirs) {
                 const subdirPath = currentDir ? `${currentDir}/${subdir}` : subdir;
@@ -1620,6 +1822,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     <a href="${folderUrl}" class="folder-link">${subdir}</a>
                 </div>`);
             }
+            res.write('</div>');
         }
 
         // Render files in the current directory - separate by media type
@@ -1630,7 +1833,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
             // Render audio files
             if (audioFiles.length > 0) {
-                res.write('<div class="media-section audio-section">');
+                res.write('<div class="media-section audio-section"><h2 class="section-header">Songs</h2>');
                 for (const file of audioFiles) {
                     const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
                     const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(file.relativePath)}`;
@@ -1722,6 +1925,26 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 }
             });
         }
+
+        // Show loading overlay when switching endpoints
+        const endpointOptions = document.querySelectorAll('.source-selector-option');
+        endpointOptions.forEach(option => {
+            option.addEventListener('click', function(e) {
+                // Don't show overlay if clicking the current endpoint
+                if (option.classList.contains('active')) {
+                    return;
+                }
+
+                // Show loading overlay
+                const overlay = document.getElementById('endpointLoadingOverlay');
+                if (overlay) {
+                    overlay.classList.add('active');
+                }
+
+                // Store state to persist across navigation
+                sessionStorage.setItem('endpointSwitching', 'true');
+            });
+        });
 
         // Check cloud connectivity status
         async function updateCloudStatus() {

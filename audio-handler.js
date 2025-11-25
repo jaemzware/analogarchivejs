@@ -54,6 +54,70 @@ class AudioHandler {
 
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
+
+        // Preload metadata for recent songs to make them faster to play
+        this.preloadRecentSongsMetadata();
+    }
+
+    // Preload metadata for recent songs in the background
+    async preloadRecentSongsMetadata() {
+        const recentSongLinks = document.querySelectorAll('.recent-song-link');
+        if (recentSongLinks.length === 0) return;
+
+        console.log(`Preloading metadata for ${recentSongLinks.length} recent songs in background...`);
+
+        // Preload metadata for each recent song (but don't wait for completion)
+        for (const link of recentSongLinks) {
+            const audioType = link.dataset.audioType;
+
+            // Skip if already cached
+            const folder = link.dataset.folder;
+            const filename = link.dataset.filename;
+            const cacheKey = `${folder}/${filename}`;
+            if (this.metadataCache.has(cacheKey)) {
+                console.log(`Metadata already cached for: ${filename}`);
+                continue;
+            }
+
+            // Fetch metadata in background (don't await)
+            this.fetchMetadataInBackground(link, audioType).catch(err => {
+                console.warn(`Failed to preload metadata for ${filename}:`, err);
+            });
+        }
+    }
+
+    async fetchMetadataInBackground(link, audioType) {
+        try {
+            let metadataUrl;
+
+            if (audioType === 'local') {
+                const relativePath = link.dataset.relativePath;
+                const encodedPath = relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                metadataUrl = `/localmetadata/${encodedPath}`;
+            } else if (audioType === 'b2') {
+                const proxyUrl = link.dataset.proxyUrl;
+                const urlParts = proxyUrl.split('/');
+                const folder = urlParts[2];
+                const filename = urlParts.slice(3).join('/');
+                metadataUrl = `/b2metadata/${folder}/${filename}`;
+            }
+
+            if (!metadataUrl) return;
+
+            console.log(`Background fetching metadata: ${metadataUrl}`);
+            const response = await fetch(metadataUrl);
+            const metadata = await response.json();
+
+            // Cache it
+            const folder = link.dataset.folder;
+            const filename = link.dataset.filename;
+            const cacheKey = `${folder}/${filename}`;
+            this.metadataCache.set(cacheKey, metadata);
+            console.log(`✓ Preloaded and cached metadata for: ${filename}`);
+        } catch (error) {
+            // Silently fail for background loading
+            console.warn('Background metadata fetch failed:', error.message);
+        }
     }
 
     // Initialize Discogs service
@@ -1231,8 +1295,27 @@ class AudioHandler {
         const artwork = metadata.artwork ?
             `data:image/jpeg;base64,${metadata.artwork}` : '';
 
+        const isRecentSongLink = link.classList.contains('recent-song-link');
+
         if (artwork) {
-            link.style.backgroundImage = `url('${artwork}')`;
+            if (isRecentSongLink) {
+                // For recent song links, add artwork as a small image on the right
+                // First remove any existing artwork
+                const existingArtwork = link.querySelector('.recent-song-artwork');
+                if (existingArtwork) {
+                    existingArtwork.remove();
+                }
+
+                // Add new artwork image
+                const artworkImg = document.createElement('img');
+                artworkImg.className = 'recent-song-artwork';
+                artworkImg.src = artwork;
+                artworkImg.alt = 'Album artwork';
+                link.appendChild(artworkImg);
+            } else {
+                // For regular links, use background image as before
+                link.style.backgroundImage = `url('${artwork}')`;
+            }
         }
 
         // Store original content before updating
@@ -1243,12 +1326,20 @@ class AudioHandler {
         // Match the root page format: Artist Album Title
         const displayContent = `
             ${metadata.artist || 'Unknown Artist'}
-            ${metadata.album || 'Unknown Album'}  
+            ${metadata.album || 'Unknown Album'}
             ${metadata.title || link.dataset.filename}
         `;
 
-        link.innerHTML = displayContent;
-        link.dataset.originalContent = displayContent;
+        // For recent song links, update only the breadcrumb div
+        if (isRecentSongLink) {
+            const breadcrumbDiv = link.querySelector('.recent-song-breadcrumb');
+            if (breadcrumbDiv) {
+                breadcrumbDiv.innerHTML = displayContent;
+            }
+        } else {
+            link.innerHTML = displayContent;
+            link.dataset.originalContent = displayContent;
+        }
     }
 
     // Enhanced playAudio method (existing functionality preserved)
@@ -1279,6 +1370,17 @@ class AudioHandler {
             audio = new Audio();
             audio.controls = true;
             audio.preload = 'auto';
+        }
+
+        // Clean up artwork from previous recent song link
+        if (this.currentLink && this.currentLink !== link) {
+            const prevIsRecentSong = this.currentLink.classList.contains('recent-song-link');
+            if (prevIsRecentSong) {
+                const prevArtwork = this.currentLink.querySelector('.recent-song-artwork');
+                if (prevArtwork) {
+                    prevArtwork.remove();
+                }
+            }
         }
 
         // Update link reference
