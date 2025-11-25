@@ -40,8 +40,23 @@ const b2 = new B2({
 });
 const bucketName = process.env.B2_BUCKET_NAME;
 
+// Cache the connectivity check result to avoid hammering B2 API
+let connectivityCache = {
+    result: null,
+    timestamp: 0
+};
+const CONNECTIVITY_CACHE_MS = 5 * 60 * 1000; // 5 minutes
+
 // Helper to check if we have internet/B2 connectivity
 async function checkB2Connectivity() {
+    // Return cached result if still valid
+    if (connectivityCache.result &&
+        (Date.now() - connectivityCache.timestamp) < CONNECTIVITY_CACHE_MS) {
+        console.log('B2 connectivity check - using cached result');
+        return connectivityCache.result;
+    }
+
+    console.log('B2 connectivity check - performing fresh check');
     try {
         // Set a timeout for the connection check
         await Promise.race([
@@ -50,24 +65,40 @@ async function checkB2Connectivity() {
                 setTimeout(() => reject(new Error('Connection timeout')), 30000)
             )
         ]);
-        return { connected: true };
+        const result = { connected: true };
+
+        // Cache the successful result
+        connectivityCache = {
+            result: result,
+            timestamp: Date.now()
+        };
+
+        return result;
     } catch (err) {
         console.log('B2 connectivity check failed:', err.message);
         // Determine if it's a network error or auth error
-        const isNetworkError = 
-            err.code === 'ENOTFOUND' || 
-            err.code === 'ECONNREFUSED' || 
+        const isNetworkError =
+            err.code === 'ENOTFOUND' ||
+            err.code === 'ECONNREFUSED' ||
             err.code === 'ETIMEDOUT' ||
             err.code === 'EAI_AGAIN' ||
             err.message.includes('timeout') ||
             err.message.includes('network') ||
             err.message.toLowerCase().includes('getaddrinfo');
-        
-        return { 
-            connected: false, 
+
+        const result = {
+            connected: false,
             isNetworkError,
-            error: err.message 
+            error: err.message
         };
+
+        // Cache the failed result
+        connectivityCache = {
+            result: result,
+            timestamp: Date.now()
+        };
+
+        return result;
     }
 }
 
