@@ -1394,3 +1394,43 @@ body.player-active {
         font-size: 12px;
     }
 }
+
+/* Endpoint Loading Overlay */
+.endpoint-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.endpoint-loading-overlay.active {
+    display: flex;
+}
+
+.endpoint-loading-content {
+    text-align: center;
+    color: lime;
+}
+
+.endpoint-loading-spinner {
+    font-size: 48px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+.endpoint-loading-text {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

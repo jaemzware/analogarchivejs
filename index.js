@@ -1240,6 +1240,12 @@ app.get('/', async (req,res) =>{
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
+<div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
+    <div class="endpoint-loading-content">
+        <div class="endpoint-loading-spinner">⏳</div>
+        <div class="endpoint-loading-text">Downloading track information...</div>
+    </div>
+</div>
 <div class="container">
 `);
 
@@ -1435,6 +1441,26 @@ app.get('/', async (req,res) =>{
             });
         }
 
+        // Show loading overlay when switching endpoints
+        const endpointOptions = document.querySelectorAll('.source-selector-option');
+        endpointOptions.forEach(option => {
+            option.addEventListener('click', function(e) {
+                // Don't show overlay if clicking the current endpoint
+                if (option.classList.contains('active')) {
+                    return;
+                }
+
+                // Show loading overlay
+                const overlay = document.getElementById('endpointLoadingOverlay');
+                if (overlay) {
+                    overlay.classList.add('active');
+                }
+
+                // Store state to persist across navigation
+                sessionStorage.setItem('endpointSwitching', 'true');
+            });
+        });
+
         // Check cloud connectivity status
         async function updateCloudStatus() {
             try {
@@ -1470,8 +1496,26 @@ app.get('/', async (req,res) =>{
         setInterval(updateCloudStatus, 30000);
     })();
 
+    // Check if we should show loading overlay on page load
+    (function() {
+        const overlay = document.getElementById('endpointLoadingOverlay');
+        if (sessionStorage.getItem('endpointSwitching') === 'true' && overlay) {
+            overlay.classList.add('active');
+        }
+    })();
+
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
+
+        // Hide loading overlay after page is fully loaded
+        const overlay = document.getElementById('endpointLoadingOverlay');
+        if (overlay) {
+            // Wait a bit for files to load, then hide overlay
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                sessionStorage.removeItem('endpointSwitching');
+            }, 500);
+        }
     });
 </script>
 </body></html>`);
@@ -1715,6 +1759,12 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
+<div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
+    <div class="endpoint-loading-content">
+        <div class="endpoint-loading-spinner">⏳</div>
+        <div class="endpoint-loading-text">Downloading track information...</div>
+    </div>
+</div>
 <div class="container">`);
 
         // Add recent songs section if we're at the root
@@ -1875,6 +1925,26 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 }
             });
         }
+
+        // Show loading overlay when switching endpoints
+        const endpointOptions = document.querySelectorAll('.source-selector-option');
+        endpointOptions.forEach(option => {
+            option.addEventListener('click', function(e) {
+                // Don't show overlay if clicking the current endpoint
+                if (option.classList.contains('active')) {
+                    return;
+                }
+
+                // Show loading overlay
+                const overlay = document.getElementById('endpointLoadingOverlay');
+                if (overlay) {
+                    overlay.classList.add('active');
+                }
+
+                // Store state to persist across navigation
+                sessionStorage.setItem('endpointSwitching', 'true');
+            });
+        });
 
         // Check cloud connectivity status
         async function updateCloudStatus() {
