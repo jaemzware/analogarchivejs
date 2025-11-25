@@ -43,11 +43,11 @@ const bucketName = process.env.B2_BUCKET_NAME;
 // Helper to check if we have internet/B2 connectivity
 async function checkB2Connectivity() {
     try {
-        // Set a short timeout for the connection check
+        // Set a timeout for the connection check
         await Promise.race([
             b2.authorize(),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Connection timeout')), 5000)
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Connection timeout')), 30000)
             )
         ]);
         return { connected: true };
