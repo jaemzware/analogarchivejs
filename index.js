@@ -1985,6 +1985,16 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     window.addEventListener('DOMContentLoaded', function() {
         audioHandler.initializePage();
 
+        // Hide loading overlay after page is fully loaded
+        const overlay = document.getElementById('endpointLoadingOverlay');
+        if (overlay) {
+            // Wait a bit for files to load, then hide overlay
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                sessionStorage.removeItem('endpointSwitching');
+            }, 500);
+        }
+
         // Load metadata for B2 files
         const links = document.querySelectorAll('a.link[data-audio-type="b2"]');
         links.forEach(async (link) => {

@@ -1751,7 +1751,7 @@ class AudioHandler {
         const formatField = (label, value, formatter = null) => {
             if (value === undefined || value === null || value === '') return '';
             const displayValue = formatter ? formatter(value) : value;
-            return `<span style="display: inline-block; margin-right: 12px; margin-bottom: 4px; font-size: 11px; white-space: nowrap;"><strong>${label}:</strong> ${displayValue}</span>`;
+            return `<strong>${label}:</strong> ${displayValue}`;
         };
 
         // Format file size
@@ -1803,7 +1803,7 @@ class AudioHandler {
             formatField('Created', metadata.createdDate, formatDate),
             formatField('Modified', metadata.modifiedDate, formatDate),
             formatField('Uploaded', metadata.uploadDate, formatDate)
-        ].filter(field => field !== '').join('');
+        ].filter(field => field !== '').join(' • ');
 
         metadataDiv.innerHTML = `
             <img src="${artworkSrc}"
@@ -1813,7 +1813,7 @@ class AudioHandler {
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${metadata.title}</div>
                 <div style="opacity: 0.9; margin-bottom: 3px;">${metadata.artist}</div>
                 <div style="opacity: 0.7; font-size: 14px; margin-bottom: 8px;">${metadata.album}</div>
-                <div style="display: flex; flex-wrap: wrap; opacity: 0.8; line-height: 1.6; margin-bottom: 4px;">
+                <div style="opacity: 0.8; font-size: 11px; line-height: 1.5; margin-bottom: 8px; word-wrap: break-word;">
                     ${additionalMetadata}
                 </div>
                 ${folderLink}${collectionLink}
