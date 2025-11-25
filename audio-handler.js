@@ -328,15 +328,17 @@ class AudioHandler {
                     this.restoreScrollPosition();
 
                     // Hide loading overlay after navigation completes
-                    if (overlay) {
-                        overlay.classList.remove('active');
+                    const currentOverlay = document.getElementById('endpointLoadingOverlay');
+                    if (currentOverlay) {
+                        currentOverlay.classList.remove('active');
                     }
                     this.folderNavigationController = null;
                 })
                 .catch(error => {
                     // Hide loading overlay on error
-                    if (overlay) {
-                        overlay.classList.remove('active');
+                    const currentOverlay = document.getElementById('endpointLoadingOverlay');
+                    if (currentOverlay) {
+                        currentOverlay.classList.remove('active');
                     }
                     this.folderNavigationController = null;
 

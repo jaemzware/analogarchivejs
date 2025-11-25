@@ -1242,7 +1242,7 @@ app.get('/', async (req,res) =>{
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
     <div class="endpoint-loading-content">
-        <div class="endpoint-loading-spinner">⏳</div>
+        <div class="endpoint-loading-spinner">&#9679;</div>
         <div class="endpoint-loading-text">Downloading track information...</div>
     </div>
 </div>
@@ -1761,7 +1761,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
     <div class="endpoint-loading-content">
-        <div class="endpoint-loading-spinner">⏳</div>
+        <div class="endpoint-loading-spinner">&#9679;</div>
         <div class="endpoint-loading-text">Downloading track information...</div>
     </div>
 </div>
