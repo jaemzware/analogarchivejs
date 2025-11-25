@@ -1250,3 +1250,130 @@ body.player-active {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* Recent Songs Section */
+.recent-songs-section {
+    margin-bottom: 35px;
+    padding: 20px;
+    background: linear-gradient(135deg, #ffffff, #f8f8f8);
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.recent-songs-header {
+    margin: 0 0 15px 0;
+    padding: 0 0 10px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #333;
+    border-bottom: 2px solid lime;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.recent-songs-header::before {
+    content: "⏱";
+    font-size: 24px;
+}
+
+.recent-songs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.recent-song-item {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.2s ease-in-out;
+}
+
+.recent-song-item:hover {
+    border-color: lime;
+    box-shadow: 0 4px 12px rgba(0, 255, 127, 0.2);
+    transform: translateY(-2px);
+}
+
+.recent-song-link {
+    display: block;
+    padding: 12px 15px;
+    text-decoration: none;
+    color: #333;
+    cursor: pointer;
+    border: none;
+}
+
+.recent-song-link:hover {
+    background: linear-gradient(135deg, #f0f8ff, #e6f3ff);
+}
+
+.recent-song-breadcrumb {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.recent-song-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 11px;
+    color: #666;
+    flex-wrap: wrap;
+}
+
+.recent-song-meta span {
+    display: inline-block;
+}
+
+.recent-song-meta strong {
+    font-weight: 600;
+    color: #444;
+    margin-right: 4px;
+}
+
+/* Mobile Responsive for Recent Songs */
+@media (max-width: 768px) {
+    .recent-songs-section {
+        padding: 15px;
+        margin-bottom: 25px;
+    }
+
+    .recent-songs-header {
+        font-size: 18px;
+    }
+
+    .recent-song-link {
+        padding: 10px 12px;
+    }
+
+    .recent-song-breadcrumb {
+        font-size: 13px;
+    }
+
+    .recent-song-meta {
+        font-size: 10px;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .recent-songs-section {
+        padding: 12px;
+        margin-bottom: 20px;
+    }
+
+    .recent-songs-header {
+        font-size: 16px;
+    }
+
+    .recent-song-breadcrumb {
+        font-size: 12px;
+    }
+}

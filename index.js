@@ -1019,6 +1019,28 @@ function buildDirectoryStructure(musicFiles) {
     return structure;
 }
 
+// Helper function to get N most recent songs from a file list
+function getMostRecentSongs(files, limit = 5) {
+    // Filter only audio files and sort by modified date (newest first)
+    const audioFiles = files.filter(f => !f.mediaType || f.mediaType === 'audio');
+    return audioFiles
+        .sort((a, b) => b.modified.getTime() - a.modified.getTime())
+        .slice(0, limit);
+}
+
+// Helper function to build breadcrumb path for a file
+function buildFileBreadcrumb(relativePath) {
+    const parts = relativePath.split('/');
+    const fileName = parts[parts.length - 1];
+    const folders = parts.slice(0, -1);
+
+    if (folders.length === 0) {
+        return fileName;
+    }
+
+    return folders.join(' / ') + ' / ' + fileName;
+}
+
 // Original local music endpoint with directory navigation
 app.get('/', async (req,res) =>{
     try {
@@ -1187,8 +1209,48 @@ app.get('/', async (req,res) =>{
 <div class="container">
 `);
 
-        // Stream subdirectories first
+        // Add recent songs section if we're at the root
         let chunk = '';
+        if (currentPath === '') {
+            const recentSongs = getMostRecentSongs(musicFiles, 5);
+            if (recentSongs.length > 0) {
+                chunk += '<div class="recent-songs-section">';
+                chunk += '<h2 class="recent-songs-header">Recently Added</h2>';
+                chunk += '<div class="recent-songs-list">';
+
+                for (const song of recentSongs) {
+                    const encodedPath = song.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const directUrl = `/music/${encodedPath}`;
+                    const breadcrumbPath = buildFileBreadcrumb(song.relativePath);
+                    const formatSize = (bytes) => {
+                        const mb = bytes / (1024 * 1024);
+                        return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
+                    };
+                    const formatDate = (date) => {
+                        return date.toLocaleDateString();
+                    };
+
+                    chunk += `
+                    <div class="recent-song-item">
+                        <a class="recent-song-link link"
+                           data-filename="${song.fileName}"
+                           data-folder="${song.folderPath}"
+                           data-relative-path="${song.relativePath}"
+                           data-audio-type="local">
+                            <div class="recent-song-breadcrumb">${breadcrumbPath}</div>
+                            <div class="recent-song-meta">
+                                <span><strong>Size:</strong> ${formatSize(song.size)}</span>
+                                <span><strong>Added:</strong> ${formatDate(song.modified)}</span>
+                            </div>
+                        </a>
+                    </div>`;
+                }
+
+                chunk += '</div></div>';
+            }
+        }
+
+        // Stream subdirectories first
         for (const subdir of currentContent.subdirs) {
             const subdirPath = currentPath ? `${currentPath}/${subdir}` : subdir;
             chunk += `
@@ -1503,7 +1565,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                         relativePath: relativePath,
                         folderPath: folderPath,
                         fullB2Path: file.fileName, // Keep the full B2 path for proxy URLs
-                        mediaType: mediaType
+                        mediaType: mediaType,
+                        modified: new Date(file.uploadTimestamp || 0), // B2 upload timestamp
+                        size: file.contentLength || 0
                     });
                 }
             }
@@ -1608,6 +1672,49 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     <div class="breadcrumb">${breadcrumbHtml}</div>
 </nav>
 <div class="container">`);
+
+        // Add recent songs section if we're at the root
+        if (currentDir === '') {
+            const recentSongs = getMostRecentSongs(b2Files, 5);
+            if (recentSongs.length > 0) {
+                const formatSize = (bytes) => {
+                    const mb = bytes / (1024 * 1024);
+                    return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
+                };
+                const formatDate = (date) => {
+                    return date.toLocaleDateString();
+                };
+
+                res.write('<div class="recent-songs-section">');
+                res.write('<h2 class="recent-songs-header">Recently Added</h2>');
+                res.write('<div class="recent-songs-list">');
+
+                for (const song of recentSongs) {
+                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(song.relativePath)}`;
+                    const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(song.relativePath)}`;
+                    const breadcrumbPath = buildFileBreadcrumb(song.relativePath);
+
+                    res.write(`
+                    <div class="recent-song-item">
+                        <a class="recent-song-link link"
+                           data-filename="${song.fileName}"
+                           data-folder="${song.folderPath}"
+                           data-relative-path="${song.relativePath}"
+                           data-proxy-url="${proxyUrl}"
+                           data-metadata-url="${metadataUrl}"
+                           data-audio-type="b2">
+                            <div class="recent-song-breadcrumb">${breadcrumbPath}</div>
+                            <div class="recent-song-meta">
+                                <span><strong>Size:</strong> ${formatSize(song.size)}</span>
+                                <span><strong>Added:</strong> ${formatDate(song.modified)}</span>
+                            </div>
+                        </a>
+                    </div>`);
+                }
+
+                res.write('</div></div>');
+            }
+        }
 
         // Render subdirectories (folders)
         if (currentDirData.subdirs && currentDirData.subdirs.size > 0) {
