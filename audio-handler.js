@@ -20,6 +20,8 @@ class AudioHandler {
         this.hasUserGesture = false;
         // Discogs integration
         this.discogsService = null;
+        // Track folder navigation fetch to prevent race conditions
+        this.folderNavigationController = null;
     }
 
     // Initialize pages with search functionality
@@ -257,11 +259,26 @@ class AudioHandler {
             // This allows us to restore position when using breadcrumbs
             e.preventDefault();
 
+            // Abort any pending folder navigation to prevent race conditions
+            if (this.folderNavigationController) {
+                this.folderNavigationController.abort();
+            }
+
+            // Create new abort controller for this navigation
+            this.folderNavigationController = new AbortController();
+            const signal = this.folderNavigationController.signal;
+
             // Save current scroll position for this URL
             this.saveScrollPosition();
 
+            // Show loading overlay while fetching
+            const overlay = document.getElementById('endpointLoadingOverlay');
+            if (overlay) {
+                overlay.classList.add('active');
+            }
+
             // Fetch the new page content
-            fetch(href)
+            fetch(href, { signal })
                 .then(response => response.text())
                 .then(html => {
                     // Parse the HTML
@@ -309,8 +326,26 @@ class AudioHandler {
 
                     // Restore scroll position for this URL, or scroll to top if new directory
                     this.restoreScrollPosition();
+
+                    // Hide loading overlay after navigation completes
+                    if (overlay) {
+                        overlay.classList.remove('active');
+                    }
+                    this.folderNavigationController = null;
                 })
                 .catch(error => {
+                    // Hide loading overlay on error
+                    if (overlay) {
+                        overlay.classList.remove('active');
+                    }
+                    this.folderNavigationController = null;
+
+                    // Don't log abort errors (user-initiated)
+                    if (error.name === 'AbortError') {
+                        console.log('Folder navigation aborted');
+                        return;
+                    }
+
                     console.error('Failed to load folder:', error);
                     // Fall back to regular navigation
                     window.location.href = href;
