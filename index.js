@@ -1285,6 +1285,9 @@ app.get('/', async (req,res) =>{
         }
 
         // Stream subdirectories first
+        if (currentContent.subdirs.length > 0) {
+            chunk += '<div class="media-section directory-section"><h2 class="section-header">Directories</h2>';
+        }
         for (const subdir of currentContent.subdirs) {
             const subdirPath = currentPath ? `${currentPath}/${subdir}` : subdir;
             chunk += `
@@ -1293,6 +1296,9 @@ app.get('/', async (req,res) =>{
                 ${subdir}
                 </a>
             </div>`;
+        }
+        if (currentContent.subdirs.length > 0) {
+            chunk += '</div>';
         }
 
         // Separate files by media type
@@ -1313,7 +1319,7 @@ app.get('/', async (req,res) =>{
 
         // Render audio files
         if (audioFiles.length > 0) {
-            chunk += '<div class="media-section audio-section">';
+            chunk += '<div class="media-section audio-section"><h2 class="section-header">Songs</h2>';
             for (let i = 0; i < audioFiles.length; i++) {
                 const fileInfo = audioFiles[i];
                 const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
@@ -1756,6 +1762,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Render subdirectories (folders)
         if (currentDirData.subdirs && currentDirData.subdirs.size > 0) {
+            res.write('<div class="media-section directory-section"><h2 class="section-header">Directories</h2>');
             const sortedSubdirs = Array.from(currentDirData.subdirs).sort();
             for (const subdir of sortedSubdirs) {
                 const subdirPath = currentDir ? `${currentDir}/${subdir}` : subdir;
@@ -1765,6 +1772,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     <a href="${folderUrl}" class="folder-link">${subdir}</a>
                 </div>`);
             }
+            res.write('</div>');
         }
 
         // Render files in the current directory - separate by media type
@@ -1775,7 +1783,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
             // Render audio files
             if (audioFiles.length > 0) {
-                res.write('<div class="media-section audio-section">');
+                res.write('<div class="media-section audio-section"><h2 class="section-header">Songs</h2>');
                 for (const file of audioFiles) {
                     const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
                     const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(file.relativePath)}`;
