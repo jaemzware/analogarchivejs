@@ -1252,7 +1252,7 @@ app.get('/', async (req,res) =>{
         // Add recent songs section if we're at the root
         let chunk = '';
         if (currentPath === '') {
-            const recentSongs = getMostRecentSongs(musicFiles, 5);
+            const recentSongs = getMostRecentSongs(musicFiles, 10);
             if (recentSongs.length > 0) {
                 chunk += '<div class="recent-songs-section">';
                 chunk += '<h2 class="recent-songs-header">Recently Added</h2>';
@@ -1283,6 +1283,7 @@ app.get('/', async (req,res) =>{
                                 <span><strong>Added:</strong> ${formatDate(song.modified)}</span>
                             </div>
                         </a>
+                        <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
                     </div>`;
                 }
 
@@ -1769,7 +1770,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Add recent songs section if we're at the root
         if (currentDir === '') {
-            const recentSongs = getMostRecentSongs(b2Files, 5);
+            const recentSongs = getMostRecentSongs(b2Files, 10);
             if (recentSongs.length > 0) {
                 const formatSize = (bytes) => {
                     const mb = bytes / (1024 * 1024);
@@ -1803,6 +1804,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                                 <span><strong>Added:</strong> ${formatDate(song.modified)}</span>
                             </div>
                         </a>
+                        <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
                     </div>`);
                 }
 
