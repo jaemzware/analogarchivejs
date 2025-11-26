@@ -9,6 +9,7 @@ import * as url from 'url';
 import express from 'express';
 import B2 from 'backblaze-b2';
 import {tmpdir} from 'os';
+import sharp from 'sharp';
 
 const app = express();
 const port = process.env.PORT || 55557;
@@ -99,6 +100,48 @@ async function checkB2Connectivity() {
         };
 
         return result;
+    }
+}
+
+// Thumbnail generation with disk caching
+const THUMB_SIZE = 200;
+
+async function generateThumbnail(imagePath, thumbPath) {
+    try {
+        await sharp(imagePath)
+            .resize(THUMB_SIZE, THUMB_SIZE, {
+                fit: 'cover',
+                position: 'center'
+            })
+            .jpeg({ quality: 80 })
+            .toFile(thumbPath);
+        return true;
+    } catch (err) {
+        console.error('Error generating thumbnail:', err);
+        return false;
+    }
+}
+
+async function getThumbnail(relativePath) {
+    // Create thumbnail subdirectory structure matching original
+    const thumbRelativePath = join('.thumbs', relativePath + '.thumb.jpg');
+    const thumbFullPath = join(musicStaticPath, thumbRelativePath);
+    const imageFullPath = join(musicStaticPath, relativePath);
+
+    // Check if thumbnail already exists
+    try {
+        await promises.access(thumbFullPath);
+        return thumbFullPath; // Thumbnail exists, return path
+    } catch {
+        // Thumbnail doesn't exist, generate it
+        const thumbDir = join(thumbFullPath, '..');
+        await promises.mkdir(thumbDir, { recursive: true });
+
+        const success = await generateThumbnail(imageFullPath, thumbFullPath);
+        if (success) {
+            return thumbFullPath;
+        }
+        return null; // Failed to generate thumbnail
     }
 }
 
@@ -294,6 +337,25 @@ app.get('/audio-handler.js', function(req, res) {
 app.get('/discogs-service.js', function(req, res) {
     res.set('Content-Type', 'application/javascript');
     res.sendFile(__dirname + '/discogs-service.js');
+});
+
+// Thumbnail endpoint - generates and serves thumbnails
+app.get('/thumb/:path(*)', async (req, res) => {
+    try {
+        const relativePath = req.params.path;
+        const thumbPath = await getThumbnail(relativePath);
+
+        if (thumbPath) {
+            res.set('Content-Type', 'image/jpeg');
+            res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+            res.sendFile(thumbPath);
+        } else {
+            res.status(500).send('Failed to generate thumbnail');
+        }
+    } catch (err) {
+        console.error('Thumbnail error:', err);
+        res.status(500).send('Error generating thumbnail');
+    }
 });
 
 // Cloud connectivity status endpoint
@@ -1362,11 +1424,12 @@ app.get('/', async (req,res) =>{
                 const fileInfo = imageFilesInDir[i];
                 const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
                 const imageUrl = `/music/${encodedPath}`;
+                const thumbUrl = `/thumb/${encodedPath}`;
 
                 chunk += `
                 <div class="image-item" data-media-type="image">
                     <a href="${imageUrl}" target="_blank" class="image-link">
-                        <img src="${imageUrl}" alt="${fileInfo.fileName}" loading="lazy">
+                        <img src="${thumbUrl}" alt="${fileInfo.fileName}" loading="lazy">
                         <div class="image-filename">${fileInfo.fileName}</div>
                     </a>
                 </div>`;
