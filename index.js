@@ -1053,10 +1053,10 @@ function buildDirectoryStructure(musicFiles) {
 // Helper function to get N most recent songs from a file list
 function getMostRecentSongs(files, limit = 5) {
     const startTime = Date.now();
-    // Filter only audio files and sort by modified date (newest first)
+    // Filter only audio files and sort by filename (alphabetically)
     const audioFiles = files.filter(f => !f.mediaType || f.mediaType === 'audio');
     const result = audioFiles
-        .sort((a, b) => b.modified.getTime() - a.modified.getTime())
+        .sort((a, b) => a.fileName.localeCompare(b.fileName))
         .slice(0, limit);
     console.log(`getMostRecentSongs took ${Date.now() - startTime}ms for ${files.length} files`);
     return result;
