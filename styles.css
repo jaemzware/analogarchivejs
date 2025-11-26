@@ -1290,6 +1290,9 @@ body.player-active {
     border-radius: 8px;
     overflow: hidden;
     transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: stretch;
+    gap: 5px;
 }
 
 .recent-song-item:hover {
@@ -1300,7 +1303,7 @@ body.player-active {
 
 .recent-song-link {
     display: block;
-    padding: 12px 15px;
+    padding: 8px 12px;
     padding-right: 70px; /* Make room for artwork on right */
     text-decoration: none;
     color: #333;
@@ -1308,6 +1311,7 @@ body.player-active {
     border: none;
     position: relative;
     background-image: none !important; /* Never show background image for recent songs */
+    flex: 1;
 }
 
 .recent-song-link:hover {
