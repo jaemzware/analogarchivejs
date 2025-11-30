@@ -2037,15 +2037,12 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Add recent songs section if we're at the root
         if (currentDir === '') {
-            const recentSongs = getMostRecentSongs(b2Files, 10);
-            if (recentSongs.length > 0) {
-                const formatSize = (bytes) => {
-                    const mb = bytes / (1024 * 1024);
-                    return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
-                };
-                const formatDate = (date) => {
-                    return date.toLocaleDateString();
-                };
+            const recentSongsBasic = getMostRecentSongs(b2Files, 10);
+            if (recentSongsBasic.length > 0) {
+                // Fetch metadata for recent B2 songs (including artwork)
+                const recentSongs = await getRecentB2SongsWithMetadata(recentSongsBasic, folderName);
+
+                const formatDate = (date) => date.toLocaleDateString();
 
                 res.write('<div class="recent-songs-section">');
                 res.write('<h2 class="recent-songs-header">Recently Added</h2>');
@@ -2054,7 +2051,17 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 for (const song of recentSongs) {
                     const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(song.relativePath)}`;
                     const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(song.relativePath)}`;
-                    const breadcrumbPath = buildFileBreadcrumb(song.relativePath);
+
+                    // Artwork or placeholder
+                    const artworkHtml = song.artwork
+                        ? `<img class="recent-song-artwork" src="${song.artwork}" alt="">`
+                        : `<div class="recent-song-artwork-placeholder">&#127925;</div>`;
+
+                    // Build info section
+                    const titleHtml = `<div class="recent-song-title">${song.title}</div>`;
+                    const artistHtml = song.artist ? `<div class="recent-song-artist">${song.artist}</div>` : '';
+                    const albumHtml = song.album ? `<div class="recent-song-album">${song.album}</div>` : '';
+                    const durationHtml = song.duration ? `<span class="recent-song-duration">${song.duration}</span>` : '';
 
                     res.write(`
                     <div class="recent-song-item">
@@ -2065,11 +2072,16 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                            data-proxy-url="${proxyUrl}"
                            data-metadata-url="${metadataUrl}"
                            data-audio-type="b2">
-                            <div class="recent-song-breadcrumb">${breadcrumbPath}</div>
-                            <div class="recent-song-meta">
-                                <span><strong>Size:</strong> ${formatSize(song.size)}</span>
-                                <span><strong>Added:</strong> ${formatDate(song.modified)}</span>
+                            ${artworkHtml}
+                            <div class="recent-song-info">
+                                ${titleHtml}
+                                ${artistHtml}
+                                ${albumHtml}
+                                <div class="recent-song-meta">
+                                    <span>${formatDate(song.modified)}</span>
+                                </div>
                             </div>
+                            ${durationHtml}
                         </a>
                         <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
                     </div>`);
