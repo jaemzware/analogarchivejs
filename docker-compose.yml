@@ -2,6 +2,8 @@ services:
   analogarchive:
     build: .
     container_name: analogarchivejs
+    labels:
+      - "com.docker.desktop.service.url=https://localhost:${PORT}"
     ports:
       - "${PORT}:${PORT}"
     volumes:

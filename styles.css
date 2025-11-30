@@ -1501,6 +1501,53 @@ body.player-active {
     }
 }
 
+/* Loading animations for recent songs */
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.loading-pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.loading-text {
+    opacity: 0.5;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.recent-song-item[data-loading="true"] {
+    opacity: 0.85;
+}
+
+.recent-song-item[data-loading="false"] {
+    animation: fadeInMeta 0.3s ease-out;
+}
+
+@keyframes fadeInMeta {
+    from {
+        background: rgba(0, 255, 127, 0.15);
+    }
+    to {
+        background: rgba(255, 255, 255, 0.03);
+    }
+}
+
+.recent-song-item .recent-song-artwork {
+    animation: fadeInArt 0.3s ease-out;
+}
+
+@keyframes fadeInArt {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 /* Endpoint Loading Overlay */
 .endpoint-loading-overlay {
     position: fixed;

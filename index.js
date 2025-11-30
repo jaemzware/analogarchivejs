@@ -933,6 +933,103 @@ app.get('/rescan', async (req, res) => {
     }
 });
 
+// API endpoint for single local song metadata (for incremental loading)
+app.get('/api/song-metadata', async (req, res) => {
+    try {
+        const relativePath = req.query.path;
+        if (!relativePath) {
+            return res.status(400).json({ error: 'Missing path parameter' });
+        }
+
+        const filePath = join(musicStaticPath, relativePath);
+        const fileExt = extname(filePath).toLowerCase();
+        let mimeType = 'audio/mpeg';
+        if (fileExt === '.flac') mimeType = 'audio/flac';
+        if (fileExt === '.m4b') mimeType = 'audio/mp4';
+
+        const metadata = await parseFile(filePath, { mimeType, duration: true, skipCovers: false });
+
+        // Get artwork as base64
+        let artwork = null;
+        if (metadata.common.picture && metadata.common.picture.length > 0) {
+            const picture = metadata.common.picture[0];
+            const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
+            artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
+        }
+
+        res.json({
+            title: metadata.common.title || '',
+            artist: metadata.common.artist || '',
+            album: metadata.common.album || '',
+            duration: formatDuration(metadata.format.duration),
+            artwork
+        });
+    } catch (err) {
+        console.error('Error fetching song metadata:', err.message);
+        res.json({ title: '', artist: '', album: '', duration: '', artwork: null });
+    }
+});
+
+// API endpoint for single B2 song metadata (for incremental loading)
+app.get('/api/b2-song-metadata/:folder', async (req, res) => {
+    try {
+        const folderName = req.params.folder;
+        const relativePath = req.query.path;
+
+        if (!relativePath) {
+            return res.status(400).json({ error: 'Missing path parameter' });
+        }
+
+        await b2.authorize();
+        const b2FilePath = `${folderName}/${relativePath}`;
+        const downloadResponse = await b2.downloadFileByName({
+            bucketName: bucketName,
+            fileName: b2FilePath,
+            responseType: 'arraybuffer'
+        });
+
+        let buffer;
+        const rawData = downloadResponse.data;
+        if (rawData instanceof ArrayBuffer) {
+            buffer = Buffer.from(rawData);
+        } else if (rawData && rawData.type === 'Buffer' && Array.isArray(rawData.data)) {
+            buffer = Buffer.from(rawData.data);
+        } else {
+            buffer = Buffer.from(rawData);
+        }
+
+        const fileExt = extname(relativePath).toLowerCase();
+        const tempFilePath = join(tmpdir(), `b2-meta-${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`);
+        writeFileSync(tempFilePath, buffer);
+
+        let mimeType = 'audio/mpeg';
+        if (fileExt === '.flac') mimeType = 'audio/flac';
+        if (fileExt === '.m4b') mimeType = 'audio/mp4';
+
+        const metadata = await parseFile(tempFilePath, { mimeType, duration: true, skipCovers: false });
+
+        let artwork = null;
+        if (metadata.common.picture && metadata.common.picture.length > 0) {
+            const picture = metadata.common.picture[0];
+            const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
+            artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
+        }
+
+        try { unlinkSync(tempFilePath); } catch (e) {}
+
+        res.json({
+            title: metadata.common.title || '',
+            artist: metadata.common.artist || '',
+            album: metadata.common.album || '',
+            duration: formatDuration(metadata.format.duration),
+            artwork
+        });
+    } catch (err) {
+        console.error('Error fetching B2 song metadata:', err.message);
+        res.json({ title: '', artist: '', album: '', duration: '', artwork: null });
+    }
+});
+
 // Rescan B2 bucket folder (clear cache to force fresh fetch)
 app.get('/rescan-b2/:folder', async (req, res) => {
     try {
@@ -1503,15 +1600,12 @@ app.get('/', async (req,res) =>{
 <div class="container">
 `);
 
-        // Add recent songs section if we're at the root
+        // Add recent songs section if we're at the root (renders immediately, metadata loads async)
         let chunk = '';
         if (currentPath === '') {
-            const recentSongsBasic = getMostRecentSongs(musicFiles, 10);
-            if (recentSongsBasic.length > 0) {
-                // Fetch metadata for recent songs (including artwork)
-                const recentSongs = await getRecentSongsWithMetadata(recentSongsBasic, musicStaticPath);
-
-                chunk += '<div class="recent-songs-section">';
+            const recentSongs = getMostRecentSongs(musicFiles, 10);
+            if (recentSongs.length > 0) {
+                chunk += '<div class="recent-songs-section" data-source="local">';
                 chunk += '<h2 class="recent-songs-header">Recently Added</h2>';
                 chunk += '<div class="recent-songs-list">';
 
@@ -1520,34 +1614,23 @@ app.get('/', async (req,res) =>{
                     const directUrl = `/music/${encodedPath}`;
                     const formatDate = (date) => date.toLocaleDateString();
 
-                    // Artwork or placeholder
-                    const artworkHtml = song.artwork
-                        ? `<img class="recent-song-artwork" src="${song.artwork}" alt="">`
-                        : `<div class="recent-song-artwork-placeholder">&#127925;</div>`;
-
-                    // Build info section
-                    const titleHtml = `<div class="recent-song-title">${song.title}</div>`;
-                    const artistHtml = song.artist ? `<div class="recent-song-artist">${song.artist}</div>` : '';
-                    const albumHtml = song.album ? `<div class="recent-song-album">${song.album}</div>` : '';
-                    const durationHtml = song.duration ? `<span class="recent-song-duration">${song.duration}</span>` : '';
-
                     chunk += `
-                    <div class="recent-song-item">
+                    <div class="recent-song-item" data-path="${song.relativePath}" data-loading="true">
                         <a class="recent-song-link link"
                            data-filename="${song.fileName}"
                            data-folder="${song.folderPath}"
                            data-relative-path="${song.relativePath}"
                            data-audio-type="local">
-                            ${artworkHtml}
+                            <div class="recent-song-artwork-placeholder loading-pulse">&#127925;</div>
                             <div class="recent-song-info">
-                                ${titleHtml}
-                                ${artistHtml}
-                                ${albumHtml}
+                                <div class="recent-song-title">${song.fileName}</div>
+                                <div class="recent-song-artist loading-text">Loading...</div>
+                                <div class="recent-song-album"></div>
                                 <div class="recent-song-meta">
                                     <span>${formatDate(song.modified)}</span>
                                 </div>
                             </div>
-                            ${durationHtml}
+                            <span class="recent-song-duration loading-text">--:--</span>
                         </a>
                         <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
                     </div>`;
@@ -1784,7 +1867,92 @@ app.get('/', async (req,res) =>{
                 sessionStorage.removeItem('endpointSwitching');
             }, 500);
         }
+
+        // Incrementally load metadata for recent songs
+        loadRecentSongsMetadata();
     });
+
+    // Load metadata for recent songs one by one
+    async function loadRecentSongsMetadata() {
+        const section = document.querySelector('.recent-songs-section');
+        if (!section) return;
+
+        const source = section.dataset.source;
+        const folder = section.dataset.folder;
+        const items = section.querySelectorAll('.recent-song-item[data-loading="true"]');
+
+        for (const item of items) {
+            const path = item.dataset.path;
+            if (!path) continue;
+
+            try {
+                let url;
+                if (source === 'b2' && folder) {
+                    url = '/api/b2-song-metadata/' + folder + '?path=' + encodeURIComponent(path);
+                } else {
+                    url = '/api/song-metadata?path=' + encodeURIComponent(path);
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // Update the item with metadata
+                const link = item.querySelector('.recent-song-link');
+                const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
+                const titleEl = item.querySelector('.recent-song-title');
+                const artistEl = item.querySelector('.recent-song-artist');
+                const albumEl = item.querySelector('.recent-song-album');
+                const durationEl = item.querySelector('.recent-song-duration');
+
+                // Update artwork
+                if (data.artwork && artworkPlaceholder) {
+                    const img = document.createElement('img');
+                    img.className = 'recent-song-artwork';
+                    img.src = data.artwork;
+                    img.alt = '';
+                    artworkPlaceholder.replaceWith(img);
+                } else if (artworkPlaceholder) {
+                    artworkPlaceholder.classList.remove('loading-pulse');
+                }
+
+                // Update title (use metadata title or keep filename)
+                if (data.title && titleEl) {
+                    titleEl.textContent = data.title;
+                }
+
+                // Update artist
+                if (artistEl) {
+                    artistEl.classList.remove('loading-text');
+                    artistEl.textContent = data.artist || '';
+                }
+
+                // Update album
+                if (albumEl) {
+                    albumEl.textContent = data.album || '';
+                }
+
+                // Update duration
+                if (durationEl) {
+                    durationEl.classList.remove('loading-text');
+                    durationEl.textContent = data.duration || '';
+                }
+
+                // Mark as loaded
+                item.dataset.loading = 'false';
+
+            } catch (err) {
+                console.error('Failed to load metadata for:', path, err);
+                // Remove loading state even on error
+                const artistEl = item.querySelector('.recent-song-artist');
+                const durationEl = item.querySelector('.recent-song-duration');
+                const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
+                if (artistEl) { artistEl.classList.remove('loading-text'); artistEl.textContent = ''; }
+                if (durationEl) { durationEl.classList.remove('loading-text'); durationEl.textContent = ''; }
+                if (artworkPlaceholder) artworkPlaceholder.classList.remove('loading-pulse');
+                item.dataset.loading = 'false';
+            }
+        }
+    }
 </script>
 </body></html>`);
 
@@ -2035,16 +2203,13 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 </div>
 <div class="container">`);
 
-        // Add recent songs section if we're at the root
+        // Add recent songs section if we're at the root (renders immediately, metadata loads async)
         if (currentDir === '') {
-            const recentSongsBasic = getMostRecentSongs(b2Files, 10);
-            if (recentSongsBasic.length > 0) {
-                // Fetch metadata for recent B2 songs (including artwork)
-                const recentSongs = await getRecentB2SongsWithMetadata(recentSongsBasic, folderName);
-
+            const recentSongs = getMostRecentSongs(b2Files, 10);
+            if (recentSongs.length > 0) {
                 const formatDate = (date) => date.toLocaleDateString();
 
-                res.write('<div class="recent-songs-section">');
+                res.write(`<div class="recent-songs-section" data-source="b2" data-folder="${folderName}">`);
                 res.write('<h2 class="recent-songs-header">Recently Added</h2>');
                 res.write('<div class="recent-songs-list">');
 
@@ -2052,19 +2217,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(song.relativePath)}`;
                     const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(song.relativePath)}`;
 
-                    // Artwork or placeholder
-                    const artworkHtml = song.artwork
-                        ? `<img class="recent-song-artwork" src="${song.artwork}" alt="">`
-                        : `<div class="recent-song-artwork-placeholder">&#127925;</div>`;
-
-                    // Build info section
-                    const titleHtml = `<div class="recent-song-title">${song.title}</div>`;
-                    const artistHtml = song.artist ? `<div class="recent-song-artist">${song.artist}</div>` : '';
-                    const albumHtml = song.album ? `<div class="recent-song-album">${song.album}</div>` : '';
-                    const durationHtml = song.duration ? `<span class="recent-song-duration">${song.duration}</span>` : '';
-
                     res.write(`
-                    <div class="recent-song-item">
+                    <div class="recent-song-item" data-path="${song.relativePath}" data-loading="true">
                         <a class="recent-song-link link"
                            data-filename="${song.fileName}"
                            data-folder="${song.folderPath}"
@@ -2072,16 +2226,16 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                            data-proxy-url="${proxyUrl}"
                            data-metadata-url="${metadataUrl}"
                            data-audio-type="b2">
-                            ${artworkHtml}
+                            <div class="recent-song-artwork-placeholder loading-pulse">&#127925;</div>
                             <div class="recent-song-info">
-                                ${titleHtml}
-                                ${artistHtml}
-                                ${albumHtml}
+                                <div class="recent-song-title">${song.fileName}</div>
+                                <div class="recent-song-artist loading-text">Loading...</div>
+                                <div class="recent-song-album"></div>
                                 <div class="recent-song-meta">
                                     <span>${formatDate(song.modified)}</span>
                                 </div>
                             </div>
-                            ${durationHtml}
+                            <span class="recent-song-duration loading-text">--:--</span>
                         </a>
                         <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
                     </div>`);
@@ -2313,7 +2467,92 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 }
             }
         });
+
+        // Incrementally load metadata for recent songs
+        loadRecentSongsMetadata();
     });
+
+    // Load metadata for recent songs one by one
+    async function loadRecentSongsMetadata() {
+        const section = document.querySelector('.recent-songs-section');
+        if (!section) return;
+
+        const source = section.dataset.source;
+        const folder = section.dataset.folder;
+        const items = section.querySelectorAll('.recent-song-item[data-loading="true"]');
+
+        for (const item of items) {
+            const path = item.dataset.path;
+            if (!path) continue;
+
+            try {
+                let url;
+                if (source === 'b2' && folder) {
+                    url = '/api/b2-song-metadata/' + folder + '?path=' + encodeURIComponent(path);
+                } else {
+                    url = '/api/song-metadata?path=' + encodeURIComponent(path);
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // Update the item with metadata
+                const link = item.querySelector('.recent-song-link');
+                const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
+                const titleEl = item.querySelector('.recent-song-title');
+                const artistEl = item.querySelector('.recent-song-artist');
+                const albumEl = item.querySelector('.recent-song-album');
+                const durationEl = item.querySelector('.recent-song-duration');
+
+                // Update artwork
+                if (data.artwork && artworkPlaceholder) {
+                    const img = document.createElement('img');
+                    img.className = 'recent-song-artwork';
+                    img.src = data.artwork;
+                    img.alt = '';
+                    artworkPlaceholder.replaceWith(img);
+                } else if (artworkPlaceholder) {
+                    artworkPlaceholder.classList.remove('loading-pulse');
+                }
+
+                // Update title (use metadata title or keep filename)
+                if (data.title && titleEl) {
+                    titleEl.textContent = data.title;
+                }
+
+                // Update artist
+                if (artistEl) {
+                    artistEl.classList.remove('loading-text');
+                    artistEl.textContent = data.artist || '';
+                }
+
+                // Update album
+                if (albumEl) {
+                    albumEl.textContent = data.album || '';
+                }
+
+                // Update duration
+                if (durationEl) {
+                    durationEl.classList.remove('loading-text');
+                    durationEl.textContent = data.duration || '';
+                }
+
+                // Mark as loaded
+                item.dataset.loading = 'false';
+
+            } catch (err) {
+                console.error('Failed to load metadata for:', path, err);
+                // Remove loading state even on error
+                const artistEl = item.querySelector('.recent-song-artist');
+                const durationEl = item.querySelector('.recent-song-duration');
+                const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
+                if (artistEl) { artistEl.classList.remove('loading-text'); artistEl.textContent = ''; }
+                if (durationEl) { durationEl.classList.remove('loading-text'); durationEl.textContent = ''; }
+                if (artworkPlaceholder) artworkPlaceholder.classList.remove('loading-pulse');
+                item.dataset.loading = 'false';
+            }
+        }
+    }
 </script>
 </body></html>`);
         res.end();
