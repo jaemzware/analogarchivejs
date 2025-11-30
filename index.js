@@ -854,7 +854,7 @@ async function findMediaFiles(dir, baseDir = dir, filesByType = { audio: [], ima
     const items = await promises.readdir(dir);
 
     const audioExtensions = ['.mp3', '.flac', '.m4b'];
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif', '.bmp'];
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif', '.bmp', '.heic'];
     const videoExtensions = ['.mp4', '.webm', '.ogv', '.mov', '.avi', '.mkv'];
 
     for (const item of items) {
@@ -1109,7 +1109,7 @@ app.get('/api/all-b2-files/:folder', async (req, res) => {
 function getMediaType(fileName) {
     const lowerFileName = fileName.toLowerCase();
     const audioExtensions = ['.mp3', '.flac', '.m4b'];
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif', '.bmp'];
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif', '.bmp', '.heic'];
     const videoExtensions = ['.mp4', '.webm', '.ogv', '.mov', '.avi', '.mkv'];
 
     for (const ext of audioExtensions) {
