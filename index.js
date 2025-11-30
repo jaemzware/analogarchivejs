@@ -1206,6 +1206,129 @@ function buildFileBreadcrumb(relativePath) {
     return folders.join(' / ') + ' / ' + fileName;
 }
 
+// Helper function to format duration in mm:ss
+function formatDuration(seconds) {
+    if (!seconds || isNaN(seconds)) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Helper function to get metadata for recent local songs
+async function getRecentSongsWithMetadata(songs, musicPath) {
+    const startTime = Date.now();
+    const songsWithMetadata = await Promise.all(songs.map(async (song) => {
+        try {
+            const filePath = join(musicPath, song.relativePath);
+            const fileExt = extname(filePath).toLowerCase();
+            let mimeType = 'audio/mpeg';
+            if (fileExt === '.flac') mimeType = 'audio/flac';
+            if (fileExt === '.m4b') mimeType = 'audio/mp4';
+
+            const metadata = await parseFile(filePath, { mimeType, duration: true, skipCovers: false });
+
+            // Get artwork as base64
+            let artwork = null;
+            if (metadata.common.picture && metadata.common.picture.length > 0) {
+                const picture = metadata.common.picture[0];
+                const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
+                artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
+            }
+
+            return {
+                ...song,
+                title: metadata.common.title || song.fileName,
+                artist: metadata.common.artist || '',
+                album: metadata.common.album || '',
+                duration: formatDuration(metadata.format.duration),
+                artwork
+            };
+        } catch (err) {
+            console.error(`Error getting metadata for ${song.fileName}:`, err.message);
+            return {
+                ...song,
+                title: song.fileName,
+                artist: '',
+                album: '',
+                duration: '',
+                artwork: null
+            };
+        }
+    }));
+    console.log(`getRecentSongsWithMetadata took ${Date.now() - startTime}ms for ${songs.length} songs`);
+    return songsWithMetadata;
+}
+
+// Helper function to get metadata for recent B2 songs
+async function getRecentB2SongsWithMetadata(songs, folderName) {
+    const startTime = Date.now();
+    const songsWithMetadata = await Promise.all(songs.map(async (song) => {
+        try {
+            await b2.authorize();
+            const b2FilePath = `${folderName}/${song.relativePath}`;
+            const downloadResponse = await b2.downloadFileByName({
+                bucketName: bucketName,
+                fileName: b2FilePath,
+                responseType: 'arraybuffer'
+            });
+
+            // Convert response to buffer
+            let buffer;
+            const rawData = downloadResponse.data;
+            if (rawData instanceof ArrayBuffer) {
+                buffer = Buffer.from(rawData);
+            } else if (rawData && rawData.type === 'Buffer' && Array.isArray(rawData.data)) {
+                buffer = Buffer.from(rawData.data);
+            } else {
+                buffer = Buffer.from(rawData);
+            }
+
+            // Write to temp file for parsing
+            const fileExt = extname(song.relativePath).toLowerCase();
+            const tempFilePath = join(tmpdir(), `b2-recent-${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`);
+            writeFileSync(tempFilePath, buffer);
+
+            let mimeType = 'audio/mpeg';
+            if (fileExt === '.flac') mimeType = 'audio/flac';
+            if (fileExt === '.m4b') mimeType = 'audio/mp4';
+
+            const metadata = await parseFile(tempFilePath, { mimeType, duration: true, skipCovers: false });
+
+            // Get artwork
+            let artwork = null;
+            if (metadata.common.picture && metadata.common.picture.length > 0) {
+                const picture = metadata.common.picture[0];
+                const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
+                artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
+            }
+
+            // Clean up temp file
+            try { unlinkSync(tempFilePath); } catch (e) {}
+
+            return {
+                ...song,
+                title: metadata.common.title || song.fileName,
+                artist: metadata.common.artist || '',
+                album: metadata.common.album || '',
+                duration: formatDuration(metadata.format.duration),
+                artwork
+            };
+        } catch (err) {
+            console.error(`Error getting B2 metadata for ${song.fileName}:`, err.message);
+            return {
+                ...song,
+                title: song.fileName,
+                artist: '',
+                album: '',
+                duration: '',
+                artwork: null
+            };
+        }
+    }));
+    console.log(`getRecentB2SongsWithMetadata took ${Date.now() - startTime}ms for ${songs.length} songs`);
+    return songsWithMetadata;
+}
+
 // Original local music endpoint with directory navigation
 app.get('/', async (req,res) =>{
     try {
@@ -1383,8 +1506,11 @@ app.get('/', async (req,res) =>{
         // Add recent songs section if we're at the root
         let chunk = '';
         if (currentPath === '') {
-            const recentSongs = getMostRecentSongs(musicFiles, 10);
-            if (recentSongs.length > 0) {
+            const recentSongsBasic = getMostRecentSongs(musicFiles, 10);
+            if (recentSongsBasic.length > 0) {
+                // Fetch metadata for recent songs (including artwork)
+                const recentSongs = await getRecentSongsWithMetadata(recentSongsBasic, musicStaticPath);
+
                 chunk += '<div class="recent-songs-section">';
                 chunk += '<h2 class="recent-songs-header">Recently Added</h2>';
                 chunk += '<div class="recent-songs-list">';
@@ -1392,14 +1518,18 @@ app.get('/', async (req,res) =>{
                 for (const song of recentSongs) {
                     const encodedPath = song.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
                     const directUrl = `/music/${encodedPath}`;
-                    const breadcrumbPath = buildFileBreadcrumb(song.relativePath);
-                    const formatSize = (bytes) => {
-                        const mb = bytes / (1024 * 1024);
-                        return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
-                    };
-                    const formatDate = (date) => {
-                        return date.toLocaleDateString();
-                    };
+                    const formatDate = (date) => date.toLocaleDateString();
+
+                    // Artwork or placeholder
+                    const artworkHtml = song.artwork
+                        ? `<img class="recent-song-artwork" src="${song.artwork}" alt="">`
+                        : `<div class="recent-song-artwork-placeholder">&#127925;</div>`;
+
+                    // Build info section
+                    const titleHtml = `<div class="recent-song-title">${song.title}</div>`;
+                    const artistHtml = song.artist ? `<div class="recent-song-artist">${song.artist}</div>` : '';
+                    const albumHtml = song.album ? `<div class="recent-song-album">${song.album}</div>` : '';
+                    const durationHtml = song.duration ? `<span class="recent-song-duration">${song.duration}</span>` : '';
 
                     chunk += `
                     <div class="recent-song-item">
@@ -1408,11 +1538,16 @@ app.get('/', async (req,res) =>{
                            data-folder="${song.folderPath}"
                            data-relative-path="${song.relativePath}"
                            data-audio-type="local">
-                            <div class="recent-song-breadcrumb">${breadcrumbPath}</div>
-                            <div class="recent-song-meta">
-                                <span><strong>Size:</strong> ${formatSize(song.size)}</span>
-                                <span><strong>Added:</strong> ${formatDate(song.modified)}</span>
+                            ${artworkHtml}
+                            <div class="recent-song-info">
+                                ${titleHtml}
+                                ${artistHtml}
+                                ${albumHtml}
+                                <div class="recent-song-meta">
+                                    <span>${formatDate(song.modified)}</span>
+                                </div>
                             </div>
+                            ${durationHtml}
                         </a>
                         <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
                     </div>`;
