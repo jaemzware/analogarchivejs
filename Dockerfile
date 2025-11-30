@@ -11,8 +11,8 @@ RUN npm ci --only=production
 # Copy application files
 COPY . .
 
-# Create SSL certificate directory
-RUN mkdir -p /app/sslcert
+# Create SSL certificate directory and music directory (for thumbnail cache)
+RUN mkdir -p /app/sslcert /app/music/.thumbs
 
 # Generate self-signed SSL certificates for development
 RUN apk add --no-cache openssl && \
