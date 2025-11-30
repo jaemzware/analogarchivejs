@@ -5,7 +5,7 @@ services:
     ports:
       - "${PORT}:${PORT}"
     volumes:
-      - ${HOST_MUSIC_PATH}:/app/music:ro
+      - ${HOST_MUSIC_PATH}:/app/music
     environment:
       - NODE_ENV=production
       - PORT=${PORT}
