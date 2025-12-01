@@ -2241,8 +2241,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 res.write('<div class="recent-songs-list">');
 
                 for (const song of recentSongs) {
-                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(song.relativePath)}`;
-                    const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(song.relativePath)}`;
+                    const encodedPath = song.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
+                    const metadataUrl = `/b2metadata/${folderName}/${encodedPath}`;
 
                     res.write(`
                     <div class="recent-song-item" data-path="${song.relativePath}" data-loading="true">
@@ -2297,8 +2298,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             if (audioFiles.length > 0) {
                 res.write('<div class="media-section audio-section"><h2 class="section-header">Songs</h2>');
                 for (const file of audioFiles) {
-                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
-                    const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(file.relativePath)}`;
+                    const encodedPath = file.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
+                    const metadataUrl = `/b2metadata/${folderName}/${encodedPath}`;
 
                     res.write(`
                     <div class="song-row">
@@ -2322,8 +2324,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             if (imageFiles.length > 0) {
                 res.write('<div class="media-section image-section"><h2 class="section-header">Images</h2><div class="image-gallery">');
                 for (const file of imageFiles) {
-                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
-                    const thumbUrl = `/thumb/${folderName}/${encodeURIComponent(file.relativePath)}`;
+                    const encodedPath = file.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
+                    const thumbUrl = `/thumb/${folderName}/${encodedPath}`;
 
                     res.write(`
                     <div class="image-item" data-media-type="image">
@@ -2342,7 +2345,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const videoPoster = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150"><rect fill="#333" width="200" height="150"/><g transform="translate(100, 75)"><rect x="-40" y="-20" width="60" height="40" fill="#666" rx="4"/><circle cx="-10" cy="0" r="12" fill="#888"/><circle cx="-10" cy="0" r="8" fill="#555"/><polygon points="20,-10 35,0 20,10" fill="#888"/></g><text x="100" y="130" text-anchor="middle" font-size="12" fill="#888">Click to play</text></svg>');
 
                 for (const file of videoFiles) {
-                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
+                    const encodedPath = file.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
 
                     // Determine proper video MIME type
                     const videoExt = file.fileName.split('.').pop().toLowerCase();
