@@ -1632,7 +1632,7 @@ app.get('/', async (req,res) =>{
             const recentSongs = getMostRecentSongs(musicFiles, 20);
             if (recentSongs.length > 0) {
                 chunk += '<div class="recent-songs-section" data-source="local">';
-                chunk += '<h2 class="recent-songs-header">Recently Added</h2>';
+                chunk += '<h2 class="recent-songs-header">Recently Added <button onclick="loadRecentSongsMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>';
                 chunk += '<div class="recent-songs-list">';
 
                 for (const song of recentSongs) {
@@ -2303,7 +2303,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const formatDate = (date) => date.toLocaleDateString();
 
                 res.write(`<div class="recent-songs-section" data-source="b2" data-folder="${folderName}">`);
-                res.write('<h2 class="recent-songs-header">Recently Added</h2>');
+                res.write('<h2 class="recent-songs-header">Recently Added <button onclick="loadRecentSongsMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>');
                 res.write('<div class="recent-songs-list">');
 
                 for (const song of recentSongs) {
