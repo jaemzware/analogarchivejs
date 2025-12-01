@@ -959,14 +959,14 @@ app.get('/api/song-metadata', async (req, res) => {
 
         res.json({
             title: metadata.common.title || '',
-            artist: metadata.common.artist || '',
-            album: metadata.common.album || '',
+            artist: metadata.common.artist || 'Unknown Artist',
+            album: metadata.common.album || 'Unknown Album',
             duration: formatDuration(metadata.format.duration),
             artwork
         });
     } catch (err) {
         console.error('Error fetching song metadata:', err.message);
-        res.json({ title: '', artist: '', album: '', duration: '', artwork: null });
+        res.json({ title: '', artist: 'Unknown Artist', album: 'Unknown Album', duration: '', artwork: null });
     }
 });
 
@@ -1035,8 +1035,8 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
 
         const result = {
             title: metadata.common.title || '',
-            artist: metadata.common.artist || '',
-            album: metadata.common.album || '',
+            artist: metadata.common.artist || 'Unknown Artist',
+            album: metadata.common.album || 'Unknown Album',
             duration: formatDuration(metadata.format.duration),
             artwork
         };
@@ -1050,7 +1050,7 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
         res.json(result);
     } catch (err) {
         console.error('Error fetching B2 song metadata:', err.message);
-        res.json({ title: '', artist: '', album: '', duration: '', artwork: null });
+        res.json({ title: '', artist: 'Unknown Artist', album: 'Unknown Album', duration: '', artwork: null });
     }
 });
 
@@ -1543,7 +1543,7 @@ app.get('/', async (req,res) =>{
         currentContent.files.sort((a, b) => a.fileName.localeCompare(b.fileName));
 
         // Send header immediately
-        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
 
         // Build breadcrumb path
         const pathParts = currentPath ? currentPath.split('/') : [];
@@ -1562,8 +1562,10 @@ app.get('/', async (req,res) =>{
         });
 
         // Send HTML head right away
-        res.write(`<html>
+        res.write(`<!DOCTYPE html>
+<html>
 <head>
+    <meta charset="utf-8">
     <title>analogarchivejs - ${currentPath || 'Local Music'}</title>
     <link rel="stylesheet" href="styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1630,7 +1632,7 @@ app.get('/', async (req,res) =>{
             const recentSongs = getMostRecentSongs(musicFiles, 20);
             if (recentSongs.length > 0) {
                 chunk += '<div class="recent-songs-section" data-source="local">';
-                chunk += '<h2 class="recent-songs-header">Recently Added</h2>';
+                chunk += '<h2 class="recent-songs-header">Recently Added <button onclick="loadRecentSongsMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>';
                 chunk += '<div class="recent-songs-list">';
 
                 for (const song of recentSongs) {
@@ -1645,16 +1647,16 @@ app.get('/', async (req,res) =>{
                            data-folder="${song.folderPath}"
                            data-relative-path="${song.relativePath}"
                            data-audio-type="local">
-                            <div class="recent-song-artwork-placeholder loading-pulse">&#127925;</div>
+                            <div class="recent-song-artwork-placeholder">&#127925;</div>
                             <div class="recent-song-info">
                                 <div class="recent-song-title">${song.fileName}</div>
-                                <div class="recent-song-artist loading-text">Loading...</div>
+                                <div class="recent-song-artist"></div>
                                 <div class="recent-song-album"></div>
                                 <div class="recent-song-meta">
                                     <span>${formatDate(song.modified)}</span>
                                 </div>
                             </div>
-                            <span class="recent-song-duration loading-text">--:--</span>
+                            <span class="recent-song-duration"></span>
                         </a>
                         <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
                     </div>`;
@@ -1699,22 +1701,24 @@ app.get('/', async (req,res) =>{
 
         // Render audio files
         if (audioFiles.length > 0) {
-            chunk += '<div class="media-section audio-section"><h2 class="section-header">Songs</h2>';
+            chunk += '<div class="media-section audio-section"><h2 class="section-header">Songs <button id="refreshSongMeta" onclick="loadLocalSongMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>';
             for (let i = 0; i < audioFiles.length; i++) {
                 const fileInfo = audioFiles[i];
                 const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
                 const directUrl = `/music/${encodedPath}`;
-                const fileMeta = `<span style="font-size: 11px; opacity: 0.7; margin-left: 8px;"><strong>Size:</strong> ${formatSize(fileInfo.size)} <strong style="margin-left: 8px;">Modified:</strong> ${formatDate(fileInfo.modified)}</span>`;
+                const metadataUrl = `/localmetadata/${encodedPath}`;
 
                 chunk += `
-                <div class="song-row">
+                <div class="song-row local-song-row" data-path="${fileInfo.relativePath}">
                     <a class="link"
                        data-filename="${fileInfo.fileName}"
                        data-folder="${fileInfo.folderPath}"
                        data-relative-path="${fileInfo.relativePath}"
+                       data-metadata-url="${metadataUrl}"
                        data-audio-type="local">
-                    ${fileInfo.fileName}
-                    ${fileMeta}
+                    <span class="local-song-title">${fileInfo.fileName}</span>
+                    <span class="local-song-artist" style="font-size: 12px; opacity: 0.7; margin-left: 8px;"></span>
+                    <span class="local-song-duration" style="font-size: 11px; opacity: 0.6; margin-left: 8px;"></span>
                     </a>
                     <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
                 </div>`;
@@ -1879,7 +1883,21 @@ app.get('/', async (req,res) =>{
         }
     })();
 
-    window.addEventListener('DOMContentLoaded', function() {
+    // Helper to clean unprintable characters from ID3 metadata
+    function cleanMetadataText(text) {
+        if (!text) return '';
+        var result = '';
+        for (var i = 0; i < text.length; i++) {
+            var code = text.charCodeAt(i);
+            // Keep printable characters (32-126) and extended chars (160+)
+            if ((code >= 32 && code < 127) || code > 159) {
+                result += text[i];
+            }
+        }
+        return result.trim();
+    }
+
+    function initLocalPage() {
         audioHandler.initializePage();
 
         // Hide loading overlay after page is fully loaded
@@ -1892,11 +1910,62 @@ app.get('/', async (req,res) =>{
             }, 500);
         }
 
+        // Load metadata for local subdirectory songs one at a time
+        loadLocalSongMetadata();
+
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
-    });
+    }
 
-    // Load metadata for recent songs in parallel (all at once, update UI as each completes)
+    // Initialize immediately - script is at end of HTML after all song rows
+    initLocalPage();
+
+    // Load metadata for local songs in subdirectories
+    async function loadLocalSongMetadata() {
+        const songRows = document.querySelectorAll('.local-song-row');
+        for (const row of songRows) {
+            const link = row.querySelector('a.link[data-audio-type="local"]');
+            if (!link) continue;
+
+            const metadataUrl = link.dataset.metadataUrl;
+            if (!metadataUrl) continue;
+
+            try {
+                const response = await fetch(metadataUrl);
+                const metadata = await response.json();
+
+                // Match the format used by audio-handler's updateLinkDisplay
+                var artist = cleanMetadataText(metadata.artist) || 'Unknown Artist';
+                var album = cleanMetadataText(metadata.album) || 'Unknown Album';
+                var title = cleanMetadataText(metadata.title) || link.dataset.filename;
+
+                // Store original content for restoration later
+                if (!link.dataset.originalContent) {
+                    link.dataset.originalContent = link.innerHTML;
+                }
+
+                // Update link content to match played song format: Artist Album Title
+                link.innerHTML = artist + ' ' + album + ' ' + title;
+
+                // Add artwork thumbnail if available
+                if (metadata.artwork) {
+                    var artwork = metadata.artwork.startsWith('data:') ? metadata.artwork : 'data:image/jpeg;base64,' + metadata.artwork;
+                    var img = document.createElement('img');
+                    img.className = 'song-artwork-thumb';
+                    img.src = artwork;
+                    img.alt = '';
+                    img.style.cssText = 'width: 50px; height: 50px; object-fit: cover; margin-left: auto; border-radius: 4px;';
+                    link.appendChild(img);
+                    link.style.display = 'flex';
+                    link.style.alignItems = 'center';
+                }
+            } catch (err) {
+                // Silently fail if metadata can't be loaded
+            }
+        }
+    }
+
+    // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
         const section = document.querySelector('.recent-songs-section');
         if (!section) return;
@@ -1941,18 +2010,18 @@ app.get('/', async (req,res) =>{
 
                 // Update title (use metadata title or keep filename)
                 if (data.title && titleEl) {
-                    titleEl.textContent = data.title;
+                    titleEl.textContent = cleanMetadataText(data.title);
                 }
 
                 // Update artist
                 if (artistEl) {
                     artistEl.classList.remove('loading-text');
-                    artistEl.textContent = data.artist || '';
+                    artistEl.textContent = cleanMetadataText(data.artist) || '';
                 }
 
                 // Update album
                 if (albumEl) {
-                    albumEl.textContent = data.album || '';
+                    albumEl.textContent = cleanMetadataText(data.album) || '';
                 }
 
                 // Update duration
@@ -1966,19 +2035,14 @@ app.get('/', async (req,res) =>{
 
             } catch (err) {
                 console.error('Failed to load metadata for:', path, err);
-                // Remove loading state even on error
-                const artistEl = item.querySelector('.recent-song-artist');
-                const durationEl = item.querySelector('.recent-song-duration');
-                const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
-                if (artistEl) { artistEl.classList.remove('loading-text'); artistEl.textContent = ''; }
-                if (durationEl) { durationEl.classList.remove('loading-text'); durationEl.textContent = ''; }
-                if (artworkPlaceholder) artworkPlaceholder.classList.remove('loading-pulse');
                 item.dataset.loading = 'false';
             }
         }
 
-        // Load all items in parallel - each updates UI as it completes
-        await Promise.all(Array.from(items).map(loadItemMetadata));
+        // Load items one at a time
+        for (const item of items) {
+            await loadItemMetadata(item);
+        }
     }
 </script>
 </body></html>`);
@@ -2168,9 +2232,11 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
 
         // Start HTML response
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.write(`<html>
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.write(`<!DOCTYPE html>
+<html>
 <head>
+    <meta charset="utf-8">
     <title>analogarchivejs - ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</title>
     <link rel="stylesheet" href="styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2237,12 +2303,13 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const formatDate = (date) => date.toLocaleDateString();
 
                 res.write(`<div class="recent-songs-section" data-source="b2" data-folder="${folderName}">`);
-                res.write('<h2 class="recent-songs-header">Recently Added</h2>');
+                res.write('<h2 class="recent-songs-header">Recently Added <button onclick="loadRecentSongsMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>');
                 res.write('<div class="recent-songs-list">');
 
                 for (const song of recentSongs) {
-                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(song.relativePath)}`;
-                    const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(song.relativePath)}`;
+                    const encodedPath = song.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
+                    const metadataUrl = `/b2metadata/${folderName}/${encodedPath}`;
 
                     res.write(`
                     <div class="recent-song-item" data-path="${song.relativePath}" data-loading="true">
@@ -2253,16 +2320,16 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                            data-proxy-url="${proxyUrl}"
                            data-metadata-url="${metadataUrl}"
                            data-audio-type="b2">
-                            <div class="recent-song-artwork-placeholder loading-pulse">&#127925;</div>
+                            <div class="recent-song-artwork-placeholder">&#127925;</div>
                             <div class="recent-song-info">
                                 <div class="recent-song-title">${song.fileName}</div>
-                                <div class="recent-song-artist loading-text">Loading...</div>
+                                <div class="recent-song-artist"></div>
                                 <div class="recent-song-album"></div>
                                 <div class="recent-song-meta">
                                     <span>${formatDate(song.modified)}</span>
                                 </div>
                             </div>
-                            <span class="recent-song-duration loading-text">--:--</span>
+                            <span class="recent-song-duration"></span>
                         </a>
                         <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
                     </div>`);
@@ -2295,13 +2362,14 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
             // Render audio files
             if (audioFiles.length > 0) {
-                res.write('<div class="media-section audio-section"><h2 class="section-header">Songs</h2>');
+                res.write('<div class="media-section audio-section"><h2 class="section-header">Songs <button id="refreshSongMeta" onclick="loadB2SongMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>');
                 for (const file of audioFiles) {
-                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
-                    const metadataUrl = `/b2metadata/${folderName}/${encodeURIComponent(file.relativePath)}`;
+                    const encodedPath = file.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
+                    const metadataUrl = `/b2metadata/${folderName}/${encodedPath}`;
 
                     res.write(`
-                    <div class="song-row">
+                    <div class="song-row b2-song-row" data-path="${file.relativePath}">
                         <a class="link"
                            data-filename="${file.fileName}"
                            data-folder="${file.folderPath}"
@@ -2309,8 +2377,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                            data-proxy-url="${proxyUrl}"
                            data-metadata-url="${metadataUrl}"
                            data-audio-type="b2">
-                        ${file.fileName}
-                        <span class="b2-duration-placeholder" style="font-size: 11px; opacity: 0.7; margin-left: 8px;"></span>
+                        <span class="b2-song-title">${file.fileName}</span>
+                        <span class="b2-song-artist" style="font-size: 12px; opacity: 0.7; margin-left: 8px;"></span>
+                        <span class="b2-song-duration" style="font-size: 11px; opacity: 0.6; margin-left: 8px;"></span>
                         </a>
                         <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
                     </div>`);
@@ -2322,8 +2391,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             if (imageFiles.length > 0) {
                 res.write('<div class="media-section image-section"><h2 class="section-header">Images</h2><div class="image-gallery">');
                 for (const file of imageFiles) {
-                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
-                    const thumbUrl = `/thumb/${folderName}/${encodeURIComponent(file.relativePath)}`;
+                    const encodedPath = file.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
+                    const thumbUrl = `/thumb/${folderName}/${encodedPath}`;
 
                     res.write(`
                     <div class="image-item" data-media-type="image">
@@ -2342,7 +2412,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const videoPoster = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150"><rect fill="#333" width="200" height="150"/><g transform="translate(100, 75)"><rect x="-40" y="-20" width="60" height="40" fill="#666" rx="4"/><circle cx="-10" cy="0" r="12" fill="#888"/><circle cx="-10" cy="0" r="8" fill="#555"/><polygon points="20,-10 35,0 20,10" fill="#888"/></g><text x="100" y="130" text-anchor="middle" font-size="12" fill="#888">Click to play</text></svg>');
 
                 for (const file of videoFiles) {
-                    const proxyUrl = `/b2proxy/${folderName}/${encodeURIComponent(file.relativePath)}`;
+                    const encodedPath = file.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
+                    const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
 
                     // Determine proper video MIME type
                     const videoExt = file.fileName.split('.').pop().toLowerCase();
@@ -2444,8 +2515,22 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         setInterval(updateCloudStatus, 30000);
     })();
 
+    // Helper to clean unprintable characters from ID3 metadata
+    function cleanMetadataText(text) {
+        if (!text) return '';
+        var result = '';
+        for (var i = 0; i < text.length; i++) {
+            var code = text.charCodeAt(i);
+            // Keep printable characters (32-126) and extended chars (160+)
+            if ((code >= 32 && code < 127) || code > 159) {
+                result += text[i];
+            }
+        }
+        return result.trim();
+    }
+
     // Initialize search functionality for B2 pages
-    window.addEventListener('DOMContentLoaded', function() {
+    function initB2Page() {
         audioHandler.initializePage();
 
         // Hide loading overlay after page is fully loaded
@@ -2458,48 +2543,62 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             }, 500);
         }
 
-        // Load metadata for B2 files
-        const links = document.querySelectorAll('a.link[data-audio-type="b2"]');
-        links.forEach(async (link) => {
-            const metadataUrl = link.dataset.metadataUrl;
-            const placeholder = link.querySelector('.b2-duration-placeholder');
-            if (metadataUrl && placeholder) {
-                try {
-                    const response = await fetch(metadataUrl);
-                    const metadata = await response.json();
-
-                    let metaInfo = '';
-
-                    // Add duration
-                    if (metadata.duration) {
-                        const mins = Math.floor(metadata.duration / 60);
-                        const secs = Math.floor(metadata.duration % 60);
-                        const durationStr = mins + ':' + secs.toString().padStart(2, '0');
-                        metaInfo += '<strong>Duration:</strong> ' + durationStr;
-                    }
-
-                    // Add file size
-                    if (metadata.fileSize) {
-                        const mb = metadata.fileSize / (1024 * 1024);
-                        const sizeStr = mb >= 1
-                            ? mb.toFixed(2) + ' MB'
-                            : (metadata.fileSize / 1024).toFixed(2) + ' KB';
-                        if (metaInfo) metaInfo += ' ';
-                        metaInfo += '<strong style="margin-left: 8px;">Size:</strong> ' + sizeStr;
-                    }
-
-                    placeholder.innerHTML = metaInfo;
-                } catch (err) {
-                    // Silently fail if metadata can't be loaded
-                }
-            }
-        });
+        // Load metadata for B2 subdirectory songs one at a time
+        loadB2SongMetadata();
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
-    });
+    }
 
-    // Load metadata for recent songs in parallel (all at once, update UI as each completes)
+    // Load metadata for B2 songs in subdirectories
+    async function loadB2SongMetadata() {
+        const songRows = document.querySelectorAll('.b2-song-row');
+        for (const row of songRows) {
+            const link = row.querySelector('a.link[data-audio-type="b2"]');
+            if (!link) continue;
+
+            const metadataUrl = link.dataset.metadataUrl;
+            if (!metadataUrl) continue;
+
+            try {
+                const response = await fetch(metadataUrl);
+                const metadata = await response.json();
+
+                // Match the format used by audio-handler's updateLinkDisplay
+                var artist = cleanMetadataText(metadata.artist) || 'Unknown Artist';
+                var album = cleanMetadataText(metadata.album) || 'Unknown Album';
+                var title = cleanMetadataText(metadata.title) || link.dataset.filename;
+
+                // Store original content for restoration later
+                if (!link.dataset.originalContent) {
+                    link.dataset.originalContent = link.innerHTML;
+                }
+
+                // Update link content to match played song format: Artist Album Title
+                link.innerHTML = artist + ' ' + album + ' ' + title;
+
+                // Add artwork thumbnail if available
+                if (metadata.artwork) {
+                    var artwork = 'data:image/jpeg;base64,' + metadata.artwork;
+                    var img = document.createElement('img');
+                    img.className = 'song-artwork-thumb';
+                    img.src = artwork;
+                    img.alt = '';
+                    img.style.cssText = 'width: 50px; height: 50px; object-fit: cover; margin-left: auto; border-radius: 4px;';
+                    link.appendChild(img);
+                    link.style.display = 'flex';
+                    link.style.alignItems = 'center';
+                }
+            } catch (err) {
+                // Silently fail if metadata can't be loaded
+            }
+        }
+    }
+
+    // Initialize immediately - script is at end of HTML after all song rows
+    initB2Page();
+
+    // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
         const section = document.querySelector('.recent-songs-section');
         if (!section) return;
@@ -2544,18 +2643,18 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Update title (use metadata title or keep filename)
                 if (data.title && titleEl) {
-                    titleEl.textContent = data.title;
+                    titleEl.textContent = cleanMetadataText(data.title);
                 }
 
                 // Update artist
                 if (artistEl) {
                     artistEl.classList.remove('loading-text');
-                    artistEl.textContent = data.artist || '';
+                    artistEl.textContent = cleanMetadataText(data.artist) || '';
                 }
 
                 // Update album
                 if (albumEl) {
-                    albumEl.textContent = data.album || '';
+                    albumEl.textContent = cleanMetadataText(data.album) || '';
                 }
 
                 // Update duration
@@ -2569,19 +2668,14 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
             } catch (err) {
                 console.error('Failed to load metadata for:', path, err);
-                // Remove loading state even on error
-                const artistEl = item.querySelector('.recent-song-artist');
-                const durationEl = item.querySelector('.recent-song-duration');
-                const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
-                if (artistEl) { artistEl.classList.remove('loading-text'); artistEl.textContent = ''; }
-                if (durationEl) { durationEl.classList.remove('loading-text'); durationEl.textContent = ''; }
-                if (artworkPlaceholder) artworkPlaceholder.classList.remove('loading-pulse');
                 item.dataset.loading = 'false';
             }
         }
 
-        // Load all items in parallel - each updates UI as it completes
-        await Promise.all(Array.from(items).map(loadItemMetadata));
+        // Load items one at a time to reduce bandwidth pressure on B2
+        for (const item of items) {
+            await loadItemMetadata(item);
+        }
     }
 </script>
 </body></html>`);
