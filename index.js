@@ -959,14 +959,14 @@ app.get('/api/song-metadata', async (req, res) => {
 
         res.json({
             title: metadata.common.title || '',
-            artist: metadata.common.artist || '',
-            album: metadata.common.album || '',
+            artist: metadata.common.artist || 'Unknown Artist',
+            album: metadata.common.album || 'Unknown Album',
             duration: formatDuration(metadata.format.duration),
             artwork
         });
     } catch (err) {
         console.error('Error fetching song metadata:', err.message);
-        res.json({ title: '', artist: '', album: '', duration: '', artwork: null });
+        res.json({ title: '', artist: 'Unknown Artist', album: 'Unknown Album', duration: '', artwork: null });
     }
 });
 
@@ -1035,8 +1035,8 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
 
         const result = {
             title: metadata.common.title || '',
-            artist: metadata.common.artist || '',
-            album: metadata.common.album || '',
+            artist: metadata.common.artist || 'Unknown Artist',
+            album: metadata.common.album || 'Unknown Album',
             duration: formatDuration(metadata.format.duration),
             artwork
         };
@@ -1050,7 +1050,7 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
         res.json(result);
     } catch (err) {
         console.error('Error fetching B2 song metadata:', err.message);
-        res.json({ title: '', artist: '', album: '', duration: '', artwork: null });
+        res.json({ title: '', artist: 'Unknown Artist', album: 'Unknown Album', duration: '', artwork: null });
     }
 });
 
@@ -1959,7 +1959,7 @@ app.get('/', async (req,res) =>{
                 }
 
                 // Update artist
-                if (metadata.artist && metadata.artist !== 'Unknown Artist' && artistEl) {
+                if (metadata.artist && artistEl) {
                     artistEl.textContent = '- ' + cleanMetadataText(metadata.artist);
                 }
 
@@ -2589,7 +2589,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 }
 
                 // Update artist
-                if (metadata.artist && metadata.artist !== 'Unknown Artist' && artistEl) {
+                if (metadata.artist && artistEl) {
                     artistEl.textContent = '- ' + cleanMetadataText(metadata.artist);
                 }
 
