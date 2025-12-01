@@ -1701,7 +1701,7 @@ app.get('/', async (req,res) =>{
 
         // Render audio files
         if (audioFiles.length > 0) {
-            chunk += '<div class="media-section audio-section"><h2 class="section-header">Songs</h2>';
+            chunk += '<div class="media-section audio-section"><h2 class="section-header">Songs <button id="refreshSongMeta" onclick="loadLocalSongMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>';
             for (let i = 0; i < audioFiles.length; i++) {
                 const fileInfo = audioFiles[i];
                 const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
@@ -2362,7 +2362,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
             // Render audio files
             if (audioFiles.length > 0) {
-                res.write('<div class="media-section audio-section"><h2 class="section-header">Songs</h2>');
+                res.write('<div class="media-section audio-section"><h2 class="section-header">Songs <button id="refreshSongMeta" onclick="loadB2SongMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>');
                 for (const file of audioFiles) {
                     const encodedPath = file.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
                     const proxyUrl = `/b2proxy/${folderName}/${encodedPath}`;
