@@ -1917,10 +1917,23 @@ app.get('/', async (req,res) =>{
         loadRecentSongsMetadata();
     }
 
-    // Run init when page is fully loaded, with delay for high latency connections
-    window.addEventListener('load', function() {
-        setTimeout(initLocalPage, 500);
-    });
+    // Run init when page is ready - handle both fresh load and already-loaded states
+    function runWhenReady() {
+        if (document.readyState === 'complete') {
+            // Page already loaded, run after a frame to ensure DOM is settled
+            requestAnimationFrame(function() {
+                setTimeout(initLocalPage, 100);
+            });
+        } else {
+            // Wait for load event
+            window.addEventListener('load', function() {
+                requestAnimationFrame(function() {
+                    setTimeout(initLocalPage, 100);
+                });
+            });
+        }
+    }
+    runWhenReady();
 
     // Load metadata for local songs in subdirectories
     async function loadLocalSongMetadata() {
@@ -2592,10 +2605,23 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
     }
 
-    // Run init when page is fully loaded, with delay for high latency connections
-    window.addEventListener('load', function() {
-        setTimeout(initB2Page, 500);
-    });
+    // Run init when page is ready - handle both fresh load and already-loaded states
+    function runWhenReady() {
+        if (document.readyState === 'complete') {
+            // Page already loaded, run after a frame to ensure DOM is settled
+            requestAnimationFrame(function() {
+                setTimeout(initB2Page, 100);
+            });
+        } else {
+            // Wait for load event
+            window.addEventListener('load', function() {
+                requestAnimationFrame(function() {
+                    setTimeout(initB2Page, 100);
+                });
+            });
+        }
+    }
+    runWhenReady();
 
     // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
