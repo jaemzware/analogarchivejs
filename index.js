@@ -1930,34 +1930,34 @@ app.get('/', async (req,res) =>{
             const metadataUrl = link.dataset.metadataUrl;
             if (!metadataUrl) continue;
 
-            const titleEl = link.querySelector('.local-song-title');
-            const artistEl = link.querySelector('.local-song-artist');
-            const durationEl = link.querySelector('.local-song-duration');
-
             try {
                 const response = await fetch(metadataUrl);
                 const metadata = await response.json();
 
-                // Update title if we have one from ID3
-                if (metadata.title && titleEl) {
-                    titleEl.textContent = cleanMetadataText(metadata.title);
+                // Match the format used by audio-handler's updateLinkDisplay
+                var artist = cleanMetadataText(metadata.artist) || 'Unknown Artist';
+                var album = cleanMetadataText(metadata.album) || 'Unknown Album';
+                var title = cleanMetadataText(metadata.title) || link.dataset.filename;
+
+                // Store original content for restoration later
+                if (!link.dataset.originalContent) {
+                    link.dataset.originalContent = link.innerHTML;
                 }
 
-                // Update artist
-                if (metadata.artist && artistEl) {
-                    artistEl.textContent = '- ' + cleanMetadataText(metadata.artist);
-                }
+                // Update link content to match played song format: Artist Album Title
+                link.innerHTML = artist + ' ' + album + ' ' + title;
 
-                // Update duration
-                if (metadata.duration && durationEl) {
-                    var dur = metadata.duration;
-                    if (typeof dur === 'number') {
-                        var mins = Math.floor(dur / 60);
-                        var secs = Math.floor(dur % 60);
-                        durationEl.textContent = mins + ':' + secs.toString().padStart(2, '0');
-                    } else {
-                        durationEl.textContent = dur;
-                    }
+                // Add artwork thumbnail if available
+                if (metadata.artwork) {
+                    var artwork = metadata.artwork.startsWith('data:') ? metadata.artwork : 'data:image/jpeg;base64,' + metadata.artwork;
+                    var img = document.createElement('img');
+                    img.className = 'song-artwork-thumb';
+                    img.src = artwork;
+                    img.alt = '';
+                    img.style.cssText = 'width: 50px; height: 50px; object-fit: cover; margin-left: auto; border-radius: 4px;';
+                    link.appendChild(img);
+                    link.style.display = 'flex';
+                    link.style.alignItems = 'center';
                 }
             } catch (err) {
                 // Silently fail if metadata can't be loaded
@@ -2560,29 +2560,34 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             const metadataUrl = link.dataset.metadataUrl;
             if (!metadataUrl) continue;
 
-            const titleEl = link.querySelector('.b2-song-title');
-            const artistEl = link.querySelector('.b2-song-artist');
-            const durationEl = link.querySelector('.b2-song-duration');
-
             try {
                 const response = await fetch(metadataUrl);
                 const metadata = await response.json();
 
-                // Update title if we have one from ID3
-                if (metadata.title && titleEl) {
-                    titleEl.textContent = cleanMetadataText(metadata.title);
+                // Match the format used by audio-handler's updateLinkDisplay
+                var artist = cleanMetadataText(metadata.artist) || 'Unknown Artist';
+                var album = cleanMetadataText(metadata.album) || 'Unknown Album';
+                var title = cleanMetadataText(metadata.title) || link.dataset.filename;
+
+                // Store original content for restoration later
+                if (!link.dataset.originalContent) {
+                    link.dataset.originalContent = link.innerHTML;
                 }
 
-                // Update artist
-                if (metadata.artist && artistEl) {
-                    artistEl.textContent = '- ' + cleanMetadataText(metadata.artist);
-                }
+                // Update link content to match played song format: Artist Album Title
+                link.innerHTML = artist + ' ' + album + ' ' + title;
 
-                // Update duration
-                if (metadata.duration && durationEl) {
-                    const mins = Math.floor(metadata.duration / 60);
-                    const secs = Math.floor(metadata.duration % 60);
-                    durationEl.textContent = mins + ':' + secs.toString().padStart(2, '0');
+                // Add artwork thumbnail if available
+                if (metadata.artwork) {
+                    var artwork = 'data:image/jpeg;base64,' + metadata.artwork;
+                    var img = document.createElement('img');
+                    img.className = 'song-artwork-thumb';
+                    img.src = artwork;
+                    img.alt = '';
+                    img.style.cssText = 'width: 50px; height: 50px; object-fit: cover; margin-left: auto; border-radius: 4px;';
+                    link.appendChild(img);
+                    link.style.display = 'flex';
+                    link.style.alignItems = 'center';
                 }
             } catch (err) {
                 // Silently fail if metadata can't be loaded
