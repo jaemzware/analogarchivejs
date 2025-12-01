@@ -1543,7 +1543,7 @@ app.get('/', async (req,res) =>{
         currentContent.files.sort((a, b) => a.fileName.localeCompare(b.fileName));
 
         // Send header immediately
-        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
 
         // Build breadcrumb path
         const pathParts = currentPath ? currentPath.split('/') : [];
@@ -1562,8 +1562,10 @@ app.get('/', async (req,res) =>{
         });
 
         // Send HTML head right away
-        res.write(`<html>
+        res.write(`<!DOCTYPE html>
+<html>
 <head>
+    <meta charset="utf-8">
     <title>analogarchivejs - ${currentPath || 'Local Music'}</title>
     <link rel="stylesheet" href="styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1704,17 +1706,19 @@ app.get('/', async (req,res) =>{
                 const fileInfo = audioFiles[i];
                 const encodedPath = fileInfo.relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
                 const directUrl = `/music/${encodedPath}`;
-                const fileMeta = `<span style="font-size: 11px; opacity: 0.7; margin-left: 8px;"><strong>Size:</strong> ${formatSize(fileInfo.size)} <strong style="margin-left: 8px;">Modified:</strong> ${formatDate(fileInfo.modified)}</span>`;
+                const metadataUrl = `/localmetadata/${encodedPath}`;
 
                 chunk += `
-                <div class="song-row">
+                <div class="song-row local-song-row" data-path="${fileInfo.relativePath}">
                     <a class="link"
                        data-filename="${fileInfo.fileName}"
                        data-folder="${fileInfo.folderPath}"
                        data-relative-path="${fileInfo.relativePath}"
+                       data-metadata-url="${metadataUrl}"
                        data-audio-type="local">
-                    ${fileInfo.fileName}
-                    ${fileMeta}
+                    <span class="local-song-title">${fileInfo.fileName}</span>
+                    <span class="local-song-artist" style="font-size: 12px; opacity: 0.7; margin-left: 8px;"></span>
+                    <span class="local-song-duration" style="font-size: 11px; opacity: 0.6; margin-left: 8px;"></span>
                     </a>
                     <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
                 </div>`;
@@ -1906,6 +1910,9 @@ app.get('/', async (req,res) =>{
             }, 500);
         }
 
+        // Load metadata for local subdirectory songs one at a time
+        loadLocalSongMetadata();
+
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
     }
@@ -1914,6 +1921,51 @@ app.get('/', async (req,res) =>{
     window.addEventListener('load', function() {
         setTimeout(initLocalPage, 500);
     });
+
+    // Load metadata for local songs in subdirectories
+    async function loadLocalSongMetadata() {
+        const songRows = document.querySelectorAll('.local-song-row');
+        for (const row of songRows) {
+            const link = row.querySelector('a.link[data-audio-type="local"]');
+            if (!link) continue;
+
+            const metadataUrl = link.dataset.metadataUrl;
+            if (!metadataUrl) continue;
+
+            const titleEl = link.querySelector('.local-song-title');
+            const artistEl = link.querySelector('.local-song-artist');
+            const durationEl = link.querySelector('.local-song-duration');
+
+            try {
+                const response = await fetch(metadataUrl);
+                const metadata = await response.json();
+
+                // Update title if we have one from ID3
+                if (metadata.title && titleEl) {
+                    titleEl.textContent = cleanMetadataText(metadata.title);
+                }
+
+                // Update artist
+                if (metadata.artist && metadata.artist !== 'Unknown Artist' && artistEl) {
+                    artistEl.textContent = '- ' + cleanMetadataText(metadata.artist);
+                }
+
+                // Update duration
+                if (metadata.duration && durationEl) {
+                    var dur = metadata.duration;
+                    if (typeof dur === 'number') {
+                        var mins = Math.floor(dur / 60);
+                        var secs = Math.floor(dur % 60);
+                        durationEl.textContent = mins + ':' + secs.toString().padStart(2, '0');
+                    } else {
+                        durationEl.textContent = dur;
+                    }
+                }
+            } catch (err) {
+                // Silently fail if metadata can't be loaded
+            }
+        }
+    }
 
     // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
@@ -2182,9 +2234,11 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
 
         // Start HTML response
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.write(`<html>
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.write(`<!DOCTYPE html>
+<html>
 <head>
+    <meta charset="utf-8">
     <title>analogarchivejs - ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}</title>
     <link rel="stylesheet" href="styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2523,7 +2577,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Update artist
                 if (metadata.artist && metadata.artist !== 'Unknown Artist' && artistEl) {
-                    artistEl.textContent = '— ' + cleanMetadataText(metadata.artist);
+                    artistEl.textContent = '- ' + cleanMetadataText(metadata.artist);
                 }
 
                 // Update duration
