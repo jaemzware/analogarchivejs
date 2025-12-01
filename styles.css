@@ -1251,102 +1251,157 @@ body.player-active {
     }
 }
 
-/* Recent Songs Section */
+/* Recent Songs Section - Compact with metadata (accessible colors) */
 .recent-songs-section {
-    margin-bottom: 35px;
-    padding: 20px;
-    background: linear-gradient(135deg, #ffffff, #f8f8f8);
-    border: 2px solid #ddd;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin-bottom: 25px;
+    padding: 12px 15px;
+    background: linear-gradient(135deg, #1a2332, #0f1720);
+    border: 2px solid #4fc3f7;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(79, 195, 247, 0.2);
 }
 
 .recent-songs-header {
-    margin: 0 0 15px 0;
-    padding: 0 0 10px 0;
-    font-size: 20px;
+    margin: 0 0 10px 0;
+    padding: 0 0 8px 0;
+    font-size: 16px;
     font-weight: 700;
-    color: #333;
-    border-bottom: 2px solid lime;
+    color: #4fc3f7;
+    border-bottom: 1px solid rgba(79, 195, 247, 0.3);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .recent-songs-header::before {
-    content: "⏱";
-    font-size: 24px;
+    content: "🔥";
+    font-size: 16px;
 }
 
 .recent-songs-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 4px;
 }
 
 .recent-song-item {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
     overflow: hidden;
-    transition: all 0.2s ease-in-out;
+    transition: all 0.15s ease-in-out;
     display: flex;
     align-items: stretch;
-    gap: 5px;
 }
 
 .recent-song-item:hover {
-    border-color: lime;
-    box-shadow: 0 4px 12px rgba(0, 255, 127, 0.2);
-    transform: translateY(-2px);
+    background: rgba(79, 195, 247, 0.12);
+    border-color: rgba(79, 195, 247, 0.5);
+    box-shadow: 0 2px 8px rgba(79, 195, 247, 0.25);
 }
 
-.recent-song-link {
-    display: block;
-    padding: 8px 12px;
-    padding-right: 70px; /* Make room for artwork on right */
+/* Using .recent-song-item ancestor for higher specificity than .link (0,2,0 > 0,1,0) */
+.recent-song-item .link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
     text-decoration: none;
-    color: #333;
+    color: #fff;
     cursor: pointer;
     border: none;
-    position: relative;
-    background-image: none !important; /* Never show background image for recent songs */
+    background: #1a2332;
+    background-color: #1a2332;
+    background-image: none;
     flex: 1;
+    min-width: 0;
 }
 
-.recent-song-link:hover {
-    background: linear-gradient(135deg, #f0f8ff, #e6f3ff);
-    background-image: none !important; /* Keep this even on hover */
+.recent-song-item .link:hover {
+    background: #243347;
+    background-color: #243347;
+    background-image: none;
 }
 
 .recent-song-artwork {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 50px;
-    height: 50px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
     border-radius: 4px;
     object-fit: cover;
-    border: 1px solid #ddd;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    background: #333;
+}
+
+.recent-song-artwork-placeholder {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #666;
+}
+
+.recent-song-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.recent-song-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recent-song-artist {
+    font-size: 10px;
+    color: #ffd54f;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recent-song-album {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-style: italic;
 }
 
 .recent-song-breadcrumb {
-    font-size: 14px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 6px;
-    line-height: 1.4;
-    word-break: break-word;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .recent-song-meta {
     display: flex;
-    gap: 15px;
-    font-size: 11px;
-    color: #666;
-    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.4);
+    flex-wrap: nowrap;
+    white-space: nowrap;
 }
 
 .recent-song-meta span {
@@ -1354,48 +1409,146 @@ body.player-active {
 }
 
 .recent-song-meta strong {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.5);
+    margin-right: 2px;
+}
+
+.recent-song-duration {
+    font-size: 10px;
+    color: #81d4fa;
     font-weight: 600;
-    color: #444;
-    margin-right: 4px;
+    white-space: nowrap;
+    margin-left: auto;
+    padding-left: 10px;
+}
+
+.recent-song-item .direct-link {
+    padding: 0 10px;
+    min-width: 35px;
+    font-size: 14px;
+    background: transparent;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    border-radius: 0;
+}
+
+.recent-song-item .direct-link:hover {
+    background: rgba(79, 195, 247, 0.15);
+    color: #4fc3f7;
 }
 
 /* Mobile Responsive for Recent Songs */
 @media (max-width: 768px) {
     .recent-songs-section {
-        padding: 15px;
-        margin-bottom: 25px;
+        padding: 10px 12px;
+        margin-bottom: 20px;
     }
 
     .recent-songs-header {
-        font-size: 18px;
+        font-size: 14px;
     }
 
-    .recent-song-link {
-        padding: 10px 12px;
+    .recent-song-artwork,
+    .recent-song-artwork-placeholder {
+        width: 35px;
+        height: 35px;
+        min-width: 35px;
     }
 
-    .recent-song-breadcrumb {
-        font-size: 13px;
+    .recent-song-title {
+        font-size: 11px;
+    }
+
+    .recent-song-artist {
+        font-size: 9px;
+    }
+
+    .recent-song-album {
+        font-size: 8px;
     }
 
     .recent-song-meta {
-        font-size: 10px;
-        gap: 10px;
+        font-size: 8px;
+    }
+
+    .recent-song-duration {
+        font-size: 9px;
     }
 }
 
 @media (max-width: 480px) {
     .recent-songs-section {
-        padding: 12px;
-        margin-bottom: 20px;
+        padding: 8px 10px;
+        margin-bottom: 15px;
     }
 
     .recent-songs-header {
-        font-size: 16px;
+        font-size: 13px;
     }
 
-    .recent-song-breadcrumb {
-        font-size: 12px;
+    .recent-song-link {
+        padding: 5px 8px;
+        gap: 8px;
+    }
+
+    .recent-song-artwork,
+    .recent-song-artwork-placeholder {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+    }
+
+    .recent-song-title {
+        font-size: 10px;
+    }
+}
+
+/* Loading animations for recent songs */
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.loading-pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.loading-text {
+    opacity: 0.5;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.recent-song-item[data-loading="true"] {
+    opacity: 0.85;
+}
+
+.recent-song-item[data-loading="false"] {
+    animation: fadeInMeta 0.3s ease-out;
+}
+
+@keyframes fadeInMeta {
+    from {
+        background: rgba(79, 195, 247, 0.2);
+    }
+    to {
+        background: rgba(255, 255, 255, 0.05);
+    }
+}
+
+.recent-song-item .recent-song-artwork {
+    animation: fadeInArt 0.3s ease-out;
+}
+
+@keyframes fadeInArt {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
     }
 }
 

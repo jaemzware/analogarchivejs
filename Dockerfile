@@ -23,8 +23,8 @@ RUN apk add --no-cache openssl && \
         -out /app/sslcert/cert.pem \
         -subj "/CN=localhost/O=analogarchive/C=US"
 
-# Expose the port the app runs on
-EXPOSE 55557
+# Expose the ports (HTTPS and HTTP redirect)
+EXPOSE 55557 55556
 
 # Set default environment variables
 ENV SSL_KEY_PATH=/app/sslcert/key.pem

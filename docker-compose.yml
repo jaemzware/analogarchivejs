@@ -2,13 +2,17 @@ services:
   analogarchive:
     build: .
     container_name: analogarchivejs
+    labels:
+      - "com.docker.desktop.service.url=https://localhost:${PORT}"
     ports:
       - "${PORT}:${PORT}"
+      - "${HTTP_PORT:-55556}:${HTTP_PORT:-55556}"
     volumes:
       - ${HOST_MUSIC_PATH}:/app/music
     environment:
       - NODE_ENV=production
       - PORT=${PORT}
+      - HTTP_PORT=${HTTP_PORT:-55556}
       - MUSIC_DIRECTORY=${MUSIC_DIRECTORY}
       - B2_APPLICATION_KEY_ID=${B2_APPLICATION_KEY_ID}
       - B2_APPLICATION_KEY=${B2_APPLICATION_KEY}
