@@ -2584,8 +2584,10 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             }
         }
 
-        // Load all items in parallel - each updates UI as it completes
-        await Promise.all(Array.from(items).map(loadItemMetadata));
+        // Load items one at a time to reduce bandwidth pressure on B2
+        for (const item of items) {
+            await loadItemMetadata(item);
+        }
     }
 </script>
 </body></html>`);
