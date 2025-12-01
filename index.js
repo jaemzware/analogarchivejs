@@ -1645,16 +1645,16 @@ app.get('/', async (req,res) =>{
                            data-folder="${song.folderPath}"
                            data-relative-path="${song.relativePath}"
                            data-audio-type="local">
-                            <div class="recent-song-artwork-placeholder loading-pulse">&#127925;</div>
+                            <div class="recent-song-artwork-placeholder">&#127925;</div>
                             <div class="recent-song-info">
                                 <div class="recent-song-title">${song.fileName}</div>
-                                <div class="recent-song-artist loading-text">Loading...</div>
+                                <div class="recent-song-artist"></div>
                                 <div class="recent-song-album"></div>
                                 <div class="recent-song-meta">
                                     <span>${formatDate(song.modified)}</span>
                                 </div>
                             </div>
-                            <span class="recent-song-duration loading-text">--:--</span>
+                            <span class="recent-song-duration"></span>
                         </a>
                         <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
                     </div>`;
@@ -1879,7 +1879,7 @@ app.get('/', async (req,res) =>{
         }
     })();
 
-    window.addEventListener('DOMContentLoaded', function() {
+    function initLocalPage() {
         audioHandler.initializePage();
 
         // Hide loading overlay after page is fully loaded
@@ -1894,9 +1894,12 @@ app.get('/', async (req,res) =>{
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
-    });
+    }
 
-    // Load metadata for recent songs in parallel (all at once, update UI as each completes)
+    // Run init when page is fully loaded
+    window.addEventListener('load', initLocalPage);
+
+    // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
         const section = document.querySelector('.recent-songs-section');
         if (!section) return;
@@ -1966,19 +1969,14 @@ app.get('/', async (req,res) =>{
 
             } catch (err) {
                 console.error('Failed to load metadata for:', path, err);
-                // Remove loading state even on error
-                const artistEl = item.querySelector('.recent-song-artist');
-                const durationEl = item.querySelector('.recent-song-duration');
-                const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
-                if (artistEl) { artistEl.classList.remove('loading-text'); artistEl.textContent = ''; }
-                if (durationEl) { durationEl.classList.remove('loading-text'); durationEl.textContent = ''; }
-                if (artworkPlaceholder) artworkPlaceholder.classList.remove('loading-pulse');
                 item.dataset.loading = 'false';
             }
         }
 
-        // Load all items in parallel - each updates UI as it completes
-        await Promise.all(Array.from(items).map(loadItemMetadata));
+        // Load items one at a time
+        for (const item of items) {
+            await loadItemMetadata(item);
+        }
     }
 </script>
 </body></html>`);
@@ -2507,13 +2505,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         loadRecentSongsMetadata();
     }
 
-    // Run init when DOM is ready, or immediately if already ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initB2Page);
-    } else {
-        // Defer to next tick to ensure streamed HTML is fully parsed
-        setTimeout(initB2Page, 0);
-    }
+    // Run init when page is fully loaded
+    window.addEventListener('load', initB2Page);
 
     // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
