@@ -1917,19 +1917,22 @@ app.get('/', async (req,res) =>{
         loadRecentSongsMetadata();
     }
 
-    // Run init when page is ready - poll until elements exist or timeout
+    // Run init when page is ready - poll until song elements exist or timeout
     function runWhenReady() {
         var attempts = 0;
         var maxAttempts = 50; // 5 seconds max
 
         function tryInit() {
             attempts++;
-            // Check if we have song elements to process
-            var hasLocalSongs = document.querySelectorAll('.local-song-row').length > 0;
-            var hasRecentSongs = document.querySelectorAll('.recent-song-item').length > 0;
-            var hasAnyContent = hasLocalSongs || hasRecentSongs || document.querySelector('.media-section');
+            // Check if we have actual song elements (not just section headers)
+            var localSongCount = document.querySelectorAll('.local-song-row').length;
+            var recentSongCount = document.querySelectorAll('.recent-song-item').length;
+            var hasSongs = localSongCount > 0 || recentSongCount > 0;
 
-            if (hasAnyContent || attempts >= maxAttempts) {
+            // Also check if page is done loading (closing body tag present)
+            var pageComplete = document.body && document.body.innerHTML.indexOf('</script>') > -1;
+
+            if (hasSongs || (pageComplete && attempts > 5) || attempts >= maxAttempts) {
                 initLocalPage();
             } else {
                 setTimeout(tryInit, 100);
@@ -1937,9 +1940,11 @@ app.get('/', async (req,res) =>{
         }
 
         if (document.readyState === 'complete') {
-            tryInit();
+            setTimeout(tryInit, 50); // Small delay after load
         } else {
-            window.addEventListener('load', tryInit);
+            window.addEventListener('load', function() {
+                setTimeout(tryInit, 50);
+            });
         }
     }
     runWhenReady();
@@ -2614,19 +2619,22 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
     }
 
-    // Run init when page is ready - poll until elements exist or timeout
+    // Run init when page is ready - poll until song elements exist or timeout
     function runWhenReady() {
         var attempts = 0;
         var maxAttempts = 50; // 5 seconds max
 
         function tryInit() {
             attempts++;
-            // Check if we have song elements to process
-            var hasB2Songs = document.querySelectorAll('.b2-song-row').length > 0;
-            var hasRecentSongs = document.querySelectorAll('.recent-song-item').length > 0;
-            var hasAnyContent = hasB2Songs || hasRecentSongs || document.querySelector('.media-section');
+            // Check if we have actual song elements (not just section headers)
+            var b2SongCount = document.querySelectorAll('.b2-song-row').length;
+            var recentSongCount = document.querySelectorAll('.recent-song-item').length;
+            var hasSongs = b2SongCount > 0 || recentSongCount > 0;
 
-            if (hasAnyContent || attempts >= maxAttempts) {
+            // Also check if page is done loading (closing body tag present)
+            var pageComplete = document.body && document.body.innerHTML.indexOf('</script>') > -1;
+
+            if (hasSongs || (pageComplete && attempts > 5) || attempts >= maxAttempts) {
                 initB2Page();
             } else {
                 setTimeout(tryInit, 100);
@@ -2634,9 +2642,11 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
 
         if (document.readyState === 'complete') {
-            tryInit();
+            setTimeout(tryInit, 50); // Small delay after load
         } else {
-            window.addEventListener('load', tryInit);
+            window.addEventListener('load', function() {
+                setTimeout(tryInit, 50);
+            });
         }
     }
     runWhenReady();
