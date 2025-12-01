@@ -1879,6 +1879,12 @@ app.get('/', async (req,res) =>{
         }
     })();
 
+    // Helper to clean unprintable characters from ID3 metadata
+    function cleanMetadataText(text) {
+        if (!text) return '';
+        return text.replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
+    }
+
     function initLocalPage() {
         audioHandler.initializePage();
 
@@ -1896,8 +1902,10 @@ app.get('/', async (req,res) =>{
         loadRecentSongsMetadata();
     }
 
-    // Run init when page is fully loaded
-    window.addEventListener('load', initLocalPage);
+    // Run init when page is fully loaded, with delay for high latency connections
+    window.addEventListener('load', function() {
+        setTimeout(initLocalPage, 500);
+    });
 
     // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
@@ -1944,18 +1952,18 @@ app.get('/', async (req,res) =>{
 
                 // Update title (use metadata title or keep filename)
                 if (data.title && titleEl) {
-                    titleEl.textContent = data.title;
+                    titleEl.textContent = cleanMetadataText(data.title);
                 }
 
                 // Update artist
                 if (artistEl) {
                     artistEl.classList.remove('loading-text');
-                    artistEl.textContent = data.artist || '';
+                    artistEl.textContent = cleanMetadataText(data.artist) || '';
                 }
 
                 // Update album
                 if (albumEl) {
-                    albumEl.textContent = data.album || '';
+                    albumEl.textContent = cleanMetadataText(data.album) || '';
                 }
 
                 // Update duration
@@ -2447,6 +2455,13 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         setInterval(updateCloudStatus, 30000);
     })();
 
+    // Helper to clean unprintable characters from ID3 metadata
+    function cleanMetadataText(text) {
+        if (!text) return '';
+        // Remove control characters and other unprintables (keep printable ASCII and unicode)
+        return text.replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
+    }
+
     // Initialize search functionality for B2 pages
     function initB2Page() {
         audioHandler.initializePage();
@@ -2461,52 +2476,57 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             }, 500);
         }
 
-        // Load metadata for B2 files one at a time
-        (async function() {
-            const songRows = document.querySelectorAll('.b2-song-row');
-            for (const row of songRows) {
-                const link = row.querySelector('a.link[data-audio-type="b2"]');
-                if (!link) continue;
-
-                const metadataUrl = link.dataset.metadataUrl;
-                if (!metadataUrl) continue;
-
-                const titleEl = link.querySelector('.b2-song-title');
-                const artistEl = link.querySelector('.b2-song-artist');
-                const durationEl = link.querySelector('.b2-song-duration');
-
-                try {
-                    const response = await fetch(metadataUrl);
-                    const metadata = await response.json();
-
-                    // Update title if we have one from ID3
-                    if (metadata.title && titleEl) {
-                        titleEl.textContent = metadata.title;
-                    }
-
-                    // Update artist
-                    if (metadata.artist && metadata.artist !== 'Unknown Artist' && artistEl) {
-                        artistEl.textContent = '— ' + metadata.artist;
-                    }
-
-                    // Update duration
-                    if (metadata.duration && durationEl) {
-                        const mins = Math.floor(metadata.duration / 60);
-                        const secs = Math.floor(metadata.duration % 60);
-                        durationEl.textContent = mins + ':' + secs.toString().padStart(2, '0');
-                    }
-                } catch (err) {
-                    // Silently fail if metadata can't be loaded
-                }
-            }
-        })();
+        // Load metadata for B2 subdirectory songs one at a time
+        loadB2SongMetadata();
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
     }
 
-    // Run init when page is fully loaded
-    window.addEventListener('load', initB2Page);
+    // Load metadata for B2 songs in subdirectories
+    async function loadB2SongMetadata() {
+        const songRows = document.querySelectorAll('.b2-song-row');
+        for (const row of songRows) {
+            const link = row.querySelector('a.link[data-audio-type="b2"]');
+            if (!link) continue;
+
+            const metadataUrl = link.dataset.metadataUrl;
+            if (!metadataUrl) continue;
+
+            const titleEl = link.querySelector('.b2-song-title');
+            const artistEl = link.querySelector('.b2-song-artist');
+            const durationEl = link.querySelector('.b2-song-duration');
+
+            try {
+                const response = await fetch(metadataUrl);
+                const metadata = await response.json();
+
+                // Update title if we have one from ID3
+                if (metadata.title && titleEl) {
+                    titleEl.textContent = cleanMetadataText(metadata.title);
+                }
+
+                // Update artist
+                if (metadata.artist && metadata.artist !== 'Unknown Artist' && artistEl) {
+                    artistEl.textContent = '— ' + cleanMetadataText(metadata.artist);
+                }
+
+                // Update duration
+                if (metadata.duration && durationEl) {
+                    const mins = Math.floor(metadata.duration / 60);
+                    const secs = Math.floor(metadata.duration % 60);
+                    durationEl.textContent = mins + ':' + secs.toString().padStart(2, '0');
+                }
+            } catch (err) {
+                // Silently fail if metadata can't be loaded
+            }
+        }
+    }
+
+    // Run init when page is fully loaded, with delay for high latency connections
+    window.addEventListener('load', function() {
+        setTimeout(initB2Page, 500);
+    });
 
     // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
@@ -2553,18 +2573,18 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Update title (use metadata title or keep filename)
                 if (data.title && titleEl) {
-                    titleEl.textContent = data.title;
+                    titleEl.textContent = cleanMetadataText(data.title);
                 }
 
                 // Update artist
                 if (artistEl) {
                     artistEl.classList.remove('loading-text');
-                    artistEl.textContent = data.artist || '';
+                    artistEl.textContent = cleanMetadataText(data.artist) || '';
                 }
 
                 // Update album
                 if (albumEl) {
-                    albumEl.textContent = data.album || '';
+                    albumEl.textContent = cleanMetadataText(data.album) || '';
                 }
 
                 // Update duration
