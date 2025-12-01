@@ -2303,7 +2303,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     const metadataUrl = `/b2metadata/${folderName}/${encodedPath}`;
 
                     res.write(`
-                    <div class="song-row">
+                    <div class="song-row b2-song-row" data-path="${file.relativePath}">
                         <a class="link"
                            data-filename="${file.fileName}"
                            data-folder="${file.folderPath}"
@@ -2311,8 +2311,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                            data-proxy-url="${proxyUrl}"
                            data-metadata-url="${metadataUrl}"
                            data-audio-type="b2">
-                        ${file.fileName}
-                        <span class="b2-duration-placeholder" style="font-size: 11px; opacity: 0.7; margin-left: 8px;"></span>
+                        <span class="b2-song-title">${file.fileName}</span>
+                        <span class="b2-song-artist" style="font-size: 12px; opacity: 0.7; margin-left: 8px;"></span>
+                        <span class="b2-song-duration" style="font-size: 11px; opacity: 0.6; margin-left: 8px;"></span>
                         </a>
                         <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
                     </div>`);
@@ -2462,42 +2463,45 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             }, 500);
         }
 
-        // Load metadata for B2 files
-        const links = document.querySelectorAll('a.link[data-audio-type="b2"]');
-        links.forEach(async (link) => {
-            const metadataUrl = link.dataset.metadataUrl;
-            const placeholder = link.querySelector('.b2-duration-placeholder');
-            if (metadataUrl && placeholder) {
+        // Load metadata for B2 files one at a time
+        (async function() {
+            const songRows = document.querySelectorAll('.b2-song-row');
+            for (const row of songRows) {
+                const link = row.querySelector('a.link[data-audio-type="b2"]');
+                if (!link) continue;
+
+                const metadataUrl = link.dataset.metadataUrl;
+                if (!metadataUrl) continue;
+
+                const titleEl = link.querySelector('.b2-song-title');
+                const artistEl = link.querySelector('.b2-song-artist');
+                const durationEl = link.querySelector('.b2-song-duration');
+
                 try {
                     const response = await fetch(metadataUrl);
                     const metadata = await response.json();
 
-                    let metaInfo = '';
+                    // Update title if we have one from ID3
+                    if (metadata.title && titleEl) {
+                        titleEl.textContent = metadata.title;
+                    }
 
-                    // Add duration
-                    if (metadata.duration) {
+                    // Update artist
+                    if (metadata.artist && metadata.artist !== 'Unknown Artist' && artistEl) {
+                        artistEl.textContent = '— ' + metadata.artist;
+                    }
+
+                    // Update duration
+                    if (metadata.duration && durationEl) {
                         const mins = Math.floor(metadata.duration / 60);
                         const secs = Math.floor(metadata.duration % 60);
-                        const durationStr = mins + ':' + secs.toString().padStart(2, '0');
-                        metaInfo += '<strong>Duration:</strong> ' + durationStr;
+                        durationEl.textContent = mins + ':' + secs.toString().padStart(2, '0');
                     }
-
-                    // Add file size
-                    if (metadata.fileSize) {
-                        const mb = metadata.fileSize / (1024 * 1024);
-                        const sizeStr = mb >= 1
-                            ? mb.toFixed(2) + ' MB'
-                            : (metadata.fileSize / 1024).toFixed(2) + ' KB';
-                        if (metaInfo) metaInfo += ' ';
-                        metaInfo += '<strong style="margin-left: 8px;">Size:</strong> ' + sizeStr;
-                    }
-
-                    placeholder.innerHTML = metaInfo;
                 } catch (err) {
                     // Silently fail if metadata can't be loaded
                 }
             }
-        });
+        })();
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
