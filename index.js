@@ -1917,37 +1917,8 @@ app.get('/', async (req,res) =>{
         loadRecentSongsMetadata();
     }
 
-    // Run init when page is ready - poll until song elements exist or timeout
-    function runWhenReady() {
-        var attempts = 0;
-        var maxAttempts = 50; // 5 seconds max
-
-        function tryInit() {
-            attempts++;
-            // Check if we have actual song elements (not just section headers)
-            var localSongCount = document.querySelectorAll('.local-song-row').length;
-            var recentSongCount = document.querySelectorAll('.recent-song-item').length;
-            var hasSongs = localSongCount > 0 || recentSongCount > 0;
-
-            // Also check if page is done loading
-            var pageComplete = document.readyState === 'complete';
-
-            if (hasSongs || (pageComplete && attempts > 5) || attempts >= maxAttempts) {
-                initLocalPage();
-            } else {
-                setTimeout(tryInit, 100);
-            }
-        }
-
-        if (document.readyState === 'complete') {
-            setTimeout(tryInit, 50); // Small delay after load
-        } else {
-            window.addEventListener('load', function() {
-                setTimeout(tryInit, 50);
-            });
-        }
-    }
-    runWhenReady();
+    // Initialize immediately - script is at end of HTML after all song rows
+    initLocalPage();
 
     // Load metadata for local songs in subdirectories
     async function loadLocalSongMetadata() {
@@ -2619,37 +2590,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
     }
 
-    // Run init when page is ready - poll until song elements exist or timeout
-    function runWhenReady() {
-        var attempts = 0;
-        var maxAttempts = 50; // 5 seconds max
-
-        function tryInit() {
-            attempts++;
-            // Check if we have actual song elements (not just section headers)
-            var b2SongCount = document.querySelectorAll('.b2-song-row').length;
-            var recentSongCount = document.querySelectorAll('.recent-song-item').length;
-            var hasSongs = b2SongCount > 0 || recentSongCount > 0;
-
-            // Also check if page is done loading
-            var pageComplete = document.readyState === 'complete';
-
-            if (hasSongs || (pageComplete && attempts > 5) || attempts >= maxAttempts) {
-                initB2Page();
-            } else {
-                setTimeout(tryInit, 100);
-            }
-        }
-
-        if (document.readyState === 'complete') {
-            setTimeout(tryInit, 50); // Small delay after load
-        } else {
-            window.addEventListener('load', function() {
-                setTimeout(tryInit, 50);
-            });
-        }
-    }
-    runWhenReady();
+    // Initialize immediately - script is at end of HTML after all song rows
+    initB2Page();
 
     // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
