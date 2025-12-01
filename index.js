@@ -1917,20 +1917,29 @@ app.get('/', async (req,res) =>{
         loadRecentSongsMetadata();
     }
 
-    // Run init when page is ready - handle both fresh load and already-loaded states
+    // Run init when page is ready - poll until elements exist or timeout
     function runWhenReady() {
+        var attempts = 0;
+        var maxAttempts = 50; // 5 seconds max
+
+        function tryInit() {
+            attempts++;
+            // Check if we have song elements to process
+            var hasLocalSongs = document.querySelectorAll('.local-song-row').length > 0;
+            var hasRecentSongs = document.querySelectorAll('.recent-song-item').length > 0;
+            var hasAnyContent = hasLocalSongs || hasRecentSongs || document.querySelector('.media-section');
+
+            if (hasAnyContent || attempts >= maxAttempts) {
+                initLocalPage();
+            } else {
+                setTimeout(tryInit, 100);
+            }
+        }
+
         if (document.readyState === 'complete') {
-            // Page already loaded, run after a frame to ensure DOM is settled
-            requestAnimationFrame(function() {
-                setTimeout(initLocalPage, 100);
-            });
+            tryInit();
         } else {
-            // Wait for load event
-            window.addEventListener('load', function() {
-                requestAnimationFrame(function() {
-                    setTimeout(initLocalPage, 100);
-                });
-            });
+            window.addEventListener('load', tryInit);
         }
     }
     runWhenReady();
@@ -2605,20 +2614,29 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         }
     }
 
-    // Run init when page is ready - handle both fresh load and already-loaded states
+    // Run init when page is ready - poll until elements exist or timeout
     function runWhenReady() {
+        var attempts = 0;
+        var maxAttempts = 50; // 5 seconds max
+
+        function tryInit() {
+            attempts++;
+            // Check if we have song elements to process
+            var hasB2Songs = document.querySelectorAll('.b2-song-row').length > 0;
+            var hasRecentSongs = document.querySelectorAll('.recent-song-item').length > 0;
+            var hasAnyContent = hasB2Songs || hasRecentSongs || document.querySelector('.media-section');
+
+            if (hasAnyContent || attempts >= maxAttempts) {
+                initB2Page();
+            } else {
+                setTimeout(tryInit, 100);
+            }
+        }
+
         if (document.readyState === 'complete') {
-            // Page already loaded, run after a frame to ensure DOM is settled
-            requestAnimationFrame(function() {
-                setTimeout(initB2Page, 100);
-            });
+            tryInit();
         } else {
-            // Wait for load event
-            window.addEventListener('load', function() {
-                requestAnimationFrame(function() {
-                    setTimeout(initB2Page, 100);
-                });
-            });
+            window.addEventListener('load', tryInit);
         }
     }
     runWhenReady();
