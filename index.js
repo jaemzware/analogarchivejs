@@ -2254,16 +2254,16 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                            data-proxy-url="${proxyUrl}"
                            data-metadata-url="${metadataUrl}"
                            data-audio-type="b2">
-                            <div class="recent-song-artwork-placeholder loading-pulse">&#127925;</div>
+                            <div class="recent-song-artwork-placeholder">&#127925;</div>
                             <div class="recent-song-info">
                                 <div class="recent-song-title">${song.fileName}</div>
-                                <div class="recent-song-artist loading-text">Loading...</div>
+                                <div class="recent-song-artist"></div>
                                 <div class="recent-song-album"></div>
                                 <div class="recent-song-meta">
                                     <span>${formatDate(song.modified)}</span>
                                 </div>
                             </div>
-                            <span class="recent-song-duration loading-text">--:--</span>
+                            <span class="recent-song-duration"></span>
                         </a>
                         <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
                     </div>`);
@@ -2573,13 +2573,6 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
             } catch (err) {
                 console.error('Failed to load metadata for:', path, err);
-                // Remove loading state even on error
-                const artistEl = item.querySelector('.recent-song-artist');
-                const durationEl = item.querySelector('.recent-song-duration');
-                const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
-                if (artistEl) { artistEl.classList.remove('loading-text'); artistEl.textContent = ''; }
-                if (durationEl) { durationEl.classList.remove('loading-text'); durationEl.textContent = ''; }
-                if (artworkPlaceholder) artworkPlaceholder.classList.remove('loading-pulse');
                 item.dataset.loading = 'false';
             }
         }
