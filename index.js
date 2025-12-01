@@ -1882,7 +1882,15 @@ app.get('/', async (req,res) =>{
     // Helper to clean unprintable characters from ID3 metadata
     function cleanMetadataText(text) {
         if (!text) return '';
-        return text.replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
+        var result = '';
+        for (var i = 0; i < text.length; i++) {
+            var code = text.charCodeAt(i);
+            // Keep printable characters (32-126) and extended chars (160+)
+            if ((code >= 32 && code < 127) || code > 159) {
+                result += text[i];
+            }
+        }
+        return result.trim();
     }
 
     function initLocalPage() {
@@ -2458,8 +2466,15 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     // Helper to clean unprintable characters from ID3 metadata
     function cleanMetadataText(text) {
         if (!text) return '';
-        // Remove control characters and other unprintables (keep printable ASCII and unicode)
-        return text.replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
+        var result = '';
+        for (var i = 0; i < text.length; i++) {
+            var code = text.charCodeAt(i);
+            // Keep printable characters (32-126) and extended chars (160+)
+            if ((code >= 32 && code < 127) || code > 159) {
+                result += text[i];
+            }
+        }
+        return result.trim();
     }
 
     // Initialize search functionality for B2 pages
