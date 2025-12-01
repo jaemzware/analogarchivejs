@@ -1929,8 +1929,8 @@ app.get('/', async (req,res) =>{
             var recentSongCount = document.querySelectorAll('.recent-song-item').length;
             var hasSongs = localSongCount > 0 || recentSongCount > 0;
 
-            // Also check if page is done loading (closing body tag present)
-            var pageComplete = document.body && document.body.innerHTML.indexOf('</script>') > -1;
+            // Also check if page is done loading
+            var pageComplete = document.readyState === 'complete';
 
             if (hasSongs || (pageComplete && attempts > 5) || attempts >= maxAttempts) {
                 initLocalPage();
@@ -2631,8 +2631,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             var recentSongCount = document.querySelectorAll('.recent-song-item').length;
             var hasSongs = b2SongCount > 0 || recentSongCount > 0;
 
-            // Also check if page is done loading (closing body tag present)
-            var pageComplete = document.body && document.body.innerHTML.indexOf('</script>') > -1;
+            // Also check if page is done loading
+            var pageComplete = document.readyState === 'complete';
 
             if (hasSongs || (pageComplete && attempts > 5) || attempts >= maxAttempts) {
                 initB2Page();
