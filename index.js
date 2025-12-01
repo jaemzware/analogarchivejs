@@ -3,7 +3,6 @@
 import 'dotenv/config';
 import { parseFile } from 'music-metadata';
 import {createServer} from 'https';
-import {createServer as createHttpServer} from 'http';
 import {promises, readFileSync, writeFileSync, unlinkSync} from 'fs';
 import {join, extname} from 'path';
 import * as url from 'url';
@@ -14,7 +13,6 @@ import sharp from 'sharp';
 
 const app = express();
 const port = process.env.PORT || 55557;
-const httpPort = process.env.HTTP_PORT || 55556;
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 //use self-signed certificate for localhost development
 const options = {key: readFileSync(process.env.SSL_KEY_PATH),
@@ -2606,16 +2604,6 @@ createServer(options, app).listen(port, async () => {
 
     // Scan music directory on startup
     scanMusicFiles();
-});
-
-// Create HTTP server that redirects all requests to HTTPS
-createHttpServer((req, res) => {
-    const host = req.headers.host?.replace(/:\d+$/, '') || 'localhost';
-    const httpsUrl = `https://${host}:${port}${req.url}`;
-    res.writeHead(301, { Location: httpsUrl });
-    res.end();
-}).listen(httpPort, () => {
-    console.log(`HTTP redirect server listening on http://localhost:${httpPort} -> https://localhost:${port}`);
 });
 
 async function extractArtwork(filePath) {
