@@ -2450,7 +2450,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     })();
 
     // Initialize search functionality for B2 pages
-    window.addEventListener('DOMContentLoaded', function() {
+    function initB2Page() {
         audioHandler.initializePage();
 
         // Hide loading overlay after page is fully loaded
@@ -2505,9 +2505,17 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
-    });
+    }
 
-    // Load metadata for recent songs in parallel (all at once, update UI as each completes)
+    // Run init when DOM is ready, or immediately if already ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initB2Page);
+    } else {
+        // Defer to next tick to ensure streamed HTML is fully parsed
+        setTimeout(initB2Page, 0);
+    }
+
+    // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
         const section = document.querySelector('.recent-songs-section');
         if (!section) return;
