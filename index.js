@@ -980,12 +980,28 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
             return res.status(400).json({ error: 'Missing path parameter' });
         }
 
-        await b2.authorize();
         const b2FilePath = `${folderName}/${relativePath}`;
+
+        // Check cache first
+        const cacheKey = `b2-song-meta:${b2FilePath}`;
+        const cachedData = metadataCache.get(cacheKey);
+        if (isCacheValid(cachedData)) {
+            return res.json(cachedData.data);
+        }
+
+        await b2.authorize();
+
+        // Only download first 10MB for metadata extraction (metadata is at start of file)
+        const METADATA_CHUNK_SIZE = 10 * 1024 * 1024;
         const downloadResponse = await b2.downloadFileByName({
             bucketName: bucketName,
             fileName: b2FilePath,
-            responseType: 'arraybuffer'
+            responseType: 'arraybuffer',
+            axios: {
+                headers: {
+                    'Range': `bytes=0-${METADATA_CHUNK_SIZE - 1}`
+                }
+            }
         });
 
         let buffer;
@@ -1017,13 +1033,21 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
 
         try { unlinkSync(tempFilePath); } catch (e) {}
 
-        res.json({
+        const result = {
             title: metadata.common.title || '',
             artist: metadata.common.artist || '',
             album: metadata.common.album || '',
             duration: formatDuration(metadata.format.duration),
             artwork
+        };
+
+        // Cache the result
+        metadataCache.set(cacheKey, {
+            data: result,
+            timestamp: Date.now()
         });
+
+        res.json(result);
     } catch (err) {
         console.error('Error fetching B2 song metadata:', err.message);
         res.json({ title: '', artist: '', album: '', duration: '', artwork: null });
@@ -1603,7 +1627,7 @@ app.get('/', async (req,res) =>{
         // Add recent songs section if we're at the root (renders immediately, metadata loads async)
         let chunk = '';
         if (currentPath === '') {
-            const recentSongs = getMostRecentSongs(musicFiles, 10);
+            const recentSongs = getMostRecentSongs(musicFiles, 20);
             if (recentSongs.length > 0) {
                 chunk += '<div class="recent-songs-section" data-source="local">';
                 chunk += '<h2 class="recent-songs-header">Recently Added</h2>';
@@ -1872,7 +1896,7 @@ app.get('/', async (req,res) =>{
         loadRecentSongsMetadata();
     });
 
-    // Load metadata for recent songs one by one
+    // Load metadata for recent songs in parallel (all at once, update UI as each completes)
     async function loadRecentSongsMetadata() {
         const section = document.querySelector('.recent-songs-section');
         if (!section) return;
@@ -1881,9 +1905,10 @@ app.get('/', async (req,res) =>{
         const folder = section.dataset.folder;
         const items = section.querySelectorAll('.recent-song-item[data-loading="true"]');
 
-        for (const item of items) {
+        // Helper to load single item
+        async function loadItemMetadata(item) {
             const path = item.dataset.path;
-            if (!path) continue;
+            if (!path) return;
 
             try {
                 let url;
@@ -1897,7 +1922,6 @@ app.get('/', async (req,res) =>{
                 const data = await response.json();
 
                 // Update the item with metadata
-                const link = item.querySelector('.recent-song-link');
                 const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
                 const titleEl = item.querySelector('.recent-song-title');
                 const artistEl = item.querySelector('.recent-song-artist');
@@ -1952,6 +1976,9 @@ app.get('/', async (req,res) =>{
                 item.dataset.loading = 'false';
             }
         }
+
+        // Load all items in parallel - each updates UI as it completes
+        await Promise.all(Array.from(items).map(loadItemMetadata));
     }
 </script>
 </body></html>`);
@@ -2205,7 +2232,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Add recent songs section if we're at the root (renders immediately, metadata loads async)
         if (currentDir === '') {
-            const recentSongs = getMostRecentSongs(b2Files, 10);
+            const recentSongs = getMostRecentSongs(b2Files, 20);
             if (recentSongs.length > 0) {
                 const formatDate = (date) => date.toLocaleDateString();
 
@@ -2472,7 +2499,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         loadRecentSongsMetadata();
     });
 
-    // Load metadata for recent songs one by one
+    // Load metadata for recent songs in parallel (all at once, update UI as each completes)
     async function loadRecentSongsMetadata() {
         const section = document.querySelector('.recent-songs-section');
         if (!section) return;
@@ -2481,9 +2508,10 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         const folder = section.dataset.folder;
         const items = section.querySelectorAll('.recent-song-item[data-loading="true"]');
 
-        for (const item of items) {
+        // Helper to load single item
+        async function loadItemMetadata(item) {
             const path = item.dataset.path;
-            if (!path) continue;
+            if (!path) return;
 
             try {
                 let url;
@@ -2497,7 +2525,6 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const data = await response.json();
 
                 // Update the item with metadata
-                const link = item.querySelector('.recent-song-link');
                 const artworkPlaceholder = item.querySelector('.recent-song-artwork-placeholder');
                 const titleEl = item.querySelector('.recent-song-title');
                 const artistEl = item.querySelector('.recent-song-artist');
@@ -2552,6 +2579,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 item.dataset.loading = 'false';
             }
         }
+
+        // Load all items in parallel - each updates UI as it completes
+        await Promise.all(Array.from(items).map(loadItemMetadata));
     }
 </script>
 </body></html>`);
