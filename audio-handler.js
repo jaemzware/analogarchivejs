@@ -1029,6 +1029,12 @@ class AudioHandler {
             searchLoading.classList.add('active');
         }
 
+        // Hide Recently Added section during search
+        const recentSongsSection = document.querySelector('.recent-songs-section');
+        if (recentSongsSection) {
+            recentSongsSection.style.display = 'none';
+        }
+
         // Use setTimeout to allow UI to update
         setTimeout(() => {
             this.isSearchActive = true;
@@ -1036,65 +1042,86 @@ class AudioHandler {
             let visibleCount = 0;
             const matchedAllFiles = [];
 
-            this.searchIndex.forEach((item) => {
-                const { link, searchText, type, fileInfo } = item;
+            // Convert searchIndex to array for batch processing
+            const items = Array.from(this.searchIndex.values());
+            const BATCH_SIZE = 500;
+            let currentIndex = 0;
 
-                // Check if all search terms are found
-                const matches = searchTerms.every(term => searchText.includes(term));
+            const processBatch = () => {
+                const endIndex = Math.min(currentIndex + BATCH_SIZE, items.length);
 
-                if (type === 'all-file' || type === 'all-b2-file') {
-                    // Handle all-file and all-b2-file results separately
-                    if (matches) {
-                        matchedAllFiles.push(fileInfo);
-                        visibleCount++;
-                    }
-                } else {
-                    // Handle regular links (current page)
-                    // Re-query for parent row at search time (could be song-row or folder-row)
-                    const parentRow = link ? link.closest('.song-row, .folder-row') : null;
+                for (let i = currentIndex; i < endIndex; i++) {
+                    const item = items[i];
+                    const { link, searchText, type, fileInfo } = item;
 
-                    if (matches) {
-                        // Hide/show the parent row if it exists, otherwise hide the link
-                        if (parentRow) {
-                            parentRow.classList.remove('search-hidden');
-                            // Also ensure the link itself doesn't have the class
-                            if (link) link.classList.remove('search-hidden');
-                        } else if (link) {
-                            link.classList.remove('search-hidden');
+                    // Check if all search terms are found
+                    const matches = searchTerms.every(term => searchText.includes(term));
+
+                    if (type === 'all-file' || type === 'all-b2-file') {
+                        // Handle all-file and all-b2-file results separately
+                        if (matches) {
+                            matchedAllFiles.push(fileInfo);
+                            visibleCount++;
                         }
-                        if (link) this.highlightMatches(link, searchTerms);
-                        visibleCount++;
                     } else {
-                        if (parentRow) {
-                            parentRow.classList.add('search-hidden');
-                            // Also ensure the link itself doesn't have the class
-                            if (link) link.classList.remove('search-hidden');
-                        } else if (link) {
-                            link.classList.add('search-hidden');
+                        // Handle regular links (current page)
+                        // Re-query for parent row at search time (could be song-row or folder-row)
+                        const parentRow = link ? link.closest('.song-row, .folder-row') : null;
+
+                        if (matches) {
+                            // Hide/show the parent row if it exists, otherwise hide the link
+                            if (parentRow) {
+                                parentRow.classList.remove('search-hidden');
+                                // Also ensure the link itself doesn't have the class
+                                if (link) link.classList.remove('search-hidden');
+                            } else if (link) {
+                                link.classList.remove('search-hidden');
+                            }
+                            if (link) this.highlightMatches(link, searchTerms);
+                            visibleCount++;
+                        } else {
+                            if (parentRow) {
+                                parentRow.classList.add('search-hidden');
+                                // Also ensure the link itself doesn't have the class
+                                if (link) link.classList.remove('search-hidden');
+                            } else if (link) {
+                                link.classList.add('search-hidden');
+                            }
                         }
                     }
                 }
-            });
 
-            // Add matched files from other folders to the DOM
-            if (matchedAllFiles.length > 0) {
-                this.displayAllFileResults(matchedAllFiles, searchTerms);
-            } else {
-                // Remove any previously added all-file results
-                this.removeAllFileResults();
-            }
+                currentIndex = endIndex;
 
-            this.updateResultsCount(visibleCount, this.searchIndex.size);
-            this.toggleClearButton(true);
+                if (currentIndex < items.length) {
+                    // More items to process, schedule next batch
+                    setTimeout(processBatch, 0);
+                } else {
+                    // All items processed, finalize search
+                    // Add matched files from other folders to the DOM
+                    if (matchedAllFiles.length > 0) {
+                        this.displayAllFileResults(matchedAllFiles, searchTerms);
+                    } else {
+                        // Remove any previously added all-file results
+                        this.removeAllFileResults();
+                    }
 
-            if (searchLoading) {
-                searchLoading.classList.remove('active');
-            }
+                    this.updateResultsCount(visibleCount, this.searchIndex.size);
+                    this.toggleClearButton(true);
 
-            // Update playlist if audio is currently playing
-            if (this.currentAudio && !this.currentAudio.paused) {
-                this.updatePlaylistToCurrentPage();
-            }
+                    if (searchLoading) {
+                        searchLoading.classList.remove('active');
+                    }
+
+                    // Update playlist if audio is currently playing
+                    if (this.currentAudio && !this.currentAudio.paused) {
+                        this.updatePlaylistToCurrentPage();
+                    }
+                }
+            };
+
+            // Start batch processing
+            processBatch();
         }, 10);
     }
 
@@ -1261,6 +1288,12 @@ class AudioHandler {
         const searchInput = document.getElementById('musicSearch');
         if (searchInput) {
             searchInput.value = '';
+        }
+
+        // Show Recently Added section again
+        const recentSongsSection = document.querySelector('.recent-songs-section');
+        if (recentSongsSection) {
+            recentSongsSection.style.display = '';
         }
 
         // Remove all-file search results
