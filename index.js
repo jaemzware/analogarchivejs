@@ -29,9 +29,46 @@ const metadataCache = new Map();
 const folderListingCache = new Map();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (configurable)
 
+// Persistent disk cache directory for B2 metadata (stored in app directory, not music directory)
+const b2MetadataCacheDir = join(__dirname, '.b2-metadata-cache');
+
 // Helper function to check if cache entry is still valid
 function isCacheValid(cacheEntry) {
     return cacheEntry && (Date.now() - cacheEntry.timestamp) < CACHE_TTL_MS;
+}
+
+// Get disk cache path for a B2 file
+function getB2MetadataCachePath(b2FilePath) {
+    // Replace slashes with double underscore to create flat file structure
+    const safeName = b2FilePath.replace(/\//g, '__').replace(/[^a-zA-Z0-9_.-]/g, '_');
+    return join(b2MetadataCacheDir, `${safeName}.json`);
+}
+
+// Load B2 metadata from disk cache
+async function loadB2MetadataFromDisk(b2FilePath) {
+    try {
+        const cachePath = getB2MetadataCachePath(b2FilePath);
+        const data = await promises.readFile(cachePath, 'utf8');
+        const cached = JSON.parse(data);
+        if (isCacheValid(cached)) {
+            return cached;
+        }
+    } catch (err) {
+        // Cache miss or invalid - that's fine
+    }
+    return null;
+}
+
+// Save B2 metadata to disk cache
+async function saveB2MetadataToDisk(b2FilePath, data) {
+    try {
+        await promises.mkdir(b2MetadataCacheDir, { recursive: true });
+        const cachePath = getB2MetadataCachePath(b2FilePath);
+        const cacheEntry = { data, timestamp: Date.now() };
+        await promises.writeFile(cachePath, JSON.stringify(cacheEntry));
+    } catch (err) {
+        console.error('Error saving B2 metadata to disk cache:', err.message);
+    }
 }
 
 // Backblaze B2 configuration
@@ -547,12 +584,21 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
         console.log(`Getting metadata for: ${fullPath}`);
 
-        // Check cache first
+        // Check in-memory cache first
         const cacheKey = fullPath;
         const cachedData = metadataCache.get(cacheKey);
         if (isCacheValid(cachedData)) {
             console.log(`✓ Cache hit for metadata: ${fullPath}`);
             return res.json(cachedData.data);
+        }
+
+        // Check persistent disk cache
+        const diskCached = await loadB2MetadataFromDisk(fullPath);
+        if (diskCached) {
+            console.log(`✓ Disk cache hit for metadata: ${fullPath}`);
+            // Also populate in-memory cache
+            metadataCache.set(cacheKey, diskCached);
+            return res.json(diskCached.data);
         }
         console.log(`✗ Cache miss for metadata: ${fullPath}`);
 
@@ -639,21 +685,20 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                 let artwork = "";
                 if (metadata.common.picture && metadata.common.picture.length > 0) {
                     const picture = metadata.common.picture[0];
-                    // console.log('Picture object:', picture);
-                    // console.log('Picture data type:', typeof picture.data);
-                    // console.log('Picture data is Buffer:', Buffer.isBuffer(picture.data));
-                    // console.log('Picture data is Uint8Array:', picture.data instanceof Uint8Array);
+                    const mimeFormat = picture.format || 'image/jpeg';
 
                     if (picture.data) {
-                        // Handle both Buffer and Uint8Array
+                        // Handle both Buffer and Uint8Array, return as data URI
+                        let base64Data;
                         if (Buffer.isBuffer(picture.data)) {
-                            artwork = picture.data.toString('base64');
+                            base64Data = picture.data.toString('base64');
                         } else if (picture.data instanceof Uint8Array) {
-                            artwork = Buffer.from(picture.data).toString('base64');
+                            base64Data = Buffer.from(picture.data).toString('base64');
                         } else {
-                            artwork = Buffer.from(picture.data).toString('base64');
+                            base64Data = Buffer.from(picture.data).toString('base64');
                         }
-                        console.log('Artwork extracted, size:', artwork.length);
+                        artwork = `data:${mimeFormat};base64,${base64Data}`;
+                        console.log('Artwork extracted, size:', base64Data.length);
                     } else {
                         console.log('Picture data is empty');
                     }
@@ -687,12 +732,15 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     fileSize: contentLength ? parseInt(contentLength) : undefined
                 };
 
-                // Cache the successful response
+                // Cache the successful response in memory
                 metadataCache.set(cacheKey, {
                     data: metadataResponse,
                     timestamp: Date.now()
                 });
                 console.log(`✓ Cached metadata for: ${fullPath}`);
+
+                // Also save to persistent disk cache
+                saveB2MetadataToDisk(fullPath, metadataResponse);
 
                 // Return metadata as JSON
                 res.json(metadataResponse);
@@ -941,6 +989,13 @@ app.get('/api/song-metadata', async (req, res) => {
             return res.status(400).json({ error: 'Missing path parameter' });
         }
 
+        // Check cache first
+        const cacheKey = `local-song-meta:${relativePath}`;
+        const cachedData = metadataCache.get(cacheKey);
+        if (isCacheValid(cachedData)) {
+            return res.json(cachedData.data);
+        }
+
         const filePath = join(musicStaticPath, relativePath);
         const fileExt = extname(filePath).toLowerCase();
         let mimeType = 'audio/mpeg';
@@ -957,13 +1012,21 @@ app.get('/api/song-metadata', async (req, res) => {
             artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
         }
 
-        res.json({
+        const result = {
             title: metadata.common.title || '',
             artist: metadata.common.artist || 'Unknown Artist',
             album: metadata.common.album || 'Unknown Album',
             duration: formatDuration(metadata.format.duration),
             artwork
+        };
+
+        // Cache the result
+        metadataCache.set(cacheKey, {
+            data: result,
+            timestamp: Date.now()
         });
+
+        res.json(result);
     } catch (err) {
         console.error('Error fetching song metadata:', err.message);
         res.json({ title: '', artist: 'Unknown Artist', album: 'Unknown Album', duration: '', artwork: null });
@@ -982,11 +1045,19 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
 
         const b2FilePath = `${folderName}/${relativePath}`;
 
-        // Check cache first
-        const cacheKey = `b2-song-meta:${b2FilePath}`;
+        // Check in-memory cache first (use same key format as /b2metadata endpoint for sharing)
+        const cacheKey = b2FilePath;
         const cachedData = metadataCache.get(cacheKey);
         if (isCacheValid(cachedData)) {
             return res.json(cachedData.data);
+        }
+
+        // Check persistent disk cache
+        const diskCached = await loadB2MetadataFromDisk(b2FilePath);
+        if (diskCached) {
+            // Also populate in-memory cache
+            metadataCache.set(cacheKey, diskCached);
+            return res.json(diskCached.data);
         }
 
         await b2.authorize();
@@ -1041,11 +1112,14 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
             artwork
         };
 
-        // Cache the result
+        // Cache the result in memory
         metadataCache.set(cacheKey, {
             data: result,
             timestamp: Date.now()
         });
+
+        // Also save to persistent disk cache
+        saveB2MetadataToDisk(b2FilePath, result);
 
         res.json(result);
     } catch (err) {
@@ -1629,7 +1703,7 @@ app.get('/', async (req,res) =>{
         // Add recent songs section if we're at the root (renders immediately, metadata loads async)
         let chunk = '';
         if (currentPath === '') {
-            const recentSongs = getMostRecentSongs(musicFiles, 20);
+            const recentSongs = getMostRecentSongs(musicFiles, 7);
             if (recentSongs.length > 0) {
                 chunk += '<div class="recent-songs-section" data-source="local">';
                 chunk += '<h2 class="recent-songs-header">Recently Added <button onclick="loadRecentSongsMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>';
@@ -2001,7 +2075,7 @@ app.get('/', async (req,res) =>{
                 if (data.artwork && artworkPlaceholder) {
                     const img = document.createElement('img');
                     img.className = 'recent-song-artwork';
-                    img.src = data.artwork;
+                    img.src = data.artwork.startsWith('data:') ? data.artwork : 'data:image/jpeg;base64,' + data.artwork;
                     img.alt = '';
                     artworkPlaceholder.replaceWith(img);
                 } else if (artworkPlaceholder) {
@@ -2039,8 +2113,8 @@ app.get('/', async (req,res) =>{
             }
         }
 
-        // Load items one at a time
-        for (const item of items) {
+        // Load items sequentially to avoid overwhelming the server
+        for (const item of Array.from(items)) {
             await loadItemMetadata(item);
         }
     }
@@ -2298,7 +2372,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Add recent songs section if we're at the root (renders immediately, metadata loads async)
         if (currentDir === '') {
-            const recentSongs = getMostRecentSongs(b2Files, 20);
+            const recentSongs = getMostRecentSongs(b2Files, 7);
             if (recentSongs.length > 0) {
                 const formatDate = (date) => date.toLocaleDateString();
 
@@ -2579,7 +2653,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Add artwork thumbnail if available
                 if (metadata.artwork) {
-                    var artwork = 'data:image/jpeg;base64,' + metadata.artwork;
+                    var artwork = metadata.artwork.startsWith('data:') ? metadata.artwork : 'data:image/jpeg;base64,' + metadata.artwork;
                     var img = document.createElement('img');
                     img.className = 'song-artwork-thumb';
                     img.src = artwork;
@@ -2634,7 +2708,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 if (data.artwork && artworkPlaceholder) {
                     const img = document.createElement('img');
                     img.className = 'recent-song-artwork';
-                    img.src = data.artwork;
+                    img.src = data.artwork.startsWith('data:') ? data.artwork : 'data:image/jpeg;base64,' + data.artwork;
                     img.alt = '';
                     artworkPlaceholder.replaceWith(img);
                 } else if (artworkPlaceholder) {
@@ -2672,8 +2746,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             }
         }
 
-        // Load items one at a time to reduce bandwidth pressure on B2
-        for (const item of items) {
+        // Load items sequentially to avoid overwhelming B2 on first load
+        // (cached loads will be fast on subsequent visits)
+        for (const item of Array.from(items)) {
             await loadItemMetadata(item);
         }
     }
