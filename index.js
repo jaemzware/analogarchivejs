@@ -2116,7 +2116,6 @@ app.get('/', async (req,res) =>{
 
         // Load all items in parallel
         await Promise.all(Array.from(items).map(item => loadItemMetadata(item)));
-        }
     }
 </script>
 </body></html>`);
