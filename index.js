@@ -685,21 +685,20 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                 let artwork = "";
                 if (metadata.common.picture && metadata.common.picture.length > 0) {
                     const picture = metadata.common.picture[0];
-                    // console.log('Picture object:', picture);
-                    // console.log('Picture data type:', typeof picture.data);
-                    // console.log('Picture data is Buffer:', Buffer.isBuffer(picture.data));
-                    // console.log('Picture data is Uint8Array:', picture.data instanceof Uint8Array);
+                    const mimeFormat = picture.format || 'image/jpeg';
 
                     if (picture.data) {
-                        // Handle both Buffer and Uint8Array
+                        // Handle both Buffer and Uint8Array, return as data URI
+                        let base64Data;
                         if (Buffer.isBuffer(picture.data)) {
-                            artwork = picture.data.toString('base64');
+                            base64Data = picture.data.toString('base64');
                         } else if (picture.data instanceof Uint8Array) {
-                            artwork = Buffer.from(picture.data).toString('base64');
+                            base64Data = Buffer.from(picture.data).toString('base64');
                         } else {
-                            artwork = Buffer.from(picture.data).toString('base64');
+                            base64Data = Buffer.from(picture.data).toString('base64');
                         }
-                        console.log('Artwork extracted, size:', artwork.length);
+                        artwork = `data:${mimeFormat};base64,${base64Data}`;
+                        console.log('Artwork extracted, size:', base64Data.length);
                     } else {
                         console.log('Picture data is empty');
                     }
@@ -2076,7 +2075,7 @@ app.get('/', async (req,res) =>{
                 if (data.artwork && artworkPlaceholder) {
                     const img = document.createElement('img');
                     img.className = 'recent-song-artwork';
-                    img.src = data.artwork;
+                    img.src = data.artwork.startsWith('data:') ? data.artwork : 'data:image/jpeg;base64,' + data.artwork;
                     img.alt = '';
                     artworkPlaceholder.replaceWith(img);
                 } else if (artworkPlaceholder) {
@@ -2654,7 +2653,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Add artwork thumbnail if available
                 if (metadata.artwork) {
-                    var artwork = 'data:image/jpeg;base64,' + metadata.artwork;
+                    var artwork = metadata.artwork.startsWith('data:') ? metadata.artwork : 'data:image/jpeg;base64,' + metadata.artwork;
                     var img = document.createElement('img');
                     img.className = 'song-artwork-thumb';
                     img.src = artwork;
@@ -2709,7 +2708,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 if (data.artwork && artworkPlaceholder) {
                     const img = document.createElement('img');
                     img.className = 'recent-song-artwork';
-                    img.src = data.artwork;
+                    img.src = data.artwork.startsWith('data:') ? data.artwork : 'data:image/jpeg;base64,' + data.artwork;
                     img.alt = '';
                     artworkPlaceholder.replaceWith(img);
                 } else if (artworkPlaceholder) {
