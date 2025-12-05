@@ -1046,8 +1046,8 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
 
         const b2FilePath = `${folderName}/${relativePath}`;
 
-        // Check in-memory cache first
-        const cacheKey = `b2-song-meta:${b2FilePath}`;
+        // Check in-memory cache first (use same key format as /b2metadata endpoint for sharing)
+        const cacheKey = b2FilePath;
         const cachedData = metadataCache.get(cacheKey);
         if (isCacheValid(cachedData)) {
             return res.json(cachedData.data);
@@ -2114,8 +2114,10 @@ app.get('/', async (req,res) =>{
             }
         }
 
-        // Load all items in parallel
-        await Promise.all(Array.from(items).map(item => loadItemMetadata(item)));
+        // Load items sequentially to avoid overwhelming the server
+        for (const item of Array.from(items)) {
+            await loadItemMetadata(item);
+        }
     }
 </script>
 </body></html>`);
@@ -2745,8 +2747,11 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             }
         }
 
-        // Load all items in parallel (caching makes repeated loads fast)
-        await Promise.all(Array.from(items).map(item => loadItemMetadata(item)));
+        // Load items sequentially to avoid overwhelming B2 on first load
+        // (cached loads will be fast on subsequent visits)
+        for (const item of Array.from(items)) {
+            await loadItemMetadata(item);
+        }
     }
 </script>
 </body></html>`);

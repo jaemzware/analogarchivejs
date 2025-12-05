@@ -56,9 +56,8 @@ class AudioHandler {
 
         // DON'T preload metadata for B2 pages - only index filenames
         // Metadata will be loaded on-demand when songs are played
-
-        // Preload metadata for recent songs to make them faster to play
-        this.preloadRecentSongsMetadata();
+        // NOTE: Recent song metadata is loaded by the inline script in the HTML page
+        // (loadRecentSongsMetadata) - don't duplicate that here to avoid overwhelming B2
     }
 
     // Preload metadata for recent songs in the background
