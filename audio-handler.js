@@ -1362,7 +1362,7 @@ class AudioHandler {
     // Update link display with metadata
     updateLinkDisplay(link, metadata) {
         const artwork = metadata.artwork ?
-            `data:image/jpeg;base64,${metadata.artwork}` : '';
+            (metadata.artwork.startsWith('data:') ? metadata.artwork : `data:image/jpeg;base64,${metadata.artwork}`) : '';
 
         const isRecentSongLink = link.classList.contains('recent-song-link');
 
@@ -1776,9 +1776,10 @@ class AudioHandler {
         this._currentMetadataEndpoint = metadataEndpoint;
 
         const imageFormat = metadataEndpoint === 'local' ? 'png' : 'jpeg';
+        const defaultArtwork = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">&#9834;</text></svg>');
         const artworkSrc = metadata.artwork ?
-            `data:image/${imageFormat};base64,${metadata.artwork}` :
-            'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">&#9834;</text></svg>');
+            (metadata.artwork.startsWith('data:') ? metadata.artwork : `data:image/${imageFormat};base64,${metadata.artwork}`) :
+            defaultArtwork;
 
         // Get folder information for navigation link
         let folderLink = '';
