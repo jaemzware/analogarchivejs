@@ -1629,7 +1629,7 @@ app.get('/', async (req,res) =>{
         // Add recent songs section if we're at the root (renders immediately, metadata loads async)
         let chunk = '';
         if (currentPath === '') {
-            const recentSongs = getMostRecentSongs(musicFiles, 20);
+            const recentSongs = getMostRecentSongs(musicFiles, 7);
             if (recentSongs.length > 0) {
                 chunk += '<div class="recent-songs-section" data-source="local">';
                 chunk += '<h2 class="recent-songs-header">Recently Added <button onclick="loadRecentSongsMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>';
@@ -2298,7 +2298,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Add recent songs section if we're at the root (renders immediately, metadata loads async)
         if (currentDir === '') {
-            const recentSongs = getMostRecentSongs(b2Files, 20);
+            const recentSongs = getMostRecentSongs(b2Files, 7);
             if (recentSongs.length > 0) {
                 const formatDate = (date) => date.toLocaleDateString();
 
