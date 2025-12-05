@@ -29,8 +29,8 @@ const metadataCache = new Map();
 const folderListingCache = new Map();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (configurable)
 
-// Persistent disk cache directory for B2 metadata
-const b2MetadataCacheDir = join(process.env.MUSIC_DIRECTORY || "./music", '.b2-metadata-cache');
+// Persistent disk cache directory for B2 metadata (stored in app directory, not music directory)
+const b2MetadataCacheDir = join(__dirname, '.b2-metadata-cache');
 
 // Helper function to check if cache entry is still valid
 function isCacheValid(cacheEntry) {
