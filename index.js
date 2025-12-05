@@ -29,9 +29,46 @@ const metadataCache = new Map();
 const folderListingCache = new Map();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (configurable)
 
+// Persistent disk cache directory for B2 metadata
+const b2MetadataCacheDir = join(process.env.MUSIC_DIRECTORY || "./music", '.b2-metadata-cache');
+
 // Helper function to check if cache entry is still valid
 function isCacheValid(cacheEntry) {
     return cacheEntry && (Date.now() - cacheEntry.timestamp) < CACHE_TTL_MS;
+}
+
+// Get disk cache path for a B2 file
+function getB2MetadataCachePath(b2FilePath) {
+    // Replace slashes with double underscore to create flat file structure
+    const safeName = b2FilePath.replace(/\//g, '__').replace(/[^a-zA-Z0-9_.-]/g, '_');
+    return join(b2MetadataCacheDir, `${safeName}.json`);
+}
+
+// Load B2 metadata from disk cache
+async function loadB2MetadataFromDisk(b2FilePath) {
+    try {
+        const cachePath = getB2MetadataCachePath(b2FilePath);
+        const data = await promises.readFile(cachePath, 'utf8');
+        const cached = JSON.parse(data);
+        if (isCacheValid(cached)) {
+            return cached;
+        }
+    } catch (err) {
+        // Cache miss or invalid - that's fine
+    }
+    return null;
+}
+
+// Save B2 metadata to disk cache
+async function saveB2MetadataToDisk(b2FilePath, data) {
+    try {
+        await promises.mkdir(b2MetadataCacheDir, { recursive: true });
+        const cachePath = getB2MetadataCachePath(b2FilePath);
+        const cacheEntry = { data, timestamp: Date.now() };
+        await promises.writeFile(cachePath, JSON.stringify(cacheEntry));
+    } catch (err) {
+        console.error('Error saving B2 metadata to disk cache:', err.message);
+    }
 }
 
 // Backblaze B2 configuration
@@ -547,12 +584,21 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
         console.log(`Getting metadata for: ${fullPath}`);
 
-        // Check cache first
+        // Check in-memory cache first
         const cacheKey = fullPath;
         const cachedData = metadataCache.get(cacheKey);
         if (isCacheValid(cachedData)) {
             console.log(`✓ Cache hit for metadata: ${fullPath}`);
             return res.json(cachedData.data);
+        }
+
+        // Check persistent disk cache
+        const diskCached = await loadB2MetadataFromDisk(fullPath);
+        if (diskCached) {
+            console.log(`✓ Disk cache hit for metadata: ${fullPath}`);
+            // Also populate in-memory cache
+            metadataCache.set(cacheKey, diskCached);
+            return res.json(diskCached.data);
         }
         console.log(`✗ Cache miss for metadata: ${fullPath}`);
 
@@ -687,12 +733,15 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     fileSize: contentLength ? parseInt(contentLength) : undefined
                 };
 
-                // Cache the successful response
+                // Cache the successful response in memory
                 metadataCache.set(cacheKey, {
                     data: metadataResponse,
                     timestamp: Date.now()
                 });
                 console.log(`✓ Cached metadata for: ${fullPath}`);
+
+                // Also save to persistent disk cache
+                saveB2MetadataToDisk(fullPath, metadataResponse);
 
                 // Return metadata as JSON
                 res.json(metadataResponse);
@@ -941,6 +990,13 @@ app.get('/api/song-metadata', async (req, res) => {
             return res.status(400).json({ error: 'Missing path parameter' });
         }
 
+        // Check cache first
+        const cacheKey = `local-song-meta:${relativePath}`;
+        const cachedData = metadataCache.get(cacheKey);
+        if (isCacheValid(cachedData)) {
+            return res.json(cachedData.data);
+        }
+
         const filePath = join(musicStaticPath, relativePath);
         const fileExt = extname(filePath).toLowerCase();
         let mimeType = 'audio/mpeg';
@@ -957,13 +1013,21 @@ app.get('/api/song-metadata', async (req, res) => {
             artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
         }
 
-        res.json({
+        const result = {
             title: metadata.common.title || '',
             artist: metadata.common.artist || 'Unknown Artist',
             album: metadata.common.album || 'Unknown Album',
             duration: formatDuration(metadata.format.duration),
             artwork
+        };
+
+        // Cache the result
+        metadataCache.set(cacheKey, {
+            data: result,
+            timestamp: Date.now()
         });
+
+        res.json(result);
     } catch (err) {
         console.error('Error fetching song metadata:', err.message);
         res.json({ title: '', artist: 'Unknown Artist', album: 'Unknown Album', duration: '', artwork: null });
@@ -982,11 +1046,19 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
 
         const b2FilePath = `${folderName}/${relativePath}`;
 
-        // Check cache first
+        // Check in-memory cache first
         const cacheKey = `b2-song-meta:${b2FilePath}`;
         const cachedData = metadataCache.get(cacheKey);
         if (isCacheValid(cachedData)) {
             return res.json(cachedData.data);
+        }
+
+        // Check persistent disk cache
+        const diskCached = await loadB2MetadataFromDisk(b2FilePath);
+        if (diskCached) {
+            // Also populate in-memory cache
+            metadataCache.set(cacheKey, diskCached);
+            return res.json(diskCached.data);
         }
 
         await b2.authorize();
@@ -1041,11 +1113,14 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
             artwork
         };
 
-        // Cache the result
+        // Cache the result in memory
         metadataCache.set(cacheKey, {
             data: result,
             timestamp: Date.now()
         });
+
+        // Also save to persistent disk cache
+        saveB2MetadataToDisk(b2FilePath, result);
 
         res.json(result);
     } catch (err) {
@@ -2039,9 +2114,8 @@ app.get('/', async (req,res) =>{
             }
         }
 
-        // Load items one at a time
-        for (const item of items) {
-            await loadItemMetadata(item);
+        // Load all items in parallel
+        await Promise.all(Array.from(items).map(item => loadItemMetadata(item)));
         }
     }
 </script>
@@ -2672,10 +2746,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             }
         }
 
-        // Load items one at a time to reduce bandwidth pressure on B2
-        for (const item of items) {
-            await loadItemMetadata(item);
-        }
+        // Load all items in parallel (caching makes repeated loads fast)
+        await Promise.all(Array.from(items).map(item => loadItemMetadata(item)));
     }
 </script>
 </body></html>`);
