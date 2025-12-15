@@ -831,20 +831,16 @@ class AudioHandler {
         const rescanButton = document.getElementById('rescanButton');
 
         if (searchInput) {
-            // Debounced search
-            let searchTimeout;
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    this.performSearch(e.target.value);
-                }, 150);
-            });
-
-            // Handle enter key
+            // Search ONLY on Enter key - prevents UI blocking while typing
             searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     this.performSearch(e.target.value);
+                }
+                // Escape clears search
+                if (e.key === 'Escape') {
+                    this.clearSearch();
+                    searchInput.blur();
                 }
             });
         }

@@ -859,12 +859,32 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
 
         // Pipe the stream directly to the response
         if (fileData.data) {
+            // CRITICAL: Clean up B2 stream if client disconnects
+            let streamClosed = false;
+            const cleanup = () => {
+                if (streamClosed) return;
+                streamClosed = true;
+                if (fileData.data && !fileData.data.destroyed) {
+                    fileData.data.destroy();
+                    console.log('Cleaned up B2 stream - client disconnected');
+                }
+            };
+
+            // Listen for client disconnect (covers: tab close, seek, network drop)
+            req.on('close', cleanup);
+            req.on('aborted', cleanup);
+            res.on('close', cleanup);
+
             fileData.data.pipe(res);
+
             fileData.data.on('end', () => {
+                streamClosed = true;
                 console.log('=== B2 Proxy Request Success ===');
             });
+
             fileData.data.on('error', (streamErr) => {
                 console.error('Stream error:', streamErr);
+                cleanup();
                 if (!res.headersSent) {
                     res.status(500).end();
                 }
