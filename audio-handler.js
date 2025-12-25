@@ -324,6 +324,10 @@ class AudioHandler {
                     // Update playlist to new folder's songs
                     this.updatePlaylistToCurrentPage();
 
+                    // Re-initialize video functionality for new content
+                    this.setupVideoPlaylist();
+                    this.generateVideoThumbnails();
+
                     // Restore scroll position for this URL, or scroll to top if new directory
                     this.restoreScrollPosition();
 
@@ -388,6 +392,10 @@ class AudioHandler {
 
                         this.indexAllLinks();
                         this.updatePlaylistToCurrentPage();
+
+                        // Re-initialize video functionality for new content
+                        this.setupVideoPlaylist();
+                        this.generateVideoThumbnails();
 
                         // Restore scroll position when using browser back/forward
                         this.restoreScrollPosition();
