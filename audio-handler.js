@@ -2302,31 +2302,28 @@ class AudioHandler {
                 }
             };
 
-            // When metadata loads, seek to a small offset to avoid black frames
+            // When metadata loads, seek further into video to avoid black/fade-in frames
             video.addEventListener('loadedmetadata', () => {
-                // Seek to 0.5 seconds or 10% of duration, whichever is smaller
-                const seekTime = Math.min(0.5, video.duration * 0.1);
+                // Seek to 2 seconds or 10% of duration, whichever is smaller
+                // This skips ~50-60 frames at typical framerates to avoid intros/fades
+                const seekTime = Math.min(2.0, video.duration * 0.1);
                 video.currentTime = seekTime;
             }, { once: true });
 
-            // When seeked, capture the frame
+            // When seeked, wait for frame to be fully decoded before capturing
             video.addEventListener('seeked', () => {
                 // Only capture if we haven't already and video isn't playing
                 if (!thumbnailGenerated && video.paused) {
-                    captureThumbnail();
-                    // Reset to beginning after capturing thumbnail
-                    video.currentTime = 0;
+                    // Use requestAnimationFrame to ensure the frame is rendered
+                    requestAnimationFrame(() => {
+                        // Add a small delay for the frame to fully decode
+                        setTimeout(() => {
+                            captureThumbnail();
+                            // Reset to beginning after capturing thumbnail
+                            video.currentTime = 0;
+                        }, 100);
+                    });
                 }
-            }, { once: true });
-
-            // Fallback: also try on loadeddata in case seek doesn't fire
-            video.addEventListener('loadeddata', () => {
-                // Small delay to ensure frame is ready
-                setTimeout(() => {
-                    if (!thumbnailGenerated && video.paused) {
-                        captureThumbnail();
-                    }
-                }, 100);
             }, { once: true });
         });
 

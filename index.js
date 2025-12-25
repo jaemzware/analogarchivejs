@@ -398,19 +398,25 @@ app.use('/music', express.static(musicStaticPath, {
         } else if (lowerPath.endsWith('.bmp')) {
             res.set('Content-Type', 'image/bmp');
         }
-        // Video files
+        // Video files - also add CORS header for canvas thumbnail capture
         else if (lowerPath.endsWith('.mp4')) {
             res.set('Content-Type', 'video/mp4');
+            res.set('Access-Control-Allow-Origin', '*');
         } else if (lowerPath.endsWith('.webm')) {
             res.set('Content-Type', 'video/webm');
+            res.set('Access-Control-Allow-Origin', '*');
         } else if (lowerPath.endsWith('.ogv')) {
             res.set('Content-Type', 'video/ogg');
+            res.set('Access-Control-Allow-Origin', '*');
         } else if (lowerPath.endsWith('.mov')) {
             res.set('Content-Type', 'video/quicktime');
+            res.set('Access-Control-Allow-Origin', '*');
         } else if (lowerPath.endsWith('.avi')) {
             res.set('Content-Type', 'video/x-msvideo');
+            res.set('Access-Control-Allow-Origin', '*');
         } else if (lowerPath.endsWith('.mkv')) {
             res.set('Content-Type', 'video/x-matroska');
+            res.set('Access-Control-Allow-Origin', '*');
         }
         // Allow range requests for seeking (important for audio and video)
         res.set('Accept-Ranges', 'bytes');
@@ -1870,7 +1876,7 @@ app.get('/', async (req,res) =>{
 
                 chunk += `
                 <div class="video-item" data-media-type="video">
-                    <video controls preload="metadata" poster="${videoPoster}">
+                    <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous">
                         <source src="${videoUrl}" type="${videoMimeType}">
                         Your browser does not support the video tag.
                     </video>
@@ -2520,7 +2526,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                     res.write(`
                     <div class="video-item" data-media-type="video">
-                        <video controls preload="metadata" poster="${videoPoster}">
+                        <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous">
                             <source src="${proxyUrl}" type="${videoMimeType}">
                             Your browser does not support the video tag.
                         </video>
