@@ -33,6 +33,7 @@ class AudioHandler {
         this.setupFolderNavigation();
         this.restorePlayerState();
         this.setupVideoPlaylist();
+        this.generateVideoThumbnails();
 
         // Initialize Discogs service
         this.initializeDiscogs();
@@ -323,6 +324,10 @@ class AudioHandler {
                     // Update playlist to new folder's songs
                     this.updatePlaylistToCurrentPage();
 
+                    // Re-initialize video functionality for new content
+                    this.setupVideoPlaylist();
+                    this.generateVideoThumbnails();
+
                     // Restore scroll position for this URL, or scroll to top if new directory
                     this.restoreScrollPosition();
 
@@ -387,6 +392,10 @@ class AudioHandler {
 
                         this.indexAllLinks();
                         this.updatePlaylistToCurrentPage();
+
+                        // Re-initialize video functionality for new content
+                        this.setupVideoPlaylist();
+                        this.generateVideoThumbnails();
 
                         // Restore scroll position when using browser back/forward
                         this.restoreScrollPosition();
@@ -2263,6 +2272,70 @@ class AudioHandler {
         if (videoItem) {
             videoItem.classList.add('playing');
         }
+    }
+
+    // Generate thumbnails from the first frame of each video
+    generateVideoThumbnails() {
+        const videos = document.querySelectorAll('.video-item video');
+
+        videos.forEach((video, index) => {
+            // Create a canvas to capture the frame
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Flag to prevent multiple thumbnail generations
+            let thumbnailGenerated = false;
+
+            // Function to capture the thumbnail
+            const captureThumbnail = () => {
+                if (thumbnailGenerated) return;
+                if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+                thumbnailGenerated = true;
+
+                // Set canvas size to match video dimensions
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                // Draw the current frame to the canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Convert to data URL and set as poster
+                try {
+                    const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    video.poster = thumbnailUrl;
+                    console.log(`Generated thumbnail for video ${index + 1}`);
+                } catch (err) {
+                    console.warn(`Could not generate thumbnail for video ${index + 1}:`, err);
+                }
+            };
+
+            // When metadata loads, seek further into video to avoid black/fade-in frames
+            video.addEventListener('loadedmetadata', () => {
+                // Seek to 2 seconds or 10% of duration, whichever is smaller
+                // This skips ~50-60 frames at typical framerates to avoid intros/fades
+                const seekTime = Math.min(2.0, video.duration * 0.1);
+                video.currentTime = seekTime;
+            }, { once: true });
+
+            // When seeked, wait for frame to be fully decoded before capturing
+            video.addEventListener('seeked', () => {
+                // Only capture if we haven't already and video isn't playing
+                if (!thumbnailGenerated && video.paused) {
+                    // Use requestAnimationFrame to ensure the frame is rendered
+                    requestAnimationFrame(() => {
+                        // Add a small delay for the frame to fully decode
+                        setTimeout(() => {
+                            captureThumbnail();
+                            // Reset to beginning after capturing thumbnail
+                            video.currentTime = 0;
+                        }, 100);
+                    });
+                }
+            }, { once: true });
+        });
+
+        console.log(`Thumbnail generation initiated for ${videos.length} videos`);
     }
 
 }
