@@ -33,6 +33,7 @@ class AudioHandler {
         this.setupFolderNavigation();
         this.restorePlayerState();
         this.setupVideoPlaylist();
+        this.generateVideoThumbnails();
 
         // Initialize Discogs service
         this.initializeDiscogs();
@@ -2263,6 +2264,73 @@ class AudioHandler {
         if (videoItem) {
             videoItem.classList.add('playing');
         }
+    }
+
+    // Generate thumbnails from the first frame of each video
+    generateVideoThumbnails() {
+        const videos = document.querySelectorAll('.video-item video');
+
+        videos.forEach((video, index) => {
+            // Create a canvas to capture the frame
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Flag to prevent multiple thumbnail generations
+            let thumbnailGenerated = false;
+
+            // Function to capture the thumbnail
+            const captureThumbnail = () => {
+                if (thumbnailGenerated) return;
+                if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+                thumbnailGenerated = true;
+
+                // Set canvas size to match video dimensions
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                // Draw the current frame to the canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Convert to data URL and set as poster
+                try {
+                    const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    video.poster = thumbnailUrl;
+                    console.log(`Generated thumbnail for video ${index + 1}`);
+                } catch (err) {
+                    console.warn(`Could not generate thumbnail for video ${index + 1}:`, err);
+                }
+            };
+
+            // When metadata loads, seek to a small offset to avoid black frames
+            video.addEventListener('loadedmetadata', () => {
+                // Seek to 0.5 seconds or 10% of duration, whichever is smaller
+                const seekTime = Math.min(0.5, video.duration * 0.1);
+                video.currentTime = seekTime;
+            }, { once: true });
+
+            // When seeked, capture the frame
+            video.addEventListener('seeked', () => {
+                // Only capture if we haven't already and video isn't playing
+                if (!thumbnailGenerated && video.paused) {
+                    captureThumbnail();
+                    // Reset to beginning after capturing thumbnail
+                    video.currentTime = 0;
+                }
+            }, { once: true });
+
+            // Fallback: also try on loadeddata in case seek doesn't fire
+            video.addEventListener('loadeddata', () => {
+                // Small delay to ensure frame is ready
+                setTimeout(() => {
+                    if (!thumbnailGenerated && video.paused) {
+                        captureThumbnail();
+                    }
+                }, 100);
+            }, { once: true });
+        });
+
+        console.log(`Thumbnail generation initiated for ${videos.length} videos`);
     }
 
 }
