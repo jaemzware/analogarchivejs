@@ -1,9 +1,9 @@
 //get cert with: google "self signed certificate"
 //openssl req -nodes -new -x509 -keyout server.key -out server.cert
 import 'dotenv/config';
-import { parseFile } from 'music-metadata';
+import { parseFile, parseBuffer } from 'music-metadata';
 import {createServer} from 'https';
-import {promises, readFileSync, writeFileSync, unlinkSync} from 'fs';
+import {promises, readFileSync} from 'fs';
 import {join, extname} from 'path';
 import * as url from 'url';
 import express from 'express';
@@ -655,18 +655,11 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
             console.log(`Buffer size: ${buffer.length} bytes`);
 
-            // Write buffer to temporary file and use parseFile instead of parseBuffer
             const lowerPath = fullPath.toLowerCase();
             const isFlac = lowerPath.endsWith('.flac');
             const isM4b = lowerPath.endsWith('.m4b');
-            let fileExt = '.mp3';
-            if (isFlac) fileExt = '.flac';
-            if (isM4b) fileExt = '.m4b';
-            const tempFilePath = join(tmpdir(), `b2-temp-${Date.now()}${fileExt}`);
 
             try {
-                writeFileSync(tempFilePath, buffer);
-
                 let mimeType;
                 if (isFlac) {
                     mimeType = 'audio/flac';
@@ -675,7 +668,7 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                 } else {
                     mimeType = 'audio/mpeg';
                 }
-                const metadata = await parseFile(tempFilePath, {
+                const metadata = await parseBuffer(buffer, {
                     duration: true,
                     skipCovers: false,
                     mimeType
@@ -750,17 +743,9 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
 
                 // Return metadata as JSON
                 res.json(metadataResponse);
-            } catch (tempFileError) {
-                console.error('Error with temp file approach:', tempFileError);
-                throw tempFileError;
-            } finally {
-                // Always clean up temp file
-                try {
-                    unlinkSync(tempFilePath);
-                    console.log('Temp file cleaned up:', tempFilePath);
-                } catch (cleanupError) {
-                    console.error('Error cleaning up temp file:', cleanupError.message);
-                }
+            } catch (parseError) {
+                console.error('Error parsing B2 metadata:', parseError);
+                throw parseError;
             }
         } else {
             res.status(404).json({ error: 'File not found' });
@@ -1112,14 +1097,12 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
         }
 
         const fileExt = extname(relativePath).toLowerCase();
-        const tempFilePath = join(tmpdir(), `b2-meta-${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`);
-        writeFileSync(tempFilePath, buffer);
 
         let mimeType = 'audio/mpeg';
         if (fileExt === '.flac') mimeType = 'audio/flac';
         if (fileExt === '.m4b') mimeType = 'audio/mp4';
 
-        const metadata = await parseFile(tempFilePath, { mimeType, duration: true, skipCovers: false });
+        const metadata = await parseBuffer(buffer, { mimeType, duration: true, skipCovers: false });
 
         let artwork = null;
         if (metadata.common.picture && metadata.common.picture.length > 0) {
@@ -1127,8 +1110,6 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
             const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
             artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
         }
-
-        try { unlinkSync(tempFilePath); } catch (e) {}
 
         const result = {
             title: metadata.common.title || '',
@@ -1504,27 +1485,20 @@ async function getRecentB2SongsWithMetadata(songs, folderName) {
                 buffer = Buffer.from(rawData);
             }
 
-            // Write to temp file for parsing
             const fileExt = extname(song.relativePath).toLowerCase();
-            const tempFilePath = join(tmpdir(), `b2-recent-${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`);
-            writeFileSync(tempFilePath, buffer);
 
             let mimeType = 'audio/mpeg';
             if (fileExt === '.flac') mimeType = 'audio/flac';
             if (fileExt === '.m4b') mimeType = 'audio/mp4';
 
-            const metadata = await parseFile(tempFilePath, { mimeType, duration: true, skipCovers: false });
+            const metadata = await parseBuffer(buffer, { mimeType, duration: true, skipCovers: false });
 
-            // Get artwork
             let artwork = null;
             if (metadata.common.picture && metadata.common.picture.length > 0) {
                 const picture = metadata.common.picture[0];
                 const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
                 artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
             }
-
-            // Clean up temp file
-            try { unlinkSync(tempFilePath); } catch (e) {}
 
             return {
                 ...song,
