@@ -42,8 +42,8 @@ Choose either **Docker** (recommended for easy setup) or **Node.js** (for direct
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/jaemzware/analogarchivejs.git
-   cd analogarchivejs
+   git clone https://github.com/jaemzware/analogarchivejs.git analogarchive
+   cd analogarchive
    ```
 
 2. **Set up your music directory**
@@ -95,8 +95,8 @@ docker-compose down && docker-compose up -d
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/jaemzware/analogarchivejs.git
-   cd analogarchivejs
+   git clone https://github.com/jaemzware/analogarchivejs.git analogarchive
+   cd analogarchive
    ```
 
 2. **Install dependencies**
@@ -175,7 +175,7 @@ To have the server automatically start when your Raspberry Pi boots:
    journalctl -u analogarchivejs -f
    ```
 
-**Note**: The included `analogarchivejs.service` file assumes the project is located at `/home/jaemzware/Desktop/analogarchivejs`. Update the `WorkingDirectory` and `User` fields in the service file if your setup differs.
+**Note**: The included `analogarchivejs.service` file assumes the project is located at `/home/jaemzware/Desktop/analogarchive`. Update the `WorkingDirectory` and `User` fields in the service file if your setup differs.
 
 ## 🔍 Endpoints
 
@@ -253,7 +253,7 @@ For Discogs integration support:
 ## 📁 File Structure
 
 ```
-analogarchivejs/
+analogarchive/
 ├── index.js              # Main server file
 ├── audio-handler.js      # Client-side audio player
 ├── styles.css           # UI styling
