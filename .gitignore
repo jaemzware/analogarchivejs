@@ -12,3 +12,6 @@ music/*
 
 # Except the one sample MP3 file
 !music/pixies-imamazed-brokenface-demo.mp3
+
+# Ignore B2 metadata cache
+.b2-metadata-cache/

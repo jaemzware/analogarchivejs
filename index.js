@@ -1690,6 +1690,11 @@ app.get('/', async (req,res) =>{
         </div>
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
+    <div class="top-nav-right">
+        <a href="https://stuffedanimalwar.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Stuffed Animal War</a>
+        <a href="https://marginalwayskateparkfoundation.org" class="nav-external-link" target="_blank" rel="noopener noreferrer">Marginal Way</a>
+        <a href="https://skatecreteordie.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Skate Crete or Die</a>
+    </div>
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
     <div class="endpoint-loading-content">
@@ -2361,6 +2366,11 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         </div>
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
+    <div class="top-nav-right">
+        <a href="https://stuffedanimalwar.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Stuffed Animal War</a>
+        <a href="https://marginalwayskateparkfoundation.org" class="nav-external-link" target="_blank" rel="noopener noreferrer">Marginal Way</a>
+        <a href="https://skatecreteordie.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Skate Crete or Die</a>
+    </div>
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
     <div class="endpoint-loading-content">
