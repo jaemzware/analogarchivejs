@@ -37,6 +37,24 @@ function isCacheValid(cacheEntry) {
     return cacheEntry && (Date.now() - cacheEntry.timestamp) < CACHE_TTL_MS;
 }
 
+// Normalize music-metadata's picture.format into a proper MIME type.
+// Older ID3v2.2 tags store bare codes like "PNG" or "JPG" instead of "image/png",
+// which would otherwise produce a malformed data URI.
+function normalizePictureMimeType(format) {
+    if (/^image\/[a-z0-9.+-]+$/i.test(format)) {
+        return format;
+    }
+    const bareCodeMap = {
+        PNG: 'image/png',
+        JPG: 'image/jpeg',
+        JPEG: 'image/jpeg',
+        GIF: 'image/gif',
+        BMP: 'image/bmp',
+        WEBP: 'image/webp'
+    };
+    return bareCodeMap[String(format).toUpperCase()] || 'image/jpeg';
+}
+
 // Get disk cache path for a B2 file
 function getB2MetadataCachePath(b2FilePath) {
     // Replace slashes with double underscore to create flat file structure
@@ -1020,7 +1038,7 @@ app.get('/api/song-metadata', async (req, res) => {
         if (metadata.common.picture && metadata.common.picture.length > 0) {
             const picture = metadata.common.picture[0];
             const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
-            artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
+            artwork = `data:${normalizePictureMimeType(picture.format)};base64,${picData.toString('base64')}`;
         }
 
         const result = {
@@ -1108,7 +1126,7 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
         if (metadata.common.picture && metadata.common.picture.length > 0) {
             const picture = metadata.common.picture[0];
             const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
-            artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
+            artwork = `data:${normalizePictureMimeType(picture.format)};base64,${picData.toString('base64')}`;
         }
 
         const result = {
@@ -1434,7 +1452,7 @@ async function getRecentSongsWithMetadata(songs, musicPath) {
             if (metadata.common.picture && metadata.common.picture.length > 0) {
                 const picture = metadata.common.picture[0];
                 const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
-                artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
+                artwork = `data:${normalizePictureMimeType(picture.format)};base64,${picData.toString('base64')}`;
             }
 
             return {
@@ -1497,7 +1515,7 @@ async function getRecentB2SongsWithMetadata(songs, folderName) {
             if (metadata.common.picture && metadata.common.picture.length > 0) {
                 const picture = metadata.common.picture[0];
                 const picData = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
-                artwork = `data:${picture.format};base64,${picData.toString('base64')}`;
+                artwork = `data:${normalizePictureMimeType(picture.format)};base64,${picData.toString('base64')}`;
             }
 
             return {
