@@ -265,8 +265,17 @@ class AudioHandler {
             }
 
             // Create new abort controller for this navigation
-            this.folderNavigationController = new AbortController();
-            const signal = this.folderNavigationController.signal;
+            const controller = new AbortController();
+            this.folderNavigationController = controller;
+            const signal = controller.signal;
+
+            // Safety net: never let the loading overlay hang forever if the
+            // server stalls (e.g. a slow B2 listing for a large bucket folder)
+            let timedOut = false;
+            const navigationTimeout = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, 35000);
 
             // Save current scroll position for this URL
             this.saveScrollPosition();
@@ -331,29 +340,40 @@ class AudioHandler {
                     // Restore scroll position for this URL, or scroll to top if new directory
                     this.restoreScrollPosition();
 
-                    // Hide loading overlay after navigation completes
-                    const currentOverlay = document.getElementById('endpointLoadingOverlay');
-                    if (currentOverlay) {
-                        currentOverlay.classList.remove('active');
+                    clearTimeout(navigationTimeout);
+
+                    // Only hide the overlay / clear state if a newer navigation
+                    // hasn't already superseded this one
+                    if (this.folderNavigationController === controller) {
+                        const currentOverlay = document.getElementById('endpointLoadingOverlay');
+                        if (currentOverlay) {
+                            currentOverlay.classList.remove('active');
+                        }
+                        this.folderNavigationController = null;
                     }
-                    this.folderNavigationController = null;
                 })
                 .catch(error => {
-                    // Hide loading overlay on error
-                    const currentOverlay = document.getElementById('endpointLoadingOverlay');
-                    if (currentOverlay) {
-                        currentOverlay.classList.remove('active');
-                    }
-                    this.folderNavigationController = null;
+                    clearTimeout(navigationTimeout);
 
-                    // Don't log abort errors (user-initiated)
-                    if (error.name === 'AbortError') {
+                    // A genuine user-initiated abort (superseded by a newer navigation)
+                    // should leave the newer request's overlay/state alone.
+                    if (error.name === 'AbortError' && !timedOut) {
                         console.log('Folder navigation aborted');
                         return;
                     }
 
+                    // Only hide the overlay / clear state if a newer navigation
+                    // hasn't already superseded this one
+                    if (this.folderNavigationController === controller) {
+                        const currentOverlay = document.getElementById('endpointLoadingOverlay');
+                        if (currentOverlay) {
+                            currentOverlay.classList.remove('active');
+                        }
+                        this.folderNavigationController = null;
+                    }
+
                     console.error('Failed to load folder:', error);
-                    // Fall back to regular navigation
+                    // Fall back to regular navigation (e.g. after a stalled request timed out)
                     window.location.href = href;
                 });
         });

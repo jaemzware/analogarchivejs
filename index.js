@@ -2233,12 +2233,17 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             const bucketId = bucket.data.buckets[0].bucketId;
             console.log(`Using bucket ID: ${bucketId}`);
 
-            const response = await b2.listFileNames({
-                bucketId: bucketId,
-                startFileName: `${folderName}/`,
-                prefix: `${folderName}/`,
-                maxFileCount: 10000
-            });
+            const response = await Promise.race([
+                b2.listFileNames({
+                    bucketId: bucketId,
+                    startFileName: `${folderName}/`,
+                    prefix: `${folderName}/`,
+                    maxFileCount: 10000
+                }),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('B2 listFileNames timed out')), 30000)
+                )
+            ]);
 
             console.log(`Found ${response.data.files.length} files in ${folderName} folder`);
 
