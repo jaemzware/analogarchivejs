@@ -1553,8 +1553,8 @@ app.get('/', async (req,res) =>{
         const imageFiles = imageFilesCache || [];
         const videoFiles = videoFilesCache || [];
 
-        // If no music files found, show helpful message
-        if (musicFiles.length === 0) {
+        // If no media files of any kind found, show helpful message
+        if (musicFiles.length === 0 && imageFiles.length === 0 && videoFiles.length === 0) {
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end(`<html>
 <head>
