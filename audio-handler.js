@@ -2344,16 +2344,16 @@ class AudioHandler {
 const audioHandler = new AudioHandler();
 
 // Fallback UI for media the browser can't render/play (e.g. HEIC images, unsupported video codecs).
-// Called from inline onerror handlers on <img>/<video> tags. Reads the URL from the
-// element itself (src/currentSrc) rather than a passed-in string, since filenames can
-// contain characters (quotes) that aren't safe to inline into an HTML attribute value.
+// Called from inline onerror handlers on <img>/<video> tags. The download URL must point at the
+// ORIGINAL file, not the element's src (image galleries load a server-generated JPEG thumbnail,
+// which is a different file than the source image/video) - it's read from data-original-url,
+// set via dataset so filenames with quotes can't break out of the attribute.
 function handleMediaError(mediaEl) {
     const container = mediaEl.closest('.image-item, .video-item');
     if (!container || container.dataset.mediaError) return;
     container.dataset.mediaError = 'true';
 
-    const downloadUrl = mediaEl.currentSrc || mediaEl.src ||
-        (mediaEl.querySelector && mediaEl.querySelector('source') ? mediaEl.querySelector('source').src : '');
+    const downloadUrl = container.dataset.originalUrl || mediaEl.currentSrc || mediaEl.src || '';
 
     const filenameEl = container.querySelector('.image-filename, .video-filename');
     const filename = filenameEl ? filenameEl.textContent : downloadUrl.split('/').pop();

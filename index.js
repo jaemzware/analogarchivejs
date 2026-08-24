@@ -397,6 +397,8 @@ app.use('/music', express.static(musicStaticPath, {
             res.set('Content-Type', 'image/avif');
         } else if (lowerPath.endsWith('.bmp')) {
             res.set('Content-Type', 'image/bmp');
+        } else if (lowerPath.endsWith('.heic')) {
+            res.set('Content-Type', 'image/heic');
         }
         // Video files - also add CORS header for canvas thumbnail capture
         else if (lowerPath.endsWith('.mp4')) {
@@ -815,6 +817,8 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
             contentType = 'image/avif';
         } else if (lowerFullPath.endsWith('.bmp')) {
             contentType = 'image/bmp';
+        } else if (lowerFullPath.endsWith('.heic')) {
+            contentType = 'image/heic';
         }
         // Videos
         else if (lowerFullPath.endsWith('.mp4')) {
@@ -1820,7 +1824,7 @@ app.get('/', async (req,res) =>{
                 const thumbUrl = `/thumb/local/${encodedPath}`;
 
                 chunk += `
-                <div class="image-item" data-media-type="image">
+                <div class="image-item" data-media-type="image" data-original-url="${imageUrl}">
                     <a href="${imageUrl}" target="_blank" class="image-link">
                         <img src="${thumbUrl}" alt="${fileInfo.fileName}" loading="lazy" onerror="handleMediaError(this)">
                         <div class="image-filename">${fileInfo.fileName}</div>
@@ -1854,7 +1858,7 @@ app.get('/', async (req,res) =>{
                 else if (videoExt === 'mkv') videoMimeType = 'video/x-matroska';
 
                 chunk += `
-                <div class="video-item" data-media-type="video">
+                <div class="video-item" data-media-type="video" data-original-url="${videoUrl}">
                     <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
                         <source src="${videoUrl}" type="${videoMimeType}">
                         Your browser does not support the video tag.
@@ -2480,7 +2484,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     const thumbUrl = `/thumb/${folderName}/${encodedPath}`;
 
                     res.write(`
-                    <div class="image-item" data-media-type="image">
+                    <div class="image-item" data-media-type="image" data-original-url="${proxyUrl}">
                         <a href="${proxyUrl}" target="_blank" class="image-link">
                             <img src="${thumbUrl}" alt="${file.fileName}" loading="lazy" onerror="handleMediaError(this)">
                             <div class="image-filename">${file.fileName}</div>
@@ -2509,7 +2513,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     else if (videoExt === 'mkv') videoMimeType = 'video/x-matroska';
 
                     res.write(`
-                    <div class="video-item" data-media-type="video">
+                    <div class="video-item" data-media-type="video" data-original-url="${proxyUrl}">
                         <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
                             <source src="${proxyUrl}" type="${videoMimeType}">
                             Your browser does not support the video tag.
