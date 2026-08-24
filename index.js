@@ -12,7 +12,8 @@ import {tmpdir} from 'os';
 import sharp from 'sharp';
 
 const app = express();
-const port = process.env.PORT || 55557;
+const cliPort = parseInt(process.argv[2], 10);
+const port = (Number.isInteger(cliPort) && cliPort > 0) ? cliPort : (process.env.PORT || 55557);
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 //use self-signed certificate for localhost development
 const options = {key: readFileSync(process.env.SSL_KEY_PATH),
