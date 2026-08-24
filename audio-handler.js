@@ -2299,6 +2299,18 @@ class AudioHandler {
         const videos = document.querySelectorAll('.video-item video');
 
         videos.forEach((video, index) => {
+            // Some browsers never fire 'error' for containers/codecs they can't
+            // decode (e.g. MKV, AVI) - the request succeeds, but the video just
+            // sits at readyState 0 / duration 0:00 forever. Detect that stall and
+            // fall back to the same "unsupported" UI that 'error' triggers.
+            const stallTimer = setTimeout(() => {
+                if (video.readyState === 0) {
+                    handleMediaError(video);
+                }
+            }, 8000);
+            video.addEventListener('loadedmetadata', () => clearTimeout(stallTimer), { once: true });
+            video.addEventListener('error', () => clearTimeout(stallTimer), { once: true });
+
             // Create a canvas to capture the frame
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
