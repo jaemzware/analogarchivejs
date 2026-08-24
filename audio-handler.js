@@ -2342,3 +2342,46 @@ class AudioHandler {
 
 // Global instance
 const audioHandler = new AudioHandler();
+
+// Fallback UI for media the browser can't render/play (e.g. HEIC images, unsupported video codecs).
+// Called from inline onerror handlers on <img>/<video> tags. Reads the URL from the
+// element itself (src/currentSrc) rather than a passed-in string, since filenames can
+// contain characters (quotes) that aren't safe to inline into an HTML attribute value.
+function handleMediaError(mediaEl) {
+    const container = mediaEl.closest('.image-item, .video-item');
+    if (!container || container.dataset.mediaError) return;
+    container.dataset.mediaError = 'true';
+
+    const downloadUrl = mediaEl.currentSrc || mediaEl.src ||
+        (mediaEl.querySelector && mediaEl.querySelector('source') ? mediaEl.querySelector('source').src : '');
+
+    const filenameEl = container.querySelector('.image-filename, .video-filename');
+    const filename = filenameEl ? filenameEl.textContent : downloadUrl.split('/').pop();
+    const ext = filename.includes('.') ? filename.split('.').pop().toUpperCase() : 'FILE';
+
+    const fallback = document.createElement('div');
+    fallback.className = 'media-unsupported';
+
+    const icon = document.createElement('div');
+    icon.className = 'unsupported-icon';
+    icon.textContent = '\u{1F6AB}';
+
+    const label = document.createElement('div');
+    label.className = 'unsupported-label';
+    label.append('Preview not supported for ');
+    const extSpan = document.createElement('span');
+    extSpan.className = 'unsupported-ext';
+    extSpan.textContent = '.' + ext;
+    label.append(extSpan, ' in this browser');
+
+    const downloadLink = document.createElement('a');
+    downloadLink.className = 'unsupported-download';
+    downloadLink.href = downloadUrl;
+    downloadLink.download = filename;
+    downloadLink.textContent = 'Download it here';
+
+    fallback.append(icon, label, downloadLink);
+
+    // Replace the media element itself, keep the surrounding link/filename structure intact
+    mediaEl.replaceWith(fallback);
+}

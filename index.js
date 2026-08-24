@@ -1822,7 +1822,7 @@ app.get('/', async (req,res) =>{
                 chunk += `
                 <div class="image-item" data-media-type="image">
                     <a href="${imageUrl}" target="_blank" class="image-link">
-                        <img src="${thumbUrl}" alt="${fileInfo.fileName}" loading="lazy">
+                        <img src="${thumbUrl}" alt="${fileInfo.fileName}" loading="lazy" onerror="handleMediaError(this)">
                         <div class="image-filename">${fileInfo.fileName}</div>
                     </a>
                 </div>`;
@@ -1855,7 +1855,7 @@ app.get('/', async (req,res) =>{
 
                 chunk += `
                 <div class="video-item" data-media-type="video">
-                    <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous">
+                    <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
                         <source src="${videoUrl}" type="${videoMimeType}">
                         Your browser does not support the video tag.
                     </video>
@@ -2482,7 +2482,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     res.write(`
                     <div class="image-item" data-media-type="image">
                         <a href="${proxyUrl}" target="_blank" class="image-link">
-                            <img src="${thumbUrl}" alt="${file.fileName}" loading="lazy">
+                            <img src="${thumbUrl}" alt="${file.fileName}" loading="lazy" onerror="handleMediaError(this)">
                             <div class="image-filename">${file.fileName}</div>
                         </a>
                     </div>`);
@@ -2510,7 +2510,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                     res.write(`
                     <div class="video-item" data-media-type="video">
-                        <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous">
+                        <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
                             <source src="${proxyUrl}" type="${videoMimeType}">
                             Your browser does not support the video tag.
                         </video>
