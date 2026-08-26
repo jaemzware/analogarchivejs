@@ -1241,6 +1241,61 @@ body.player-active {
     text-overflow: ellipsis;
 }
 
+/* Unsupported media fallback */
+.media-unsupported {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 200px;
+    padding: 15px;
+    text-align: center;
+    background: repeating-linear-gradient(
+        135deg,
+        #262626,
+        #262626 10px,
+        #2d2d2d 10px,
+        #2d2d2d 20px
+    );
+    color: #ccc;
+}
+
+.video-item .media-unsupported {
+    height: 220px;
+}
+
+.media-unsupported .unsupported-icon {
+    font-size: 32px;
+    line-height: 1;
+    opacity: 0.7;
+}
+
+.media-unsupported .unsupported-label {
+    font-size: 13px;
+    color: #999;
+}
+
+.media-unsupported .unsupported-ext {
+    color: deepskyblue;
+    font-weight: bold;
+}
+
+.media-unsupported .unsupported-download {
+    color: lime;
+    text-decoration: none;
+    font-size: 13px;
+    border: 1px solid lime;
+    border-radius: 4px;
+    padding: 4px 12px;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.media-unsupported .unsupported-download:hover {
+    background: lime;
+    color: #1a1a1a;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .image-gallery {

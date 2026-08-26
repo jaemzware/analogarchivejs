@@ -1,6 +1,7 @@
 .DS_Store
 .idea/
 video/
+music
 node_modules/
 sslcert/
 .env

@@ -12,7 +12,8 @@ import {tmpdir} from 'os';
 import sharp from 'sharp';
 
 const app = express();
-const port = process.env.PORT || 55557;
+const cliPort = parseInt(process.argv[2], 10);
+const port = (Number.isInteger(cliPort) && cliPort > 0) ? cliPort : (process.env.PORT || 55557);
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 //use self-signed certificate for localhost development
 const options = {key: readFileSync(process.env.SSL_KEY_PATH),
@@ -415,6 +416,8 @@ app.use('/music', express.static(musicStaticPath, {
             res.set('Content-Type', 'image/avif');
         } else if (lowerPath.endsWith('.bmp')) {
             res.set('Content-Type', 'image/bmp');
+        } else if (lowerPath.endsWith('.heic')) {
+            res.set('Content-Type', 'image/heic');
         }
         // Video files - also add CORS header for canvas thumbnail capture
         else if (lowerPath.endsWith('.mp4')) {
@@ -833,6 +836,8 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
             contentType = 'image/avif';
         } else if (lowerFullPath.endsWith('.bmp')) {
             contentType = 'image/bmp';
+        } else if (lowerFullPath.endsWith('.heic')) {
+            contentType = 'image/heic';
         }
         // Videos
         else if (lowerFullPath.endsWith('.mp4')) {
@@ -1571,8 +1576,8 @@ app.get('/', async (req,res) =>{
         const imageFiles = imageFilesCache || [];
         const videoFiles = videoFilesCache || [];
 
-        // If no music files found, show helpful message
-        if (musicFiles.length === 0) {
+        // If no media files of any kind found, show helpful message
+        if (musicFiles.length === 0 && imageFiles.length === 0 && videoFiles.length === 0) {
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end(`<html>
 <head>
@@ -1838,9 +1843,9 @@ app.get('/', async (req,res) =>{
                 const thumbUrl = `/thumb/local/${encodedPath}`;
 
                 chunk += `
-                <div class="image-item" data-media-type="image">
+                <div class="image-item" data-media-type="image" data-original-url="${imageUrl}">
                     <a href="${imageUrl}" target="_blank" class="image-link">
-                        <img src="${thumbUrl}" alt="${fileInfo.fileName}" loading="lazy">
+                        <img src="${thumbUrl}" alt="${fileInfo.fileName}" loading="lazy" onerror="handleMediaError(this)">
                         <div class="image-filename">${fileInfo.fileName}</div>
                     </a>
                 </div>`;
@@ -1872,8 +1877,8 @@ app.get('/', async (req,res) =>{
                 else if (videoExt === 'mkv') videoMimeType = 'video/x-matroska';
 
                 chunk += `
-                <div class="video-item" data-media-type="video">
-                    <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous">
+                <div class="video-item" data-media-type="video" data-original-url="${videoUrl}">
+                    <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
                         <source src="${videoUrl}" type="${videoMimeType}">
                         Your browser does not support the video tag.
                     </video>
@@ -2247,12 +2252,17 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             const bucketId = bucket.data.buckets[0].bucketId;
             console.log(`Using bucket ID: ${bucketId}`);
 
-            const response = await b2.listFileNames({
-                bucketId: bucketId,
-                startFileName: `${folderName}/`,
-                prefix: `${folderName}/`,
-                maxFileCount: 10000
-            });
+            const response = await Promise.race([
+                b2.listFileNames({
+                    bucketId: bucketId,
+                    startFileName: `${folderName}/`,
+                    prefix: `${folderName}/`,
+                    maxFileCount: 10000
+                }),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('B2 listFileNames timed out')), 30000)
+                )
+            ]);
 
             console.log(`Found ${response.data.files.length} files in ${folderName} folder`);
 
@@ -2498,9 +2508,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     const thumbUrl = `/thumb/${folderName}/${encodedPath}`;
 
                     res.write(`
-                    <div class="image-item" data-media-type="image">
+                    <div class="image-item" data-media-type="image" data-original-url="${proxyUrl}">
                         <a href="${proxyUrl}" target="_blank" class="image-link">
-                            <img src="${thumbUrl}" alt="${file.fileName}" loading="lazy">
+                            <img src="${thumbUrl}" alt="${file.fileName}" loading="lazy" onerror="handleMediaError(this)">
                             <div class="image-filename">${file.fileName}</div>
                         </a>
                     </div>`);
@@ -2527,8 +2537,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     else if (videoExt === 'mkv') videoMimeType = 'video/x-matroska';
 
                     res.write(`
-                    <div class="video-item" data-media-type="video">
-                        <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous">
+                    <div class="video-item" data-media-type="video" data-original-url="${proxyUrl}">
+                        <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
                             <source src="${proxyUrl}" type="${videoMimeType}">
                             Your browser does not support the video tag.
                         </video>

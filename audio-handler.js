@@ -265,8 +265,17 @@ class AudioHandler {
             }
 
             // Create new abort controller for this navigation
-            this.folderNavigationController = new AbortController();
-            const signal = this.folderNavigationController.signal;
+            const controller = new AbortController();
+            this.folderNavigationController = controller;
+            const signal = controller.signal;
+
+            // Safety net: never let the loading overlay hang forever if the
+            // server stalls (e.g. a slow B2 listing for a large bucket folder)
+            let timedOut = false;
+            const navigationTimeout = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, 35000);
 
             // Save current scroll position for this URL
             this.saveScrollPosition();
@@ -331,29 +340,40 @@ class AudioHandler {
                     // Restore scroll position for this URL, or scroll to top if new directory
                     this.restoreScrollPosition();
 
-                    // Hide loading overlay after navigation completes
-                    const currentOverlay = document.getElementById('endpointLoadingOverlay');
-                    if (currentOverlay) {
-                        currentOverlay.classList.remove('active');
+                    clearTimeout(navigationTimeout);
+
+                    // Only hide the overlay / clear state if a newer navigation
+                    // hasn't already superseded this one
+                    if (this.folderNavigationController === controller) {
+                        const currentOverlay = document.getElementById('endpointLoadingOverlay');
+                        if (currentOverlay) {
+                            currentOverlay.classList.remove('active');
+                        }
+                        this.folderNavigationController = null;
                     }
-                    this.folderNavigationController = null;
                 })
                 .catch(error => {
-                    // Hide loading overlay on error
-                    const currentOverlay = document.getElementById('endpointLoadingOverlay');
-                    if (currentOverlay) {
-                        currentOverlay.classList.remove('active');
-                    }
-                    this.folderNavigationController = null;
+                    clearTimeout(navigationTimeout);
 
-                    // Don't log abort errors (user-initiated)
-                    if (error.name === 'AbortError') {
+                    // A genuine user-initiated abort (superseded by a newer navigation)
+                    // should leave the newer request's overlay/state alone.
+                    if (error.name === 'AbortError' && !timedOut) {
                         console.log('Folder navigation aborted');
                         return;
                     }
 
+                    // Only hide the overlay / clear state if a newer navigation
+                    // hasn't already superseded this one
+                    if (this.folderNavigationController === controller) {
+                        const currentOverlay = document.getElementById('endpointLoadingOverlay');
+                        if (currentOverlay) {
+                            currentOverlay.classList.remove('active');
+                        }
+                        this.folderNavigationController = null;
+                    }
+
                     console.error('Failed to load folder:', error);
-                    // Fall back to regular navigation
+                    // Fall back to regular navigation (e.g. after a stalled request timed out)
                     window.location.href = href;
                 });
         });
@@ -2279,6 +2299,18 @@ class AudioHandler {
         const videos = document.querySelectorAll('.video-item video');
 
         videos.forEach((video, index) => {
+            // Some browsers never fire 'error' for containers/codecs they can't
+            // decode (e.g. MKV, AVI) - the request succeeds, but the video just
+            // sits at readyState 0 / duration 0:00 forever. Detect that stall and
+            // fall back to the same "unsupported" UI that 'error' triggers.
+            const stallTimer = setTimeout(() => {
+                if (video.readyState === 0) {
+                    handleMediaError(video);
+                }
+            }, 8000);
+            video.addEventListener('loadedmetadata', () => clearTimeout(stallTimer), { once: true });
+            video.addEventListener('error', () => clearTimeout(stallTimer), { once: true });
+
             // Create a canvas to capture the frame
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -2342,3 +2374,46 @@ class AudioHandler {
 
 // Global instance
 const audioHandler = new AudioHandler();
+
+// Fallback UI for media the browser can't render/play (e.g. HEIC images, unsupported video codecs).
+// Called from inline onerror handlers on <img>/<video> tags. The download URL must point at the
+// ORIGINAL file, not the element's src (image galleries load a server-generated JPEG thumbnail,
+// which is a different file than the source image/video) - it's read from data-original-url,
+// set via dataset so filenames with quotes can't break out of the attribute.
+function handleMediaError(mediaEl) {
+    const container = mediaEl.closest('.image-item, .video-item');
+    if (!container || container.dataset.mediaError) return;
+    container.dataset.mediaError = 'true';
+
+    const downloadUrl = container.dataset.originalUrl || mediaEl.currentSrc || mediaEl.src || '';
+
+    const filenameEl = container.querySelector('.image-filename, .video-filename');
+    const filename = filenameEl ? filenameEl.textContent : downloadUrl.split('/').pop();
+    const ext = filename.includes('.') ? filename.split('.').pop().toUpperCase() : 'FILE';
+
+    const fallback = document.createElement('div');
+    fallback.className = 'media-unsupported';
+
+    const icon = document.createElement('div');
+    icon.className = 'unsupported-icon';
+    icon.textContent = '\u{1F6AB}';
+
+    const label = document.createElement('div');
+    label.className = 'unsupported-label';
+    label.append('Preview not supported for ');
+    const extSpan = document.createElement('span');
+    extSpan.className = 'unsupported-ext';
+    extSpan.textContent = '.' + ext;
+    label.append(extSpan, ' in this browser');
+
+    const downloadLink = document.createElement('a');
+    downloadLink.className = 'unsupported-download';
+    downloadLink.href = downloadUrl;
+    downloadLink.download = filename;
+    downloadLink.textContent = 'Download it here';
+
+    fallback.append(icon, label, downloadLink);
+
+    // Replace the media element itself, keep the surrounding link/filename structure intact
+    mediaEl.replaceWith(fallback);
+}
