@@ -173,7 +173,11 @@ async function generateThumbnail(imagePath, thumbPath) {
             .toFile(thumbPath);
         return true;
     } catch (err) {
-        console.error('Error generating thumbnail:', err);
+        if (err.message && err.message.includes('has not been built in')) {
+            console.warn(`Skipping thumbnail for ${imagePath}: unsupported image format (${err.message})`);
+        } else {
+            console.error('Error generating thumbnail:', err);
+        }
         return false;
     }
 }
@@ -1090,7 +1094,9 @@ app.post('/api/set-music-directory', express.json(), async (req, res) => {
         res.json({
             success: true,
             musicDirectory: resolvedTarget,
-            fileCount: musicFilesCache ? musicFilesCache.length : 0
+            fileCount: musicFilesCache ? musicFilesCache.length : 0,
+            imageCount: imageFilesCache ? imageFilesCache.length : 0,
+            videoCount: videoFilesCache ? videoFilesCache.length : 0
         });
     } catch (err) {
         console.error('Failed to set music directory:', err);
@@ -1101,7 +1107,12 @@ app.post('/api/set-music-directory', express.json(), async (req, res) => {
 // API endpoint: report the folder the music symlink currently resolves to
 app.get('/api/current-music-directory', async (req, res) => {
     const target = await getCurrentMusicTarget();
-    res.json({ musicDirectory: target });
+    res.json({
+        musicDirectory: target,
+        fileCount: musicFilesCache ? musicFilesCache.length : 0,
+        imageCount: imageFilesCache ? imageFilesCache.length : 0,
+        videoCount: videoFilesCache ? videoFilesCache.length : 0
+    });
 });
 
 // API endpoint for single local song metadata (for incremental loading)
@@ -2287,6 +2298,11 @@ app.get('/settings', async (req, res) => {
     <div class="settings-page" style="max-width: 720px; margin: 2rem auto; padding: 0 1rem;">
         <h1>Music Directory</h1>
         <p id="currentDirLabel">Currently serving from: <code id="currentDirValue">${currentTarget || '(not set)'}</code></p>
+        <p id="mediaCounts">
+            <span id="audioCountValue">${musicFilesCache ? musicFilesCache.length : 0}</span> audio,
+            <span id="imageCountValue">${imageFilesCache ? imageFilesCache.length : 0}</span> images,
+            <span id="videoCountValue">${videoFilesCache ? videoFilesCache.length : 0}</span> videos
+        </p>
 
         <div class="folder-browser">
             <div class="folder-browser-toolbar" style="display:flex; gap:0.5rem; align-items:center; margin-bottom: 0.75rem;">
@@ -2310,6 +2326,9 @@ app.get('/settings', async (req, res) => {
     const useFolderBtn = document.getElementById('useFolderBtn');
     const settingsStatus = document.getElementById('settingsStatus');
     const currentDirValue = document.getElementById('currentDirValue');
+    const audioCountValue = document.getElementById('audioCountValue');
+    const imageCountValue = document.getElementById('imageCountValue');
+    const videoCountValue = document.getElementById('videoCountValue');
 
     let currentPath = ${currentTarget ? JSON.stringify(currentTarget) : 'null'};
     let parentPath = null;
@@ -2369,7 +2388,10 @@ app.get('/settings', async (req, res) => {
             return;
         }
         currentDirValue.textContent = data.musicDirectory;
-        settingsStatus.textContent = 'Saved! Found ' + data.fileCount + ' audio file(s).';
+        audioCountValue.textContent = data.fileCount;
+        imageCountValue.textContent = data.imageCount;
+        videoCountValue.textContent = data.videoCount;
+        settingsStatus.textContent = 'Saved! Found ' + data.fileCount + ' audio, ' + data.imageCount + ' image, ' + data.videoCount + ' video file(s).';
     });
 
     loadDirectory(currentPath);
