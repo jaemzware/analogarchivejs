@@ -4,11 +4,11 @@ import 'dotenv/config';
 import { parseFile, parseBuffer } from 'music-metadata';
 import {createServer} from 'https';
 import {promises, readFileSync} from 'fs';
-import {join, extname} from 'path';
+import {join, extname, dirname, resolve, sep} from 'path';
 import * as url from 'url';
 import express from 'express';
 import B2 from 'backblaze-b2';
-import {tmpdir} from 'os';
+import {tmpdir, homedir} from 'os';
 import sharp from 'sharp';
 
 const app = express();
@@ -1015,6 +1015,95 @@ app.get('/rescan', async (req, res) => {
     }
 });
 
+// Path to the music symlink/directory itself (not its resolved target)
+const musicLinkPath = directoryPathMusic.startsWith('./')
+    ? join(__dirname, directoryPathMusic.substring(2))
+    : directoryPathMusic;
+
+// Returns the real folder the music symlink currently points at, or null if
+// "music" is a plain directory (not a symlink) or doesn't exist yet.
+async function getCurrentMusicTarget() {
+    try {
+        const stat = await promises.lstat(musicLinkPath);
+        if (stat.isSymbolicLink()) {
+            return await promises.realpath(musicLinkPath);
+        }
+        return resolve(musicLinkPath);
+    } catch (err) {
+        return null;
+    }
+}
+
+// API endpoint: list subdirectories of a given path, for the settings folder browser
+app.get('/api/browse-directories', async (req, res) => {
+    try {
+        const requestedPath = req.query.path;
+        const targetPath = requestedPath ? resolve(requestedPath) : homedir();
+
+        const entries = await promises.readdir(targetPath, { withFileTypes: true });
+        const directories = entries
+            .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
+            .map(entry => entry.name)
+            .sort((a, b) => a.localeCompare(b));
+
+        const parentPath = dirname(targetPath);
+
+        res.json({
+            currentPath: targetPath,
+            parentPath: parentPath === targetPath ? null : parentPath,
+            directories
+        });
+    } catch (err) {
+        res.status(400).json({ error: 'Unable to read directory', message: err.message });
+    }
+});
+
+// API endpoint: point the music symlink at a new folder and rescan
+app.post('/api/set-music-directory', express.json(), async (req, res) => {
+    try {
+        const chosenPath = req.body && req.body.path;
+        if (!chosenPath) {
+            return res.status(400).json({ error: 'Missing path in request body' });
+        }
+
+        const resolvedTarget = resolve(chosenPath);
+        const stat = await promises.stat(resolvedTarget).catch(() => null);
+        if (!stat || !stat.isDirectory()) {
+            return res.status(400).json({ error: 'Path does not exist or is not a directory' });
+        }
+
+        // Remove the existing music symlink/directory entry, if any, then relink
+        const existing = await promises.lstat(musicLinkPath).catch(() => null);
+        if (existing) {
+            if (existing.isSymbolicLink() || existing.isFile()) {
+                await promises.unlink(musicLinkPath);
+            } else {
+                return res.status(409).json({
+                    error: 'A real "music" directory already exists on disk. Remove or rename it before picking a new folder.'
+                });
+            }
+        }
+
+        await promises.symlink(resolvedTarget, musicLinkPath, 'dir');
+        await scanMusicFiles();
+
+        res.json({
+            success: true,
+            musicDirectory: resolvedTarget,
+            fileCount: musicFilesCache ? musicFilesCache.length : 0
+        });
+    } catch (err) {
+        console.error('Failed to set music directory:', err);
+        res.status(500).json({ error: 'Failed to set music directory', message: err.message });
+    }
+});
+
+// API endpoint: report the folder the music symlink currently resolves to
+app.get('/api/current-music-directory', async (req, res) => {
+    const target = await getCurrentMusicTarget();
+    res.json({ musicDirectory: target });
+});
+
 // API endpoint for single local song metadata (for incremental loading)
 app.get('/api/song-metadata', async (req, res) => {
     try {
@@ -1714,6 +1803,7 @@ app.get('/', async (req,res) =>{
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
     <div class="top-nav-right">
+        <a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>
         <a href="https://stuffedanimalwar.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Stuffed Animal War</a>
         <a href="https://marginalwayskateparkfoundation.org" class="nav-external-link" target="_blank" rel="noopener noreferrer">Marginal Way</a>
         <a href="https://skatecreteordie.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Skate Crete or Die</a>
@@ -2169,6 +2259,126 @@ app.get('/digital', async (req, res) => {
     await handleB2FolderEndpoint('digital', req, res);
 });
 
+app.get('/settings', async (req, res) => {
+    const currentTarget = await getCurrentMusicTarget();
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>analogarchivejs - Settings</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<nav class="top-nav">
+    <div class="top-nav-left">
+        <a href="/" class="source-selector-button" style="text-decoration:none;">
+            <span class="source-selector-icon">&#x1F4BF;</span>
+            <span class="source-selector-text">analogarchivejs</span>
+        </a>
+    </div>
+    <div class="breadcrumb">Settings</div>
+    <div class="top-nav-right">
+        <a href="/" class="nav-external-link">&larr; Back to Library</a>
+    </div>
+</nav>
+<div class="container">
+    <div class="settings-page" style="max-width: 720px; margin: 2rem auto; padding: 0 1rem;">
+        <h1>Music Directory</h1>
+        <p id="currentDirLabel">Currently serving from: <code id="currentDirValue">${currentTarget || '(not set)'}</code></p>
+
+        <div class="folder-browser">
+            <div class="folder-browser-toolbar" style="display:flex; gap:0.5rem; align-items:center; margin-bottom: 0.75rem;">
+                <button id="browseUpBtn" type="button">&uarr; Up</button>
+                <code id="browserPath" style="flex:1; overflow-x:auto; white-space:nowrap;"></code>
+            </div>
+            <ul id="browserList" style="list-style:none; padding:0; margin:0; max-height: 400px; overflow-y:auto; border:1px solid rgba(128,128,128,0.3); border-radius:6px;"></ul>
+        </div>
+
+        <div style="margin-top:1rem; display:flex; gap:0.75rem; align-items:center;">
+            <button id="useFolderBtn" type="button">Use This Folder</button>
+            <span id="settingsStatus"></span>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    const browserList = document.getElementById('browserList');
+    const browserPath = document.getElementById('browserPath');
+    const browseUpBtn = document.getElementById('browseUpBtn');
+    const useFolderBtn = document.getElementById('useFolderBtn');
+    const settingsStatus = document.getElementById('settingsStatus');
+    const currentDirValue = document.getElementById('currentDirValue');
+
+    let currentPath = ${currentTarget ? JSON.stringify(currentTarget) : 'null'};
+    let parentPath = null;
+
+    async function loadDirectory(path) {
+        settingsStatus.textContent = '';
+        const url = path ? '/api/browse-directories?path=' + encodeURIComponent(path) : '/api/browse-directories';
+        const response = await fetch(url);
+        const data = await response.json();
+        if (!response.ok) {
+            settingsStatus.textContent = data.message || data.error || 'Failed to browse directory';
+            return;
+        }
+        currentPath = data.currentPath;
+        parentPath = data.parentPath;
+        browserPath.textContent = currentPath;
+        browseUpBtn.disabled = !parentPath;
+
+        browserList.innerHTML = '';
+        data.directories.forEach(name => {
+            const li = document.createElement('li');
+            li.textContent = '\\u{1F4C1} ' + name;
+            li.style.padding = '0.5rem 0.75rem';
+            li.style.cursor = 'pointer';
+            li.style.borderBottom = '1px solid rgba(128,128,128,0.15)';
+            li.addEventListener('click', () => {
+                const separator = currentPath.endsWith('/') ? '' : '/';
+                loadDirectory(currentPath + separator + name);
+            });
+            browserList.appendChild(li);
+        });
+
+        if (data.directories.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = '(no subfolders)';
+            li.style.padding = '0.5rem 0.75rem';
+            li.style.opacity = '0.6';
+            browserList.appendChild(li);
+        }
+    }
+
+    browseUpBtn.addEventListener('click', () => {
+        if (parentPath) loadDirectory(parentPath);
+    });
+
+    useFolderBtn.addEventListener('click', async () => {
+        if (!currentPath) return;
+        settingsStatus.textContent = 'Saving...';
+        const response = await fetch('/api/set-music-directory', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: currentPath })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            settingsStatus.textContent = data.message || data.error || 'Failed to set music directory';
+            return;
+        }
+        currentDirValue.textContent = data.musicDirectory;
+        settingsStatus.textContent = 'Saved! Found ' + data.fileCount + ' audio file(s).';
+    });
+
+    loadDirectory(currentPath);
+})();
+</script>
+</body>
+</html>`);
+});
+
 // Shared function for B2 folder endpoints with enhanced search support and directory structure
 async function handleB2FolderEndpoint(folderName, req, res) {
     try {
@@ -2395,6 +2605,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
     <div class="top-nav-right">
+        <a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>
         <a href="https://stuffedanimalwar.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Stuffed Animal War</a>
         <a href="https://marginalwayskateparkfoundation.org" class="nav-external-link" target="_blank" rel="noopener noreferrer">Marginal Way</a>
         <a href="https://skatecreteordie.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Skate Crete or Die</a>
