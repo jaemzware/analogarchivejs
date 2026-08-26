@@ -177,6 +177,70 @@ To have the server automatically start when your Raspberry Pi boots:
 
 **Note**: The included `analogarchivejs.service` file assumes the project is located at `/home/jaemzware/Desktop/analogarchive`. Update the `WorkingDirectory` and `User` fields in the service file if your setup differs.
 
+## 🍎 macOS Auto-Start on Boot
+
+To have the server automatically start whenever your Mac boots/logs in, use a `launchd` LaunchAgent (the macOS equivalent of systemd).
+
+1. **Create a plist file** at `~/Library/LaunchAgents/com.jaemzware.analogarchivejs.plist`:
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+       <key>Label</key>
+       <string>com.jaemzware.analogarchivejs</string>
+
+       <key>ProgramArguments</key>
+       <array>
+           <string>/usr/local/opt/node/bin/node</string>
+           <string>index.js</string>
+       </array>
+
+       <key>WorkingDirectory</key>
+       <string>/path/to/analogarchivejs</string>
+
+       <key>RunAtLoad</key>
+       <true/>
+
+       <key>KeepAlive</key>
+       <true/>
+
+       <key>StandardOutPath</key>
+       <string>/path/to/analogarchivejs/output.log</string>
+
+       <key>StandardErrorPath</key>
+       <string>/path/to/analogarchivejs/error.log</string>
+   </dict>
+   </plist>
+   ```
+   Update the `node` path (check yours with `which node`), `WorkingDirectory`, and log paths to match your setup. A copy of this file is also kept at the repo root (`com.jaemzware.analogarchivejs.plist`) as a reference.
+
+2. **Load the agent**
+   ```bash
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jaemzware.analogarchivejs.plist
+   ```
+
+3. **Check status**
+   ```bash
+   launchctl list | grep analogarchivejs
+   ```
+
+4. **View logs**
+   ```bash
+   tail -f output.log error.log
+   ```
+
+5. **Stop / unload the agent**
+   ```bash
+   launchctl bootout gui/$(id -u)/com.jaemzware.analogarchivejs
+   ```
+
+**Notes**:
+- `RunAtLoad` starts the server at every login; `KeepAlive` automatically restarts it if it crashes.
+- The server reads `PORT` and other settings from `.env` in the working directory, same as running it manually.
+- Make sure nothing else is already bound to the configured port (`lsof -i :55557`) before loading the agent, or it may fail to start.
+
 ## 🔍 Endpoints
 
 | Endpoint | Description | Storage |
