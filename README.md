@@ -181,7 +181,53 @@ To have the server automatically start when your Raspberry Pi boots:
 
 To have the server automatically start whenever your Mac boots/logs in, use a `launchd` LaunchAgent (the macOS equivalent of systemd).
 
-1. **Create a plist file** at `~/Library/LaunchAgents/com.jaemzware.analogarchivejs.plist`:
+By default, a LaunchAgent that runs `node` directly will show up in **System Settings > General > Login Items & Extensions** as an anonymous "node" item from an "unidentified developer," since macOS attributes a login item's identity to the code signature of the actual executable being launched, not to anything in the plist. To have it show up as **Analog Archive** under your own signing identity, this repo wraps `node` in a tiny signed `.app` bundle (`AnalogArchive.app`, kept at the repo root) and points the LaunchAgent at that instead.
+
+### 1. Build and sign `AnalogArchive.app`
+
+The bundle only needs to be built once (or whenever you move the repo to a new path). It's a minimal `.app` with this layout:
+
+```
+AnalogArchive.app/
+  Contents/
+    Info.plist                 # CFBundleName/CFBundleDisplayName = "Analog Archive"
+    MacOS/
+      AnalogArchive            # shell script that launches node index.js as a child process
+```
+
+`Contents/MacOS/AnalogArchive`:
+```bash
+#!/bin/bash
+trap 'kill "$node_pid" 2>/dev/null; wait "$node_pid"' TERM INT
+
+/usr/local/opt/node/bin/node "/path/to/analogarchivejs/index.js" &
+node_pid=$!
+wait "$node_pid"
+```
+Update the `node` path (check yours with `which node`) and the path to `index.js`.
+
+Note it launches `node` as a background child (`&` + `wait`) rather than `exec`-ing it. `exec` would replace the wrapper's process image with node's own — and since plain `node` is unsigned, launchd/Login Items would then attribute the running process back to "unidentified developer" anyway. Keeping `node` as a real child process means launchd tracks the signed wrapper as the long-running process, with node underneath it. The `trap` forwards launchd's stop signal to the node child so shutdown/restart behaves correctly.
+
+Update `Contents/Info.plist`'s `CFBundleIdentifier` to your own reverse-DNS-style ID (e.g. `llc.yourcompany.yourapp`) and `CFBundleName`/`CFBundleDisplayName` to your product name.
+
+This requires a **Developer ID Application** certificate from your Apple Developer account (Xcode > Settings > Accounts > Manage Certificates > `+` > "Developer ID Application" — different from the free "Apple Development" certificate used for Xcode debug builds). Then sign the bundle:
+
+```bash
+codesign --force --deep --options runtime --timestamp \
+  --sign "Developer ID Application: YOUR NAME (TEAMID)" \
+  AnalogArchive.app
+```
+
+Verify with:
+```bash
+codesign --verify --verbose=4 AnalogArchive.app
+```
+
+Re-run the `codesign` command any time you edit the launcher script or `Info.plist`.
+
+### 2. Create the LaunchAgent plist
+
+Create a plist file at `~/Library/LaunchAgents/com.jaemzware.analogarchivejs.plist`:
    ```xml
    <?xml version="1.0" encoding="UTF-8"?>
    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -193,8 +239,7 @@ To have the server automatically start whenever your Mac boots/logs in, use a `l
 
        <key>ProgramArguments</key>
        <array>
-           <string>/usr/local/opt/node/bin/node</string>
-           <string>index.js</string>
+           <string>/path/to/analogarchivejs/AnalogArchive.app/Contents/MacOS/AnalogArchive</string>
        </array>
 
        <key>WorkingDirectory</key>
@@ -214,24 +259,24 @@ To have the server automatically start whenever your Mac boots/logs in, use a `l
    </dict>
    </plist>
    ```
-   Update the `node` path (check yours with `which node`), `WorkingDirectory`, and log paths to match your setup. A copy of this file is also kept at the repo root (`com.jaemzware.analogarchivejs.plist`) as a reference.
+   Update the `WorkingDirectory`, log paths, and the path to `AnalogArchive.app` to match your setup. A copy of this file is also kept at the repo root (`com.jaemzware.analogarchivejs.plist`) as a reference.
 
-2. **Load the agent**
+3. **Load the agent**
    ```bash
    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jaemzware.analogarchivejs.plist
    ```
 
-3. **Check status**
+4. **Check status**
    ```bash
    launchctl list | grep analogarchivejs
    ```
 
-4. **View logs**
+5. **View logs**
    ```bash
    tail -f output.log error.log
    ```
 
-5. **Stop / unload the agent**
+6. **Stop / unload the agent**
    ```bash
    launchctl bootout gui/$(id -u)/com.jaemzware.analogarchivejs
    ```
@@ -240,6 +285,7 @@ To have the server automatically start whenever your Mac boots/logs in, use a `l
 - `RunAtLoad` starts the server at every login; `KeepAlive` automatically restarts it if it crashes.
 - The server reads `PORT` and other settings from `.env` in the working directory, same as running it manually.
 - Make sure nothing else is already bound to the configured port (`lsof -i :55557`) before loading the agent, or it may fail to start.
+- If you don't have a paid Apple Developer account (needed for a Developer ID Application certificate), you can skip the signing step and point the LaunchAgent's `ProgramArguments` directly at `node index.js` as before — the server works identically, it'll just show up as an unidentified "node" item in Login Items.
 
 ## 🔍 Endpoints
 
