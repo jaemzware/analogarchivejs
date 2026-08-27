@@ -1,0 +1,276 @@
+Error getting local metadata: Error: ENOENT: no such file or directory, open 'music/Twin Peaks_ Season 2 Music & More/twinpeaks-seasontwomusicandmore-sidea.mp3'
+    at async open (node:internal/fs/promises:640:25)
+    at async fromFile (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/strtok3/lib/FileTokenizer.js:10:28)
+    at async parseFile (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/music-metadata/lib/index.js:34:27)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:568:26 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'music/Twin Peaks_ Season 2 Music & More/twinpeaks-seasontwomusicandmore-sidea.mp3'
+}
+Error getting local metadata: Error: ENOENT: no such file or directory, open 'music/Twin Peaks_ Season 2 Music & More/twinpeaks-seasontwomusicandmore-sidea.mp3'
+    at async open (node:internal/fs/promises:640:25)
+    at async fromFile (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/strtok3/lib/FileTokenizer.js:10:28)
+    at async parseFile (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/music-metadata/lib/index.js:34:27)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:568:26 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'music/Twin Peaks_ Season 2 Music & More/twinpeaks-seasontwomusicandmore-sidea.mp3'
+}
+=== B2 Proxy Request Error ===
+Error type: AxiosError
+Error message: Request failed with status code 503
+Error status: 503
+Error response: {
+  code: 'service_unavailable',
+  message: 'listBucketInfo failed for accountId: ae90075e2c85',
+  status: 503
+}
+Full error stack: AxiosError: Request failed with status code 503
+    at settle (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/axios/dist/node/axios.cjs:2354:12)
+    at IncomingMessage.handleStreamEnd (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/axios/dist/node/axios.cjs:4407:11)
+    at IncomingMessage.emit (node:events:519:35)
+    at endReadableNT (node:internal/streams/readable:1701:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+    at Axios.request (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/axios/dist/node/axios.cjs:5864:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:800:24
+=== B2 Proxy Request Error End ===
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: bad seek to 811868
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022.HEIC: bad seek to 1715876
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: bad seek to 811843
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022.HEIC: bad seek to 1715849
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: bad seek to 811839
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: bad seek to 811837
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022.HEIC: bad seek to 1715845
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003)
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: bad seek to 811868
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022.HEIC: bad seek to 1715876
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: bad seek to 811843
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022.HEIC: bad seek to 1715849
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: bad seek to 811839
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0033.heic: bad seek to 811837
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022.HEIC: bad seek to 1715845
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003)
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0032.heic: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0032.heic: bad seek to 325634
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0032.heic: bad seek to 325614
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0032.heic: bad seek to 325604
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0032.heic: bad seek to 325603
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/CUUP7110.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/CUUP7110.HEIC: bad seek to 1040943
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/CUUP7110.HEIC: bad seek to 1040927
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/CUUP7110.HEIC: bad seek to 1040919
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/CUUP7110.HEIC: bad seek to 1040915
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/CUUP7110.HEIC: bad seek to 1040913
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/CUUP7110.HEIC: bad seek to 1040912
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/BFEJ7643.JPEG: unsupported image format (heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Error generating thumbnail: Error: Warning treated as error due to failOn setting
+error in tile 0 x 0
+error in tile 0 x 1
+error in tile 0 x 2
+error in tile 0 x 3
+error in tile 0 x 4
+error in tile 0 x 5
+error in tile 0 x 6
+error in tile 0 x 7
+error in tile 0 x 8
+error in tile 0 x 9
+error in tile 0 x 10
+error in tile 0 x 11
+error in tile 0 x 12
+error in tile 0 x 13
+error in tile 0 x 14
+error in tile 0 x 15
+error in tile 0 x 0
+error in tile 0 x 10
+error in tile 0 x 20
+error in tile 0 x 30
+error in tile 0 x 0
+error in tile 0 x 10
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/ILYB2272.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/ILYB2272.HEIC: bad seek to 526334
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/ILYB2272.HEIC: bad seek to 526317
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/ILYB2272.HEIC: bad seek to 526309
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/ILYB2272.HEIC: bad seek to 526305
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/ILYB2272.HEIC: bad seek to 526303
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022 1.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022 1.HEIC: bad seek to 1715876
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022 1.HEIC: bad seek to 1715849
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022 1.HEIC: bad seek to 1715845
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022 copy.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022 copy.HEIC: bad seek to 1715876
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022 copy.HEIC: bad seek to 1715849
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0022 copy.HEIC: bad seek to 1715845
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/FJZR6834.HEIC: bad seek to 1306887
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/FJZR6834.HEIC: bad seek to 1306867
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/FJZR6834.HEIC: bad seek to 1306857
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/FJZR6834.HEIC: bad seek to 1306856
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Error generating thumbnail: Error: Warning treated as error due to failOn setting
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0027.heic: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0027.heic: bad seek to 254774
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0027.heic: bad seek to 254743
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0023.heic: bad seek to 265023
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0023.heic: bad seek to 265006
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0023.heic: bad seek to 264998
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0023.heic: bad seek to 264994
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0023.heic: bad seek to 264992
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0023.heic: unsupported image format (heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0034.heic: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0034.heic: bad seek to 430349
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0034.heic: bad seek to 430322
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/imag0034.heic: bad seek to 430318
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0027.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0027.HEIC: bad seek to 1624528
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0027.HEIC: bad seek to 1624503
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0027.HEIC: bad seek to 1624499
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0027.HEIC: bad seek to 1624497
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0710.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0710.HEIC: bad seek to 1365176
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0710.HEIC: bad seek to 1365155
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0710.HEIC: bad seek to 1365149
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0710.HEIC: bad seek to 1365146
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0710.HEIC: bad seek to 1365145
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0715.HEIC: bad seek to 2458513
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0715.HEIC: bad seek to 2458494
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0715.HEIC: bad seek to 2458484
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0715.HEIC: bad seek to 2458482
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0716.HEIC: bad seek to 2279919
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0716.HEIC: bad seek to 2279901
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0716.HEIC: bad seek to 2279892
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0716.HEIC: bad seek to 2279888
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0716.HEIC: unsupported image format (heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0715.HEIC: unsupported image format (heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0719.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0719.HEIC: bad seek to 1853435
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0719.HEIC: bad seek to 1853406
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0719.HEIC: bad seek to 1853404
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0722.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0721.HEIC: bad seek to 2183295
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0721.HEIC: bad seek to 2183278
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0721.HEIC: bad seek to 2183269
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0721.HEIC: bad seek to 2183265
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0721.HEIC: bad seek to 2183264
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0722.HEIC: bad seek to 2397032
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0722.HEIC: bad seek to 2397013
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0722.HEIC: bad seek to 2397004
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0722.HEIC: bad seek to 2397001
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0723.HEIC: bad seek to 2584804
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0723.HEIC: bad seek to 2584784
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0723.HEIC: bad seek to 2584774
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0723.HEIC: bad seek to 2584773
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0727.HEIC: bad seek to 1820401
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0727.HEIC: bad seek to 1820373
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0727.HEIC: bad seek to 1820371
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0727.HEIC: bad seek to 1820370
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003)
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003)
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003)
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Error generating thumbnail: Error: Warning treated as error due to failOn setting
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Warning treated as error due to failOn setting
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Warning treated as error due to failOn setting
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0729.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0729.HEIC: bad seek to 1691617
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0729.HEIC: bad seek to 1691591
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0729.HEIC: bad seek to 1691587
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0729.HEIC: bad seek to 1691586
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0731.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0731.HEIC: bad seek to 2880298
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0731.HEIC: bad seek to 2880276
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0731.HEIC: bad seek to 2880270
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0731.HEIC: bad seek to 2880267
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0733.HEIC: bad seek to 2391575
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0733.HEIC: bad seek to 2391556
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0733.HEIC: bad seek to 2391547
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_0733.HEIC: bad seek to 2391544
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003)
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Error generating thumbnail: Error: Warning treated as error due to failOn setting
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1118 copy.HEIC: unsupported image format (heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1118.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1118.HEIC: bad seek to 2163602
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1118.HEIC: bad seek to 2163585
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1118.HEIC: bad seek to 2163577
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1118.HEIC: bad seek to 2163573
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1118.HEIC: bad seek to 2163571
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1426.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1426.HEIC: bad seek to 3238485
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1426.HEIC: bad seek to 3238460
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1426.HEIC: bad seek to 3238456
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1426.HEIC: bad seek to 3238454
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Skipping thumbnail for /Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1458.HEIC: unsupported image format (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1458.HEIC: bad seek to 1816523
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1458.HEIC: bad seek to 1816495
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1458.HEIC: bad seek to 1816493
+/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/music/IMG_1458.HEIC: bad seek to 1816492
+heif: Error while loading plugin: Support for this compression format has not been built in (11.6003))
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Error generating thumbnail: Error: Input file contains unsupported image format
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
