@@ -2118,37 +2118,65 @@ app.get('/', async (req,res) =>{
 
     // Safari probes <video preload="metadata"> eagerly for .mov/QuickTime sources,
     // firing large Range requests for every video on the page at once and stalling
-    // the rest of the page. Keep sources unset until a video nears the viewport.
+    // the rest of the page. The B2 proxy also streams each video in full (no Range
+    // passthrough), so even "metadata" preload pulls the whole multi-hundred-MB file -
+    // a folder with several videos visible at once (all within IntersectionObserver
+    // range on load) was queuing many full-file downloads concurrently and saturating
+    // B2's API, which then started 503'ing. Cap it to a couple of videos loading at once.
     function initLazyVideos() {
         const videos = document.querySelectorAll('video[data-lazy-video]');
         if (videos.length === 0) return;
 
-        function hydrate(video) {
-            if (video.dataset.lazyLoaded) return;
-            video.dataset.lazyLoaded = 'true';
+        const MAX_CONCURRENT_LOADS = 2;
+        let activeLoads = 0;
+        const pending = [];
+
+        function runNext() {
+            if (activeLoads >= MAX_CONCURRENT_LOADS || pending.length === 0) return;
+            const video = pending.shift();
+            activeLoads++;
+
+            const finish = () => {
+                video.removeEventListener('loadedmetadata', finish);
+                video.removeEventListener('error', finish);
+                activeLoads--;
+                runNext();
+            };
+            video.addEventListener('loadedmetadata', finish, { once: true });
+            video.addEventListener('error', finish, { once: true });
+
             const source = video.querySelector('source[data-src]');
             if (source) {
                 source.src = source.dataset.src;
                 video.preload = 'metadata';
                 video.load();
+            } else {
+                finish();
             }
+        }
+
+        function enqueue(video) {
+            if (video.dataset.lazyLoaded) return;
+            video.dataset.lazyLoaded = 'true';
+            pending.push(video);
+            runNext();
         }
 
         if ('IntersectionObserver' in window) {
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                        hydrate(entry.target);
+                        enqueue(entry.target);
                         observer.unobserve(entry.target);
                     }
                 });
-            }, { rootMargin: '200px' });
+            }, { rootMargin: '0px' });
 
             videos.forEach(video => observer.observe(video));
         } else {
             // No IntersectionObserver support: hydrate on demand when played
             videos.forEach(video => {
-                video.addEventListener('play', () => hydrate(video), { once: true });
+                video.addEventListener('play', () => enqueue(video), { once: true });
             });
         }
     }
@@ -2940,37 +2968,65 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     // Initialize search functionality for B2 pages
     // Safari probes <video preload="metadata"> eagerly for .mov/QuickTime sources,
     // firing large Range requests for every video on the page at once and stalling
-    // the rest of the page. Keep sources unset until a video nears the viewport.
+    // the rest of the page. The B2 proxy also streams each video in full (no Range
+    // passthrough), so even "metadata" preload pulls the whole multi-hundred-MB file -
+    // a folder with several videos visible at once (all within IntersectionObserver
+    // range on load) was queuing many full-file downloads concurrently and saturating
+    // B2's API, which then started 503'ing. Cap it to a couple of videos loading at once.
     function initLazyVideos() {
         const videos = document.querySelectorAll('video[data-lazy-video]');
         if (videos.length === 0) return;
 
-        function hydrate(video) {
-            if (video.dataset.lazyLoaded) return;
-            video.dataset.lazyLoaded = 'true';
+        const MAX_CONCURRENT_LOADS = 2;
+        let activeLoads = 0;
+        const pending = [];
+
+        function runNext() {
+            if (activeLoads >= MAX_CONCURRENT_LOADS || pending.length === 0) return;
+            const video = pending.shift();
+            activeLoads++;
+
+            const finish = () => {
+                video.removeEventListener('loadedmetadata', finish);
+                video.removeEventListener('error', finish);
+                activeLoads--;
+                runNext();
+            };
+            video.addEventListener('loadedmetadata', finish, { once: true });
+            video.addEventListener('error', finish, { once: true });
+
             const source = video.querySelector('source[data-src]');
             if (source) {
                 source.src = source.dataset.src;
                 video.preload = 'metadata';
                 video.load();
+            } else {
+                finish();
             }
+        }
+
+        function enqueue(video) {
+            if (video.dataset.lazyLoaded) return;
+            video.dataset.lazyLoaded = 'true';
+            pending.push(video);
+            runNext();
         }
 
         if ('IntersectionObserver' in window) {
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                        hydrate(entry.target);
+                        enqueue(entry.target);
                         observer.unobserve(entry.target);
                     }
                 });
-            }, { rootMargin: '200px' });
+            }, { rootMargin: '0px' });
 
             videos.forEach(video => observer.observe(video));
         } else {
             // No IntersectionObserver support: hydrate on demand when played
             videos.forEach(video => {
-                video.addEventListener('play', () => hydrate(video), { once: true });
+                video.addEventListener('play', () => enqueue(video), { once: true });
             });
         }
     }
