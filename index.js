@@ -2097,6 +2097,17 @@ app.get('/', async (req,res) =>{
         return result.trim();
     }
 
+    // Fetch with a timeout so a hung request can't stall the sequential metadata loop forever
+    async function fetchWithTimeout(url, ms = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        try {
+            return await fetch(url, { signal: controller.signal });
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
     function initLocalPage() {
         audioHandler.initializePage();
 
@@ -2131,7 +2142,7 @@ app.get('/', async (req,res) =>{
             if (!metadataUrl) continue;
 
             try {
-                const response = await fetch(metadataUrl);
+                const response = await fetchWithTimeout(metadataUrl);
                 const metadata = await response.json();
 
                 // Match the format used by audio-handler's updateLinkDisplay
@@ -2187,7 +2198,7 @@ app.get('/', async (req,res) =>{
                     url = '/api/song-metadata?path=' + encodeURIComponent(path);
                 }
 
-                const response = await fetch(url);
+                const response = await fetchWithTimeout(url);
                 const data = await response.json();
 
                 // Update the item with metadata
@@ -2868,6 +2879,17 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         return result.trim();
     }
 
+    // Fetch with a timeout so a hung request can't stall the sequential metadata loop forever
+    async function fetchWithTimeout(url, ms = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        try {
+            return await fetch(url, { signal: controller.signal });
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
     // Initialize search functionality for B2 pages
     function initB2Page() {
         audioHandler.initializePage();
@@ -2900,7 +2922,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             if (!metadataUrl) continue;
 
             try {
-                const response = await fetch(metadataUrl);
+                const response = await fetchWithTimeout(metadataUrl);
                 const metadata = await response.json();
 
                 // Match the format used by audio-handler's updateLinkDisplay
@@ -2959,7 +2981,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     url = '/api/song-metadata?path=' + encodeURIComponent(path);
                 }
 
-                const response = await fetch(url);
+                const response = await fetchWithTimeout(url);
                 const data = await response.json();
 
                 // Update the item with metadata
