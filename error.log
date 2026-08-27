@@ -274,3 +274,4 @@ Error generating thumbnail: Error: Input file contains unsupported image format
     at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:173:14)
     at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
     at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
+Media directory "./music" not found. Please create it or add a symlink.

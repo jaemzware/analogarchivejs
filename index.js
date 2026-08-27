@@ -1976,8 +1976,8 @@ app.get('/', async (req,res) =>{
 
                 chunk += `
                 <div class="video-item" data-media-type="video" data-original-url="${videoUrl}">
-                    <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
-                        <source src="${videoUrl}" type="${videoMimeType}">
+                    <video controls preload="none" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)" data-lazy-video>
+                        <source data-src="${videoUrl}" type="${videoMimeType}">
                         Your browser does not support the video tag.
                     </video>
                     <div class="video-filename">${fileInfo.fileName}</div>
@@ -2108,6 +2108,43 @@ app.get('/', async (req,res) =>{
         }
     }
 
+    // Safari probes <video preload="metadata"> eagerly for .mov/QuickTime sources,
+    // firing large Range requests for every video on the page at once and stalling
+    // the rest of the page. Keep sources unset until a video nears the viewport.
+    function initLazyVideos() {
+        const videos = document.querySelectorAll('video[data-lazy-video]');
+        if (videos.length === 0) return;
+
+        function hydrate(video) {
+            if (video.dataset.lazyLoaded) return;
+            video.dataset.lazyLoaded = 'true';
+            const source = video.querySelector('source[data-src]');
+            if (source) {
+                source.src = source.dataset.src;
+                video.preload = 'metadata';
+                video.load();
+            }
+        }
+
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        hydrate(entry.target);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { rootMargin: '200px' });
+
+            videos.forEach(video => observer.observe(video));
+        } else {
+            // No IntersectionObserver support: hydrate on demand when played
+            videos.forEach(video => {
+                video.addEventListener('play', () => hydrate(video), { once: true });
+            });
+        }
+    }
+
     function initLocalPage() {
         audioHandler.initializePage();
 
@@ -2126,6 +2163,9 @@ app.get('/', async (req,res) =>{
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
+
+        // Defer video metadata probing until videos are near the viewport
+        initLazyVideos();
     }
 
     // Initialize immediately - script is at end of HTML after all song rows
@@ -2776,8 +2816,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                     res.write(`
                     <div class="video-item" data-media-type="video" data-original-url="${proxyUrl}">
-                        <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
-                            <source src="${proxyUrl}" type="${videoMimeType}">
+                        <video controls preload="none" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)" data-lazy-video>
+                            <source data-src="${proxyUrl}" type="${videoMimeType}">
                             Your browser does not support the video tag.
                         </video>
                         <div class="video-filename">${file.fileName}</div>
@@ -2891,6 +2931,43 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     }
 
     // Initialize search functionality for B2 pages
+    // Safari probes <video preload="metadata"> eagerly for .mov/QuickTime sources,
+    // firing large Range requests for every video on the page at once and stalling
+    // the rest of the page. Keep sources unset until a video nears the viewport.
+    function initLazyVideos() {
+        const videos = document.querySelectorAll('video[data-lazy-video]');
+        if (videos.length === 0) return;
+
+        function hydrate(video) {
+            if (video.dataset.lazyLoaded) return;
+            video.dataset.lazyLoaded = 'true';
+            const source = video.querySelector('source[data-src]');
+            if (source) {
+                source.src = source.dataset.src;
+                video.preload = 'metadata';
+                video.load();
+            }
+        }
+
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        hydrate(entry.target);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { rootMargin: '200px' });
+
+            videos.forEach(video => observer.observe(video));
+        } else {
+            // No IntersectionObserver support: hydrate on demand when played
+            videos.forEach(video => {
+                video.addEventListener('play', () => hydrate(video), { once: true });
+            });
+        }
+    }
+
     function initB2Page() {
         audioHandler.initializePage();
 
@@ -2909,6 +2986,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
+
+        // Defer video metadata probing until videos are near the viewport
+        initLazyVideos();
     }
 
     // Load metadata for B2 songs in subdirectories
