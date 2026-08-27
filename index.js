@@ -2,13 +2,13 @@
 //openssl req -nodes -new -x509 -keyout server.key -out server.cert
 import 'dotenv/config';
 import { parseFile, parseBuffer } from 'music-metadata';
-import {createServer} from 'https';
+import {createServer, request as httpsRequest} from 'https';
 import {promises, readFileSync} from 'fs';
-import {join, extname} from 'path';
+import {join, extname, dirname, resolve, sep} from 'path';
 import * as url from 'url';
 import express from 'express';
 import B2 from 'backblaze-b2';
-import {tmpdir} from 'os';
+import {tmpdir, homedir} from 'os';
 import sharp from 'sharp';
 
 const app = express();
@@ -102,6 +102,17 @@ let connectivityCache = {
     result: null,
     timestamp: 0
 };
+
+// Cache the bucketId lookup - it never changes for a given bucketName, and
+// calling b2.getBucket() on every proxy/metadata request was hammering B2's
+// listBucketInfo API and triggering 503 service_unavailable under load.
+let cachedBucketId = null;
+async function getCachedBucketId() {
+    if (cachedBucketId) return cachedBucketId;
+    const bucket = await b2.getBucket({ bucketName });
+    cachedBucketId = bucket.data.buckets[0].bucketId;
+    return cachedBucketId;
+}
 const CONNECTIVITY_CACHE_MS = 5 * 60 * 1000; // 5 minutes
 
 // Helper to check if we have internet/B2 connectivity
@@ -173,7 +184,11 @@ async function generateThumbnail(imagePath, thumbPath) {
             .toFile(thumbPath);
         return true;
     } catch (err) {
-        console.error('Error generating thumbnail:', err);
+        if (err.message && err.message.includes('has not been built in')) {
+            console.warn(`Skipping thumbnail for ${imagePath}: unsupported image format (${err.message})`);
+        } else {
+            console.error('Error generating thumbnail:', err);
+        }
         return false;
     }
 }
@@ -221,8 +236,7 @@ async function getB2Thumbnail(folderName, relativePath) {
         try {
             // Download image from B2 to temporary file
             await b2.authorize();
-            const bucket = await b2.getBucket({ bucketName });
-            const bucketId = bucket.data.buckets[0].bucketId;
+            const bucketId = await getCachedBucketId();
 
             const b2FilePath = `${folderName}/${relativePath}`;
             const downloadResponse = await b2.downloadFileByName({
@@ -793,8 +807,7 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
         console.log(`Full path: ${fullPath}`);
 
         // First, get file info to know the content length
-        const bucket = await b2.getBucket({ bucketName });
-        const bucketId = bucket.data.buckets[0].bucketId;
+        const bucketId = await getCachedBucketId();
 
         const fileInfo = await b2.listFileNames({
             bucketId: bucketId,
@@ -856,57 +869,80 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
             contentType = 'application/octet-stream';
         }
         res.set('Content-Type', contentType);
-        res.set('Content-Length', fileSize);
         res.set('Accept-Ranges', 'bytes');
         res.set('Cache-Control', 'public, max-age=3600');
         res.set('Access-Control-Allow-Origin', '*');
 
-        // Stream the file from B2 instead of loading into memory
-        console.log('Starting B2 download stream...');
-        const fileData = await b2.downloadFileByName({
-            bucketName: bucketName,
-            fileName: fullPath,
-            responseType: 'stream'  // Stream to avoid loading entire file in memory
-        });
+        // Stream the file from B2, forwarding the client's Range header so Safari's
+        // metadata/seek probes only pull the bytes they ask for instead of the whole
+        // file. The backblaze-b2 wrapper's downloadFileByName() rejects any response
+        // that isn't a literal 200 (see its getProcessFileSuccess), which would reject
+        // B2's valid 206 Partial Content - so this hits B2's download URL directly.
+        const encodedFullPath = fullPath.split('/').map(encodeURIComponent).join('/');
+        const downloadUrl = new URL(`${b2.downloadUrl}/file/${bucketName}/${encodedFullPath}`);
+        const upstreamHeaders = { Authorization: b2.authorizationToken };
+        if (req.headers.range) {
+            upstreamHeaders.Range = req.headers.range;
+        }
 
-        console.log(`Download stream initiated`);
+        console.log('Starting B2 download stream...', req.headers.range ? `(Range: ${req.headers.range})` : '(full file)');
 
-        // Pipe the stream directly to the response
-        if (fileData.data) {
-            // CRITICAL: Clean up B2 stream if client disconnects
+        const upstreamReq = httpsRequest(downloadUrl, { headers: upstreamHeaders }, (upstreamRes) => {
+            if (upstreamRes.statusCode >= 400) {
+                console.error(`B2 download responded with status ${upstreamRes.statusCode}`);
+                if (!res.headersSent) {
+                    res.status(upstreamRes.statusCode === 404 ? 404 : 502).end();
+                }
+                upstreamRes.resume();
+                return;
+            }
+
+            res.status(upstreamRes.statusCode); // 200 or 206
+            if (upstreamRes.headers['content-length']) {
+                res.set('Content-Length', upstreamRes.headers['content-length']);
+            }
+            if (upstreamRes.headers['content-range']) {
+                res.set('Content-Range', upstreamRes.headers['content-range']);
+            }
+
             let streamClosed = false;
             const cleanup = () => {
                 if (streamClosed) return;
                 streamClosed = true;
-                if (fileData.data && !fileData.data.destroyed) {
-                    fileData.data.destroy();
+                if (!upstreamRes.destroyed) {
+                    upstreamRes.destroy();
                     console.log('Cleaned up B2 stream - client disconnected');
                 }
             };
-
-            // Listen for client disconnect (covers: tab close, seek, network drop)
             req.on('close', cleanup);
             req.on('aborted', cleanup);
             res.on('close', cleanup);
 
-            fileData.data.pipe(res);
+            upstreamRes.pipe(res);
 
-            fileData.data.on('end', () => {
+            upstreamRes.on('end', () => {
                 streamClosed = true;
                 console.log('=== B2 Proxy Request Success ===');
             });
 
-            fileData.data.on('error', (streamErr) => {
+            upstreamRes.on('error', (streamErr) => {
                 console.error('Stream error:', streamErr);
                 cleanup();
                 if (!res.headersSent) {
                     res.status(500).end();
                 }
             });
-        } else {
-            console.error('No file data stream in response');
-            res.status(404).send('File data not found');
-        }
+        });
+
+        upstreamReq.on('error', (reqErr) => {
+            console.error('Upstream request error:', reqErr);
+            if (!res.headersSent) {
+                res.status(502).end();
+            }
+        });
+
+        req.on('close', () => upstreamReq.destroy());
+        upstreamReq.end();
     } catch (err) {
         console.error('=== B2 Proxy Request Error ===');
         console.error('Error type:', err.constructor.name);
@@ -1013,6 +1049,102 @@ app.get('/rescan', async (req, res) => {
             message: err.message
         });
     }
+});
+
+// Path to the music symlink/directory itself (not its resolved target)
+const musicLinkPath = directoryPathMusic.startsWith('./')
+    ? join(__dirname, directoryPathMusic.substring(2))
+    : directoryPathMusic;
+
+// Returns the real folder the music symlink currently points at, or null if
+// "music" is a plain directory (not a symlink) or doesn't exist yet.
+async function getCurrentMusicTarget() {
+    try {
+        const stat = await promises.lstat(musicLinkPath);
+        if (stat.isSymbolicLink()) {
+            return await promises.realpath(musicLinkPath);
+        }
+        return resolve(musicLinkPath);
+    } catch (err) {
+        return null;
+    }
+}
+
+// API endpoint: list subdirectories of a given path, for the settings folder browser
+app.get('/api/browse-directories', async (req, res) => {
+    try {
+        const requestedPath = req.query.path;
+        const targetPath = requestedPath ? resolve(requestedPath) : homedir();
+
+        const entries = await promises.readdir(targetPath, { withFileTypes: true });
+        const directories = entries
+            .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
+            .map(entry => entry.name)
+            .sort((a, b) => a.localeCompare(b));
+
+        const parentPath = dirname(targetPath);
+
+        res.json({
+            currentPath: targetPath,
+            parentPath: parentPath === targetPath ? null : parentPath,
+            directories
+        });
+    } catch (err) {
+        res.status(400).json({ error: 'Unable to read directory', message: err.message });
+    }
+});
+
+// API endpoint: point the music symlink at a new folder and rescan
+app.post('/api/set-music-directory', express.json(), async (req, res) => {
+    try {
+        const chosenPath = req.body && req.body.path;
+        if (!chosenPath) {
+            return res.status(400).json({ error: 'Missing path in request body' });
+        }
+
+        const resolvedTarget = resolve(chosenPath);
+        const stat = await promises.stat(resolvedTarget).catch(() => null);
+        if (!stat || !stat.isDirectory()) {
+            return res.status(400).json({ error: 'Path does not exist or is not a directory' });
+        }
+
+        // Remove the existing music symlink/directory entry, if any, then relink
+        const existing = await promises.lstat(musicLinkPath).catch(() => null);
+        if (existing) {
+            if (existing.isSymbolicLink() || existing.isFile()) {
+                await promises.unlink(musicLinkPath);
+            } else {
+                return res.status(409).json({
+                    error: 'A real "music" directory already exists on disk. Remove or rename it before picking a new folder.'
+                });
+            }
+        }
+
+        await promises.symlink(resolvedTarget, musicLinkPath, 'dir');
+        await scanMusicFiles();
+
+        res.json({
+            success: true,
+            musicDirectory: resolvedTarget,
+            fileCount: musicFilesCache ? musicFilesCache.length : 0,
+            imageCount: imageFilesCache ? imageFilesCache.length : 0,
+            videoCount: videoFilesCache ? videoFilesCache.length : 0
+        });
+    } catch (err) {
+        console.error('Failed to set music directory:', err);
+        res.status(500).json({ error: 'Failed to set music directory', message: err.message });
+    }
+});
+
+// API endpoint: report the folder the music symlink currently resolves to
+app.get('/api/current-music-directory', async (req, res) => {
+    const target = await getCurrentMusicTarget();
+    res.json({
+        musicDirectory: target,
+        fileCount: musicFilesCache ? musicFilesCache.length : 0,
+        imageCount: imageFilesCache ? imageFilesCache.length : 0,
+        videoCount: videoFilesCache ? videoFilesCache.length : 0
+    });
 });
 
 // API endpoint for single local song metadata (for incremental loading)
@@ -1268,8 +1400,7 @@ app.get('/api/all-b2-files/:folder', async (req, res) => {
         } else {
             console.log(`✗ Cache miss for API folder listing: ${folderName}`);
 
-            const bucket = await b2.getBucket({ bucketName });
-            const bucketId = bucket.data.buckets[0].bucketId;
+            const bucketId = await getCachedBucketId();
 
             const response = await b2.listFileNames({
                 bucketId: bucketId,
@@ -1714,9 +1845,7 @@ app.get('/', async (req,res) =>{
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
     <div class="top-nav-right">
-        <a href="https://stuffedanimalwar.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Stuffed Animal War</a>
-        <a href="https://marginalwayskateparkfoundation.org" class="nav-external-link" target="_blank" rel="noopener noreferrer">Marginal Way</a>
-        <a href="https://skatecreteordie.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Skate Crete or Die</a>
+        <a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>
     </div>
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
@@ -1878,8 +2007,8 @@ app.get('/', async (req,res) =>{
 
                 chunk += `
                 <div class="video-item" data-media-type="video" data-original-url="${videoUrl}">
-                    <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
-                        <source src="${videoUrl}" type="${videoMimeType}">
+                    <video controls preload="none" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)" data-lazy-video>
+                        <source data-src="${videoUrl}" type="${videoMimeType}">
                         Your browser does not support the video tag.
                     </video>
                     <div class="video-filename">${fileInfo.fileName}</div>
@@ -1999,6 +2128,82 @@ app.get('/', async (req,res) =>{
         return result.trim();
     }
 
+    // Fetch with a timeout so a hung request can't stall the sequential metadata loop forever
+    async function fetchWithTimeout(url, ms = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        try {
+            return await fetch(url, { signal: controller.signal });
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    // Safari probes <video preload="metadata"> eagerly for .mov/QuickTime sources,
+    // firing large Range requests for every video on the page at once and stalling
+    // the rest of the page. The B2 proxy also streams each video in full (no Range
+    // passthrough), so even "metadata" preload pulls the whole multi-hundred-MB file -
+    // a folder with several videos visible at once (all within IntersectionObserver
+    // range on load) was queuing many full-file downloads concurrently and saturating
+    // B2's API, which then started 503'ing. Cap it to a couple of videos loading at once.
+    function initLazyVideos() {
+        const videos = document.querySelectorAll('video[data-lazy-video]');
+        if (videos.length === 0) return;
+
+        const MAX_CONCURRENT_LOADS = 2;
+        let activeLoads = 0;
+        const pending = [];
+
+        function runNext() {
+            if (activeLoads >= MAX_CONCURRENT_LOADS || pending.length === 0) return;
+            const video = pending.shift();
+            activeLoads++;
+
+            const finish = () => {
+                video.removeEventListener('loadedmetadata', finish);
+                video.removeEventListener('error', finish);
+                activeLoads--;
+                runNext();
+            };
+            video.addEventListener('loadedmetadata', finish, { once: true });
+            video.addEventListener('error', finish, { once: true });
+
+            const source = video.querySelector('source[data-src]');
+            if (source) {
+                source.src = source.dataset.src;
+                video.preload = 'metadata';
+                video.load();
+            } else {
+                finish();
+            }
+        }
+
+        function enqueue(video) {
+            if (video.dataset.lazyLoaded) return;
+            video.dataset.lazyLoaded = 'true';
+            pending.push(video);
+            runNext();
+        }
+
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        enqueue(entry.target);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { rootMargin: '0px' });
+
+            videos.forEach(video => observer.observe(video));
+        } else {
+            // No IntersectionObserver support: hydrate on demand when played
+            videos.forEach(video => {
+                video.addEventListener('play', () => enqueue(video), { once: true });
+            });
+        }
+    }
+
     function initLocalPage() {
         audioHandler.initializePage();
 
@@ -2017,6 +2222,9 @@ app.get('/', async (req,res) =>{
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
+
+        // Defer video metadata probing until videos are near the viewport
+        initLazyVideos();
     }
 
     // Initialize immediately - script is at end of HTML after all song rows
@@ -2033,7 +2241,7 @@ app.get('/', async (req,res) =>{
             if (!metadataUrl) continue;
 
             try {
-                const response = await fetch(metadataUrl);
+                const response = await fetchWithTimeout(metadataUrl);
                 const metadata = await response.json();
 
                 // Match the format used by audio-handler's updateLinkDisplay
@@ -2089,7 +2297,7 @@ app.get('/', async (req,res) =>{
                     url = '/api/song-metadata?path=' + encodeURIComponent(path);
                 }
 
-                const response = await fetch(url);
+                const response = await fetchWithTimeout(url);
                 const data = await response.json();
 
                 // Update the item with metadata
@@ -2167,6 +2375,137 @@ app.get('/live', async (req, res) => {
 
 app.get('/digital', async (req, res) => {
     await handleB2FolderEndpoint('digital', req, res);
+});
+
+app.get('/settings', async (req, res) => {
+    const currentTarget = await getCurrentMusicTarget();
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>analogarchivejs - Settings</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<nav class="top-nav">
+    <div class="top-nav-left">
+        <a href="/" class="source-selector-button" style="text-decoration:none;">
+            <span class="source-selector-icon">&#x1F4BF;</span>
+            <span class="source-selector-text">analogarchivejs</span>
+        </a>
+    </div>
+    <div class="breadcrumb">Settings</div>
+    <div class="top-nav-right">
+        <a href="/" class="nav-external-link">&larr; Back to Library</a>
+    </div>
+</nav>
+<div class="container">
+    <div class="settings-page" style="max-width: 720px; margin: 2rem auto; padding: 0 1rem;">
+        <h1>Music Directory</h1>
+        <p id="currentDirLabel">Currently serving from: <code id="currentDirValue">${currentTarget || '(not set)'}</code></p>
+        <p id="mediaCounts">
+            <span id="audioCountValue">${musicFilesCache ? musicFilesCache.length : 0}</span> audio,
+            <span id="imageCountValue">${imageFilesCache ? imageFilesCache.length : 0}</span> images,
+            <span id="videoCountValue">${videoFilesCache ? videoFilesCache.length : 0}</span> videos
+        </p>
+
+        <div class="folder-browser">
+            <div class="folder-browser-toolbar" style="display:flex; gap:0.5rem; align-items:center; margin-bottom: 0.75rem;">
+                <button id="browseUpBtn" type="button">&uarr; Up</button>
+                <code id="browserPath" style="flex:1; overflow-x:auto; white-space:nowrap;"></code>
+            </div>
+            <ul id="browserList" style="list-style:none; padding:0; margin:0; max-height: 400px; overflow-y:auto; border:1px solid rgba(128,128,128,0.3); border-radius:6px;"></ul>
+        </div>
+
+        <div style="margin-top:1rem; display:flex; gap:0.75rem; align-items:center;">
+            <button id="useFolderBtn" type="button">Use This Folder</button>
+            <span id="settingsStatus"></span>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    const browserList = document.getElementById('browserList');
+    const browserPath = document.getElementById('browserPath');
+    const browseUpBtn = document.getElementById('browseUpBtn');
+    const useFolderBtn = document.getElementById('useFolderBtn');
+    const settingsStatus = document.getElementById('settingsStatus');
+    const currentDirValue = document.getElementById('currentDirValue');
+    const audioCountValue = document.getElementById('audioCountValue');
+    const imageCountValue = document.getElementById('imageCountValue');
+    const videoCountValue = document.getElementById('videoCountValue');
+
+    let currentPath = ${currentTarget ? JSON.stringify(currentTarget) : 'null'};
+    let parentPath = null;
+
+    async function loadDirectory(path) {
+        settingsStatus.textContent = '';
+        const url = path ? '/api/browse-directories?path=' + encodeURIComponent(path) : '/api/browse-directories';
+        const response = await fetch(url);
+        const data = await response.json();
+        if (!response.ok) {
+            settingsStatus.textContent = data.message || data.error || 'Failed to browse directory';
+            return;
+        }
+        currentPath = data.currentPath;
+        parentPath = data.parentPath;
+        browserPath.textContent = currentPath;
+        browseUpBtn.disabled = !parentPath;
+
+        browserList.innerHTML = '';
+        data.directories.forEach(name => {
+            const li = document.createElement('li');
+            li.textContent = '\\u{1F4C1} ' + name;
+            li.style.padding = '0.5rem 0.75rem';
+            li.style.cursor = 'pointer';
+            li.style.borderBottom = '1px solid rgba(128,128,128,0.15)';
+            li.addEventListener('click', () => {
+                const separator = currentPath.endsWith('/') ? '' : '/';
+                loadDirectory(currentPath + separator + name);
+            });
+            browserList.appendChild(li);
+        });
+
+        if (data.directories.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = '(no subfolders)';
+            li.style.padding = '0.5rem 0.75rem';
+            li.style.opacity = '0.6';
+            browserList.appendChild(li);
+        }
+    }
+
+    browseUpBtn.addEventListener('click', () => {
+        if (parentPath) loadDirectory(parentPath);
+    });
+
+    useFolderBtn.addEventListener('click', async () => {
+        if (!currentPath) return;
+        settingsStatus.textContent = 'Saving...';
+        const response = await fetch('/api/set-music-directory', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: currentPath })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            settingsStatus.textContent = data.message || data.error || 'Failed to set music directory';
+            return;
+        }
+        currentDirValue.textContent = data.musicDirectory;
+        audioCountValue.textContent = data.fileCount;
+        imageCountValue.textContent = data.imageCount;
+        videoCountValue.textContent = data.videoCount;
+        settingsStatus.textContent = 'Saved! Found ' + data.fileCount + ' audio, ' + data.imageCount + ' image, ' + data.videoCount + ' video file(s).';
+    });
+
+    loadDirectory(currentPath);
+})();
+</script>
+</body>
+</html>`);
 });
 
 // Shared function for B2 folder endpoints with enhanced search support and directory structure
@@ -2248,8 +2587,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         } else {
             console.log(`✗ Cache miss for folder listing: ${folderName}`);
 
-            const bucket = await b2.getBucket({ bucketName });
-            const bucketId = bucket.data.buckets[0].bucketId;
+            const bucketId = await getCachedBucketId();
             console.log(`Using bucket ID: ${bucketId}`);
 
             const response = await Promise.race([
@@ -2395,9 +2733,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
     <div class="top-nav-right">
-        <a href="https://stuffedanimalwar.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Stuffed Animal War</a>
-        <a href="https://marginalwayskateparkfoundation.org" class="nav-external-link" target="_blank" rel="noopener noreferrer">Marginal Way</a>
-        <a href="https://skatecreteordie.com" class="nav-external-link" target="_blank" rel="noopener noreferrer">Skate Crete or Die</a>
+        <a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>
     </div>
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
@@ -2538,8 +2874,8 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                     res.write(`
                     <div class="video-item" data-media-type="video" data-original-url="${proxyUrl}">
-                        <video controls preload="metadata" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)">
-                            <source src="${proxyUrl}" type="${videoMimeType}">
+                        <video controls preload="none" poster="${videoPoster}" crossorigin="anonymous" onerror="handleMediaError(this)" data-lazy-video>
+                            <source data-src="${proxyUrl}" type="${videoMimeType}">
                             Your browser does not support the video tag.
                         </video>
                         <div class="video-filename">${file.fileName}</div>
@@ -2641,7 +2977,83 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         return result.trim();
     }
 
+    // Fetch with a timeout so a hung request can't stall the sequential metadata loop forever
+    async function fetchWithTimeout(url, ms = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        try {
+            return await fetch(url, { signal: controller.signal });
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
     // Initialize search functionality for B2 pages
+    // Safari probes <video preload="metadata"> eagerly for .mov/QuickTime sources,
+    // firing large Range requests for every video on the page at once and stalling
+    // the rest of the page. The B2 proxy also streams each video in full (no Range
+    // passthrough), so even "metadata" preload pulls the whole multi-hundred-MB file -
+    // a folder with several videos visible at once (all within IntersectionObserver
+    // range on load) was queuing many full-file downloads concurrently and saturating
+    // B2's API, which then started 503'ing. Cap it to a couple of videos loading at once.
+    function initLazyVideos() {
+        const videos = document.querySelectorAll('video[data-lazy-video]');
+        if (videos.length === 0) return;
+
+        const MAX_CONCURRENT_LOADS = 2;
+        let activeLoads = 0;
+        const pending = [];
+
+        function runNext() {
+            if (activeLoads >= MAX_CONCURRENT_LOADS || pending.length === 0) return;
+            const video = pending.shift();
+            activeLoads++;
+
+            const finish = () => {
+                video.removeEventListener('loadedmetadata', finish);
+                video.removeEventListener('error', finish);
+                activeLoads--;
+                runNext();
+            };
+            video.addEventListener('loadedmetadata', finish, { once: true });
+            video.addEventListener('error', finish, { once: true });
+
+            const source = video.querySelector('source[data-src]');
+            if (source) {
+                source.src = source.dataset.src;
+                video.preload = 'metadata';
+                video.load();
+            } else {
+                finish();
+            }
+        }
+
+        function enqueue(video) {
+            if (video.dataset.lazyLoaded) return;
+            video.dataset.lazyLoaded = 'true';
+            pending.push(video);
+            runNext();
+        }
+
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        enqueue(entry.target);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { rootMargin: '0px' });
+
+            videos.forEach(video => observer.observe(video));
+        } else {
+            // No IntersectionObserver support: hydrate on demand when played
+            videos.forEach(video => {
+                video.addEventListener('play', () => enqueue(video), { once: true });
+            });
+        }
+    }
+
     function initB2Page() {
         audioHandler.initializePage();
 
@@ -2660,6 +3072,9 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
+
+        // Defer video metadata probing until videos are near the viewport
+        initLazyVideos();
     }
 
     // Load metadata for B2 songs in subdirectories
@@ -2673,7 +3088,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
             if (!metadataUrl) continue;
 
             try {
-                const response = await fetch(metadataUrl);
+                const response = await fetchWithTimeout(metadataUrl);
                 const metadata = await response.json();
 
                 // Match the format used by audio-handler's updateLinkDisplay
@@ -2732,7 +3147,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     url = '/api/song-metadata?path=' + encodeURIComponent(path);
                 }
 
-                const response = await fetch(url);
+                const response = await fetchWithTimeout(url);
                 const data = await response.json();
 
                 // Update the item with metadata

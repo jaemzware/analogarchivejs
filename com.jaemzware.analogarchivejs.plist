@@ -8,11 +8,11 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/jamesarasim/Downloads/installed/repositories/jaemzware/analogarchivejs/AnalogArchive.app/Contents/MacOS/AnalogArchive</string>
+        <string>/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/AnalogArchive.app/Contents/MacOS/AnalogArchive</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/jamesarasim/Downloads/installed/repositories/jaemzware/analogarchivejs</string>
+    <string>/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs</string>
 
     <key>RunAtLoad</key>
     <true/>
@@ -21,9 +21,9 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Users/jamesarasim/Downloads/installed/repositories/jaemzware/analogarchivejs/output.log</string>
+    <string>/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/output.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/jamesarasim/Downloads/installed/repositories/jaemzware/analogarchivejs/error.log</string>
+    <string>/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/error.log</string>
 </dict>
 </plist>

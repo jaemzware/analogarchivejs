@@ -29,6 +29,10 @@ A beautiful, self-hosted music streaming server that displays your MP3 or FLAC c
 
 *Perfect for always-on, low-power music streaming with virtually silent operation.*
 
+## 📁 Local Development Location
+
+On macOS, this repo lives at `~/dev/repositories/jaemzware/analogarchivejs` (moved out of `~/Downloads` to avoid TCC/Full Disk Access permission issues that were breaking the `com.jaemzware.analogarchivejs` launchd service on reboot).
+
 ## 🚀 Quick Start
 
 Choose either **Docker** (recommended for easy setup) or **Node.js** (for direct installation):

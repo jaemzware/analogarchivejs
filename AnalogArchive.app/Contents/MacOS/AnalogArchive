@@ -1,6 +1,6 @@
 #!/bin/bash
 trap 'kill "$node_pid" 2>/dev/null; wait "$node_pid"' TERM INT
 
-/usr/local/opt/node/bin/node "/Users/jamesarasim/Downloads/installed/repositories/jaemzware/analogarchivejs/index.js" &
+/usr/local/opt/node/bin/node "/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js" &
 node_pid=$!
 wait "$node_pid"
