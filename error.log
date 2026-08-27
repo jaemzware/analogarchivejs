@@ -275,3 +275,22 @@ Error generating thumbnail: Error: Input file contains unsupported image format
     at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:200:31)
     at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:476:25
 Media directory "./music" not found. Please create it or add a symlink.
+=== B2 Proxy Request Error ===
+Error type: AxiosError
+Error message: Request failed with status code 503
+Error status: 503
+Error response: {
+  code: 'service_unavailable',
+  message: 'listBucketInfo failed for accountId: ae90075e2c85',
+  status: 503
+}
+Full error stack: AxiosError: Request failed with status code 503
+    at settle (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/axios/dist/node/axios.cjs:2354:12)
+    at IncomingMessage.handleStreamEnd (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/axios/dist/node/axios.cjs:4407:11)
+    at IncomingMessage.emit (node:events:519:35)
+    at endReadableNT (node:internal/streams/readable:1701:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+    at Axios.request (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/axios/dist/node/axios.cjs:5864:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:800:24
+=== B2 Proxy Request Error End ===

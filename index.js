@@ -102,6 +102,17 @@ let connectivityCache = {
     result: null,
     timestamp: 0
 };
+
+// Cache the bucketId lookup - it never changes for a given bucketName, and
+// calling b2.getBucket() on every proxy/metadata request was hammering B2's
+// listBucketInfo API and triggering 503 service_unavailable under load.
+let cachedBucketId = null;
+async function getCachedBucketId() {
+    if (cachedBucketId) return cachedBucketId;
+    const bucket = await b2.getBucket({ bucketName });
+    cachedBucketId = bucket.data.buckets[0].bucketId;
+    return cachedBucketId;
+}
 const CONNECTIVITY_CACHE_MS = 5 * 60 * 1000; // 5 minutes
 
 // Helper to check if we have internet/B2 connectivity
@@ -225,8 +236,7 @@ async function getB2Thumbnail(folderName, relativePath) {
         try {
             // Download image from B2 to temporary file
             await b2.authorize();
-            const bucket = await b2.getBucket({ bucketName });
-            const bucketId = bucket.data.buckets[0].bucketId;
+            const bucketId = await getCachedBucketId();
 
             const b2FilePath = `${folderName}/${relativePath}`;
             const downloadResponse = await b2.downloadFileByName({
@@ -797,8 +807,7 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
         console.log(`Full path: ${fullPath}`);
 
         // First, get file info to know the content length
-        const bucket = await b2.getBucket({ bucketName });
-        const bucketId = bucket.data.buckets[0].bucketId;
+        const bucketId = await getCachedBucketId();
 
         const fileInfo = await b2.listFileNames({
             bucketId: bucketId,
@@ -1368,8 +1377,7 @@ app.get('/api/all-b2-files/:folder', async (req, res) => {
         } else {
             console.log(`✗ Cache miss for API folder listing: ${folderName}`);
 
-            const bucket = await b2.getBucket({ bucketName });
-            const bucketId = bucket.data.buckets[0].bucketId;
+            const bucketId = await getCachedBucketId();
 
             const response = await b2.listFileNames({
                 bucketId: bucketId,
@@ -2528,8 +2536,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         } else {
             console.log(`✗ Cache miss for folder listing: ${folderName}`);
 
-            const bucket = await b2.getBucket({ bucketName });
-            const bucketId = bucket.data.buckets[0].bucketId;
+            const bucketId = await getCachedBucketId();
             console.log(`Using bucket ID: ${bucketId}`);
 
             const response = await Promise.race([
