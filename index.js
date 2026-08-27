@@ -2,7 +2,7 @@
 //openssl req -nodes -new -x509 -keyout server.key -out server.cert
 import 'dotenv/config';
 import { parseFile, parseBuffer } from 'music-metadata';
-import {createServer} from 'https';
+import {createServer, request as httpsRequest} from 'https';
 import {promises, readFileSync} from 'fs';
 import {join, extname, dirname, resolve, sep} from 'path';
 import * as url from 'url';
@@ -869,57 +869,80 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
             contentType = 'application/octet-stream';
         }
         res.set('Content-Type', contentType);
-        res.set('Content-Length', fileSize);
         res.set('Accept-Ranges', 'bytes');
         res.set('Cache-Control', 'public, max-age=3600');
         res.set('Access-Control-Allow-Origin', '*');
 
-        // Stream the file from B2 instead of loading into memory
-        console.log('Starting B2 download stream...');
-        const fileData = await b2.downloadFileByName({
-            bucketName: bucketName,
-            fileName: fullPath,
-            responseType: 'stream'  // Stream to avoid loading entire file in memory
-        });
+        // Stream the file from B2, forwarding the client's Range header so Safari's
+        // metadata/seek probes only pull the bytes they ask for instead of the whole
+        // file. The backblaze-b2 wrapper's downloadFileByName() rejects any response
+        // that isn't a literal 200 (see its getProcessFileSuccess), which would reject
+        // B2's valid 206 Partial Content - so this hits B2's download URL directly.
+        const encodedFullPath = fullPath.split('/').map(encodeURIComponent).join('/');
+        const downloadUrl = new URL(`${b2.downloadUrl}/file/${bucketName}/${encodedFullPath}`);
+        const upstreamHeaders = { Authorization: b2.authorizationToken };
+        if (req.headers.range) {
+            upstreamHeaders.Range = req.headers.range;
+        }
 
-        console.log(`Download stream initiated`);
+        console.log('Starting B2 download stream...', req.headers.range ? `(Range: ${req.headers.range})` : '(full file)');
 
-        // Pipe the stream directly to the response
-        if (fileData.data) {
-            // CRITICAL: Clean up B2 stream if client disconnects
+        const upstreamReq = httpsRequest(downloadUrl, { headers: upstreamHeaders }, (upstreamRes) => {
+            if (upstreamRes.statusCode >= 400) {
+                console.error(`B2 download responded with status ${upstreamRes.statusCode}`);
+                if (!res.headersSent) {
+                    res.status(upstreamRes.statusCode === 404 ? 404 : 502).end();
+                }
+                upstreamRes.resume();
+                return;
+            }
+
+            res.status(upstreamRes.statusCode); // 200 or 206
+            if (upstreamRes.headers['content-length']) {
+                res.set('Content-Length', upstreamRes.headers['content-length']);
+            }
+            if (upstreamRes.headers['content-range']) {
+                res.set('Content-Range', upstreamRes.headers['content-range']);
+            }
+
             let streamClosed = false;
             const cleanup = () => {
                 if (streamClosed) return;
                 streamClosed = true;
-                if (fileData.data && !fileData.data.destroyed) {
-                    fileData.data.destroy();
+                if (!upstreamRes.destroyed) {
+                    upstreamRes.destroy();
                     console.log('Cleaned up B2 stream - client disconnected');
                 }
             };
-
-            // Listen for client disconnect (covers: tab close, seek, network drop)
             req.on('close', cleanup);
             req.on('aborted', cleanup);
             res.on('close', cleanup);
 
-            fileData.data.pipe(res);
+            upstreamRes.pipe(res);
 
-            fileData.data.on('end', () => {
+            upstreamRes.on('end', () => {
                 streamClosed = true;
                 console.log('=== B2 Proxy Request Success ===');
             });
 
-            fileData.data.on('error', (streamErr) => {
+            upstreamRes.on('error', (streamErr) => {
                 console.error('Stream error:', streamErr);
                 cleanup();
                 if (!res.headersSent) {
                     res.status(500).end();
                 }
             });
-        } else {
-            console.error('No file data stream in response');
-            res.status(404).send('File data not found');
-        }
+        });
+
+        upstreamReq.on('error', (reqErr) => {
+            console.error('Upstream request error:', reqErr);
+            if (!res.headersSent) {
+                res.status(502).end();
+            }
+        });
+
+        req.on('close', () => upstreamReq.destroy());
+        upstreamReq.end();
     } catch (err) {
         console.error('=== B2 Proxy Request Error ===');
         console.error('Error type:', err.constructor.name);
