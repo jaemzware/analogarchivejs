@@ -2,7 +2,8 @@
 //openssl req -nodes -new -x509 -keyout server.key -out server.cert
 import 'dotenv/config';
 import { parseFile, parseBuffer } from 'music-metadata';
-import {createServer, request as httpsRequest} from 'https';
+import { createServer as createHttpServer } from 'http';
+import { createServer as createHttpsServer, request as httpsRequest } from 'https';
 import {promises, readFileSync} from 'fs';
 import {join, extname, dirname, resolve, sep} from 'path';
 import * as url from 'url';
@@ -15,10 +16,13 @@ const app = express();
 const cliPort = parseInt(process.argv[2], 10);
 const port = (Number.isInteger(cliPort) && cliPort > 0) ? cliPort : (process.env.PORT || 55557);
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
+const useHttps = process.env.USE_HTTPS === 'true';
 //use self-signed certificate for localhost development
-const options = {key: readFileSync(process.env.SSL_KEY_PATH),
-    cert: readFileSync(process.env.SSL_CERT_PATH)}
+const options = useHttps
+    ? {key: readFileSync(process.env.SSL_KEY_PATH), cert: readFileSync(process.env.SSL_CERT_PATH)}
+    : null;
 const directoryPathMusic = process.env.MUSIC_DIRECTORY || "./music";
+const showSettings = process.env.SHOW_SETTINGS !== 'false';
 
 // Cache for media files - always scans fresh on startup
 let musicFilesCache = null;
@@ -1845,7 +1849,7 @@ app.get('/', async (req,res) =>{
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
     <div class="top-nav-right">
-        <a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>
+        ${showSettings ? '<a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>' : ''}
     </div>
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
@@ -2378,6 +2382,11 @@ app.get('/digital', async (req, res) => {
 });
 
 app.get('/settings', async (req, res) => {
+    if (!showSettings) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+        return;
+    }
     const currentTarget = await getCurrentMusicTarget();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(`<!DOCTYPE html>
@@ -2733,7 +2742,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
     <div class="top-nav-right">
-        <a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>
+        ${showSettings ? '<a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>' : ''}
     </div>
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
@@ -3247,12 +3256,13 @@ async function scanMusicFiles() {
     }
 }
 
-// Create HTTPS server and start listening
-createServer(options, app).listen(port, async () => {
-    console.log(`Server listening on https://localhost:${port}`);
-    console.log(`Server listening on https://localhost:${port}/analog`);
-    console.log(`Server listening on https://localhost:${port}/live`);
-    console.log(`Server listening on https://localhost:${port}/digital`);
+// Create HTTP or HTTPS server and start listening
+const server = useHttps ? createHttpsServer(options, app) : createHttpServer(app);
+server.listen(port, async () => {
+    console.log(`Server listening on port ${port} (${useHttps ? 'https' : 'http'})`);
+    console.log(`Server listening at /analog`);
+    console.log(`Server listening at /live`);
+    console.log(`Server listening at /digital`);
 
     // Scan music directory on startup
     scanMusicFiles();
