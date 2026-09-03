@@ -294,3 +294,369 @@ Full error stack: AxiosError: Request failed with status code 503
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
     at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:800:24
 === B2 Proxy Request Error End ===
+Media directory "./music" not found. Please create it or add a symlink.
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Discogs proxy error: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15433:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:546:26 {
+  [cause]: Error: getaddrinfo ENOTFOUND api.discogs.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'api.discogs.com'
+  }
+}
+Error generating thumbnail: Error: VipsJpeg: premature end of JPEG image
+    at Sharp.toFile (/Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/node_modules/sharp/lib/output.js:90:19)
+    at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:184:14)
+    at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:211:31)
+    at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:486:25

@@ -19,6 +19,7 @@ const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 const options = {key: readFileSync(process.env.SSL_KEY_PATH),
     cert: readFileSync(process.env.SSL_CERT_PATH)}
 const directoryPathMusic = process.env.MUSIC_DIRECTORY || "./music";
+const showSettings = process.env.SHOW_SETTINGS !== 'false';
 
 // Cache for media files - always scans fresh on startup
 let musicFilesCache = null;
@@ -1845,7 +1846,7 @@ app.get('/', async (req,res) =>{
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
     <div class="top-nav-right">
-        <a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>
+        ${showSettings ? '<a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>' : ''}
     </div>
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
@@ -2378,6 +2379,11 @@ app.get('/digital', async (req, res) => {
 });
 
 app.get('/settings', async (req, res) => {
+    if (!showSettings) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+        return;
+    }
     const currentTarget = await getCurrentMusicTarget();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(`<!DOCTYPE html>
@@ -2733,7 +2739,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
     </div>
     <div class="breadcrumb">${breadcrumbHtml}</div>
     <div class="top-nav-right">
-        <a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>
+        ${showSettings ? '<a href="/settings" class="nav-external-link" title="Settings">&#x2699;&#xFE0F; Settings</a>' : ''}
     </div>
 </nav>
 <div id="endpointLoadingOverlay" class="endpoint-loading-overlay">
