@@ -31,6 +31,7 @@ class AudioHandler {
         this.indexAllLinks();
         this.setupClickHandlers();
         this.setupFolderNavigation();
+        this.setupDirectLinkCopy();
         this.restorePlayerState();
         this.setupVideoPlaylist();
         this.generateVideoThumbnails();
@@ -420,6 +421,53 @@ class AudioHandler {
                         // Restore scroll position when using browser back/forward
                         this.restoreScrollPosition();
                     });
+            }
+        });
+    }
+
+    // Copy the file's URL to the clipboard instead of navigating when a
+    // .direct-link button is clicked
+    setupDirectLinkCopy() {
+        document.addEventListener('click', (e) => {
+            const directLink = e.target.closest('.direct-link');
+            if (!directLink) return;
+
+            e.preventDefault();
+
+            const url = directLink.href;
+
+            const showFeedback = (success) => {
+                const originalHTML = directLink.innerHTML;
+                const originalTitle = directLink.title;
+                directLink.classList.toggle('copy-failed', !success);
+                directLink.classList.toggle('copied', success);
+                directLink.innerHTML = success ? '&#10003;' : '&#10007;';
+                directLink.title = success ? 'Link copied!' : 'Copy failed';
+                setTimeout(() => {
+                    directLink.classList.remove('copied', 'copy-failed');
+                    directLink.innerHTML = originalHTML;
+                    directLink.title = originalTitle;
+                }, 1200);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(() => showFeedback(true)).catch(() => showFeedback(false));
+            } else {
+                // Fallback for browsers without the async clipboard API
+                const textarea = document.createElement('textarea');
+                textarea.value = url;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                let success = false;
+                try {
+                    success = document.execCommand('copy');
+                } catch (err) {
+                    success = false;
+                }
+                document.body.removeChild(textarea);
+                showFeedback(success);
             }
         });
     }
@@ -1245,8 +1293,8 @@ class AudioHandler {
                     directLink.href = `/music/${encodedPath}`;
                 }
 
-                directLink.title = 'Direct link to file';
-                directLink.innerHTML = '&#128279;';
+                directLink.title = 'Copy link to file';
+                directLink.innerHTML = '&#128203;';
                 songRow.appendChild(directLink);
 
                 resultsContainer.appendChild(songRow);

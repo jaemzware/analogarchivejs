@@ -430,6 +430,18 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+.direct-link.copied {
+    background-color: #e6ffe6;
+    border-color: #2e7d32;
+    color: #2e7d32;
+}
+
+.direct-link.copy-failed {
+    background-color: #ffe6e6;
+    border-color: #c62828;
+    color: #c62828;
+}
+
 .videocontainer {
     max-width: 1200px;
     margin: 0 auto;
@@ -1510,6 +1522,16 @@ body.player-active {
 .recent-song-item .direct-link:hover {
     background: rgba(79, 195, 247, 0.15);
     color: #4fc3f7;
+}
+
+.recent-song-item .direct-link.copied {
+    background: rgba(46, 125, 50, 0.2);
+    color: #66bb6a;
+}
+
+.recent-song-item .direct-link.copy-failed {
+    background: rgba(198, 40, 40, 0.2);
+    color: #ef5350;
 }
 
 /* Mobile Responsive for Recent Songs */
