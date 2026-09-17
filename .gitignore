@@ -5,8 +5,8 @@ music
 node_modules/
 sslcert/
 .env
-deploy*.sh
 output.log
+error.log
 
 # Ignore everything in music folder
 music/*

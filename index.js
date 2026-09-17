@@ -1893,7 +1893,7 @@ app.get('/', async (req,res) =>{
                             </div>
                             <span class="recent-song-duration"></span>
                         </a>
-                        <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
+                        <a class="direct-link" href="${directUrl}" title="Copy link to file">&#128203;</a>
                     </div>`;
                 }
 
@@ -1955,7 +1955,7 @@ app.get('/', async (req,res) =>{
                     <span class="local-song-artist" style="font-size: 12px; opacity: 0.7; margin-left: 8px;"></span>
                     <span class="local-song-duration" style="font-size: 11px; opacity: 0.6; margin-left: 8px;"></span>
                     </a>
-                    <a class="direct-link" href="${directUrl}" title="Direct link to file">&#128279;</a>
+                    <a class="direct-link" href="${directUrl}" title="Copy link to file">&#128203;</a>
                 </div>`;
 
                 if (i % 50 === 0 && chunk.length > 0) {
@@ -2788,7 +2788,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                             </div>
                             <span class="recent-song-duration"></span>
                         </a>
-                        <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
+                        <a class="direct-link" href="${proxyUrl}" title="Copy link to file">&#128203;</a>
                     </div>`);
                 }
 
@@ -2838,7 +2838,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                         <span class="b2-song-artist" style="font-size: 12px; opacity: 0.7; margin-left: 8px;"></span>
                         <span class="b2-song-duration" style="font-size: 11px; opacity: 0.6; margin-left: 8px;"></span>
                         </a>
-                        <a class="direct-link" href="${proxyUrl}" title="Direct link to file">&#128279;</a>
+                        <a class="direct-link" href="${proxyUrl}" title="Copy link to file">&#128203;</a>
                     </div>`);
                 }
                 res.write('</div>');

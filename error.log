@@ -660,3 +660,4 @@ Error generating thumbnail: Error: VipsJpeg: premature end of JPEG image
     at generateThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:184:14)
     at getThumbnail (file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:211:31)
     at async file:///Users/jamesarasim/dev/repositories/jaemzware/analogarchivejs/index.js:486:25
+Media directory "./music" not found. Please create it or add a symlink.
