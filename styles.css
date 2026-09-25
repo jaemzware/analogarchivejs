@@ -1395,6 +1395,10 @@ body.player-active {
     white-space: nowrap;
 }
 
+.active-listener-album {
+    color: #999;
+}
+
 .active-listener-you {
     flex-shrink: 0;
     color: #888;

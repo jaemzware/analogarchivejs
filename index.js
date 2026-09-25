@@ -2370,6 +2370,12 @@ app.get('/', async (req,res) =>{
                 const track = document.createElement('span');
                 track.className = 'active-listener-track';
                 track.textContent = [listener.artist, listener.title].filter(Boolean).join(' - ') || 'Unknown track';
+                if (listener.album && listener.album !== 'Unknown Album') {
+                    const album = document.createElement('span');
+                    album.className = 'active-listener-album';
+                    album.textContent = ' · ' + listener.album;
+                    track.appendChild(album);
+                }
                 row.appendChild(track);
 
                 if (listener.isYou) {
@@ -3276,6 +3282,12 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                 const track = document.createElement('span');
                 track.className = 'active-listener-track';
                 track.textContent = [listener.artist, listener.title].filter(Boolean).join(' - ') || 'Unknown track';
+                if (listener.album && listener.album !== 'Unknown Album') {
+                    const album = document.createElement('span');
+                    album.className = 'active-listener-album';
+                    album.textContent = ' · ' + listener.album;
+                    track.appendChild(album);
+                }
                 row.appendChild(track);
 
                 if (listener.isYou) {

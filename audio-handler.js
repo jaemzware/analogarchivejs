@@ -569,7 +569,10 @@ class AudioHandler {
         if (playing === null) {
             playing = !!(this.currentAudio && !this.currentAudio.paused);
         }
-        const metadata = this._currentMetadata || {};
+        // Ignore metadata left over from the previous track until the new track's metadata loads
+        const metadata = (this._currentMetadata && this._currentMetadataLink === this.currentLink)
+            ? this._currentMetadata
+            : {};
         const payload = {
             id: this.listenerId,
             playing,
@@ -1856,6 +1859,7 @@ class AudioHandler {
         // Store for session persistence
         this._currentMetadata = metadata;
         this._currentMetadataEndpoint = metadataEndpoint;
+        this._currentMetadataLink = this.currentLink;
 
         const imageFormat = metadataEndpoint === 'local' ? 'png' : 'jpeg';
         const defaultArtwork = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">&#9834;</text></svg>');
