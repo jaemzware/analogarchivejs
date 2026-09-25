@@ -1351,6 +1351,56 @@ body.player-active {
     font-size: 16px;
 }
 
+.active-listeners {
+    margin: 0 0 10px 0;
+    padding: 0 0 8px 0;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(79, 195, 247, 0.3);
+}
+
+.active-listeners:empty {
+    display: none;
+}
+
+.active-listeners-count {
+    color: #4fc3f7;
+    font-weight: 700;
+}
+
+.active-listeners-count::before {
+    content: "🎧 ";
+}
+
+.active-listener {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 4px;
+    color: #ddd;
+    min-width: 0;
+}
+
+.active-listener-source {
+    flex-shrink: 0;
+    padding: 0 6px;
+    font-size: 11px;
+    color: #0f0;
+    border: 1px solid #0f0;
+    border-radius: 4px;
+}
+
+.active-listener-track {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.active-listener-you {
+    flex-shrink: 0;
+    color: #888;
+    font-size: 11px;
+}
+
 .recent-songs-list {
     display: flex;
     flex-direction: column;
