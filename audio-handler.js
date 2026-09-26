@@ -579,10 +579,11 @@ class AudioHandler {
             title: metadata.title || (this.currentLink && this.currentLink.dataset.filename) || '',
             artist: metadata.artist || '',
             album: metadata.album || '',
+            path: (this.currentLink && this.currentLink.dataset.relativePath) || '',
             source: this.getCurrentEndpoint()
         };
 
-        const key = `${payload.playing}|${payload.title}|${payload.artist}|${payload.album}`;
+        const key = `${payload.playing}|${payload.title}|${payload.artist}|${payload.album}|${payload.path}`;
         const now = Date.now();
         if (!useBeacon && key === this._lastHeartbeatKey && (!playing || now - this._lastHeartbeatTime < 15000)) {
             return;

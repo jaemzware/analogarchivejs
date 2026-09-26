@@ -534,7 +534,7 @@ function pruneListeners() {
 }
 
 app.post('/api/listeners/heartbeat', express.json({ limit: '4kb' }), (req, res) => {
-    const { id, playing, title, artist, album, source } = req.body || {};
+    const { id, playing, title, artist, album, path, source } = req.body || {};
     if (typeof id !== 'string' || id.length === 0 || id.length > 64) {
         return res.status(400).json({ error: 'Invalid listener id' });
     }
@@ -549,11 +549,12 @@ app.post('/api/listeners/heartbeat', express.json({ limit: '4kb' }), (req, res) 
         return res.status(429).json({ error: 'Too many listeners' });
     }
 
-    const clean = (value) => (typeof value === 'string' ? value.slice(0, 200) : '');
+    const clean = (value, max = 200) => (typeof value === 'string' ? value.slice(0, max) : '');
     activeListeners.set(id, {
         title: clean(title),
         artist: clean(artist),
         album: clean(album),
+        path: clean(path, 1000),
         source: LISTENER_SOURCES.has(source) ? source : 'root',
         lastSeen: Date.now()
     });
@@ -566,6 +567,7 @@ app.get('/api/listeners', (req, res) => {
         title: listener.title,
         artist: listener.artist,
         album: listener.album,
+        path: listener.path,
         source: listener.source,
         isYou: id === req.query.me
     }));
@@ -2385,6 +2387,24 @@ app.get('/', async (req,res) =>{
                     row.appendChild(you);
                 }
                 container.appendChild(row);
+
+                // Path to the track, with the folder linked so others can go listen too
+                if (listener.path) {
+                    const pathRow = document.createElement('div');
+                    pathRow.className = 'active-listener-path';
+                    const slash = listener.path.lastIndexOf('/');
+                    const folder = slash >= 0 ? listener.path.slice(0, slash) : '';
+                    const fileName = listener.path.slice(slash + 1);
+                    const sourceBase = listener.source === 'root' ? '/' : '/' + listener.source;
+
+                    const folderLink = document.createElement('a');
+                    folderLink.href = folder ? sourceBase + '?dir=' + encodeURIComponent(folder) : sourceBase;
+                    folderLink.textContent = folder ? folder + '/' : (sourceLabels[listener.source] || listener.source) + '/';
+                    folderLink.title = 'Open this folder';
+                    pathRow.appendChild(folderLink);
+                    pathRow.appendChild(document.createTextNode(fileName));
+                    container.appendChild(pathRow);
+                }
             }
         } catch (error) {
             console.error('Failed to load active listeners:', error);
@@ -3297,6 +3317,24 @@ async function handleB2FolderEndpoint(folderName, req, res) {
                     row.appendChild(you);
                 }
                 container.appendChild(row);
+
+                // Path to the track, with the folder linked so others can go listen too
+                if (listener.path) {
+                    const pathRow = document.createElement('div');
+                    pathRow.className = 'active-listener-path';
+                    const slash = listener.path.lastIndexOf('/');
+                    const folder = slash >= 0 ? listener.path.slice(0, slash) : '';
+                    const fileName = listener.path.slice(slash + 1);
+                    const sourceBase = listener.source === 'root' ? '/' : '/' + listener.source;
+
+                    const folderLink = document.createElement('a');
+                    folderLink.href = folder ? sourceBase + '?dir=' + encodeURIComponent(folder) : sourceBase;
+                    folderLink.textContent = folder ? folder + '/' : (sourceLabels[listener.source] || listener.source) + '/';
+                    folderLink.title = 'Open this folder';
+                    pathRow.appendChild(folderLink);
+                    pathRow.appendChild(document.createTextNode(fileName));
+                    container.appendChild(pathRow);
+                }
             }
         } catch (error) {
             console.error('Failed to load active listeners:', error);

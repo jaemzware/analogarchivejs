@@ -1399,6 +1399,25 @@ body.player-active {
     color: #999;
 }
 
+.active-listener-path {
+    margin: 1px 0 0 0;
+    padding-left: 8px;
+    font-size: 11px;
+    color: #888;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.active-listener-path a {
+    color: #4fc3f7;
+    text-decoration: none;
+}
+
+.active-listener-path a:hover {
+    text-decoration: underline;
+}
+
 .active-listener-you {
     flex-shrink: 0;
     color: #888;
