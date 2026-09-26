@@ -22,6 +22,10 @@ class AudioHandler {
         this.discogsService = null;
         // Track folder navigation fetch to prevent race conditions
         this.folderNavigationController = null;
+        // Active listener heartbeat (per tab, survives in-site navigation)
+        this.listenerId = this.getListenerId();
+        this._lastHeartbeatKey = null;
+        this._lastHeartbeatTime = 0;
     }
 
     // Initialize pages with search functionality
@@ -34,6 +38,9 @@ class AudioHandler {
         this.setupDirectLinkCopy();
         this.restorePlayerState();
         this.setupVideoPlaylist();
+
+        // Tell the server this tab stopped listening when it goes away
+        window.addEventListener('pagehide', () => this.sendListenerHeartbeat(false, true));
         this.generateVideoThumbnails();
 
         // Initialize Discogs service
@@ -589,6 +596,60 @@ class AudioHandler {
         };
 
         sessionStorage.setItem('audioPlayerState', JSON.stringify(state));
+        this.sendListenerHeartbeat();
+    }
+
+    // Stable random id for this tab, used to track active listeners server-side
+    getListenerId() {
+        let id = sessionStorage.getItem('listenerId');
+        if (!id) {
+            id = (window.crypto && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : Math.random().toString(36).slice(2) + Date.now().toString(36);
+            sessionStorage.setItem('listenerId', id);
+        }
+        return id;
+    }
+
+    // Report what this tab is playing. Sent immediately when play state or track changes,
+    // otherwise throttled to every 15s so the server knows we're still here.
+    sendListenerHeartbeat(playing = null, useBeacon = false) {
+        if (playing === null) {
+            playing = !!(this.currentAudio && !this.currentAudio.paused);
+        }
+        // Ignore metadata left over from the previous track until the new track's metadata loads
+        const metadata = (this._currentMetadata && this._currentMetadataLink === this.currentLink)
+            ? this._currentMetadata
+            : {};
+        const payload = {
+            id: this.listenerId,
+            playing,
+            title: metadata.title || (this.currentLink && this.currentLink.dataset.filename) || '',
+            artist: metadata.artist || '',
+            album: metadata.album || '',
+            path: (this.currentLink && this.currentLink.dataset.relativePath) || '',
+            source: this.getCurrentEndpoint()
+        };
+
+        const key = `${payload.playing}|${payload.title}|${payload.artist}|${payload.album}|${payload.path}`;
+        const now = Date.now();
+        if (!useBeacon && key === this._lastHeartbeatKey && (!playing || now - this._lastHeartbeatTime < 15000)) {
+            return;
+        }
+        this._lastHeartbeatKey = key;
+        this._lastHeartbeatTime = now;
+
+        const body = JSON.stringify(payload);
+        if (useBeacon && navigator.sendBeacon) {
+            navigator.sendBeacon('/api/listeners/heartbeat', new Blob([body], { type: 'application/json' }));
+            return;
+        }
+        fetch('/api/listeners/heartbeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+            keepalive: true
+        }).catch(() => {});
     }
 
     // Restore player state from sessionStorage
@@ -1847,6 +1908,7 @@ class AudioHandler {
         // Store for session persistence
         this._currentMetadata = metadata;
         this._currentMetadataEndpoint = metadataEndpoint;
+        this._currentMetadataLink = this.currentLink;
 
         const imageFormat = metadataEndpoint === 'local' ? 'png' : 'jpeg';
         const defaultArtwork = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">&#9834;</text></svg>');

@@ -517,6 +517,63 @@ app.get('/api/cloud-status', async (req, res) => {
     });
 });
 
+// Active listeners - in-memory and ephemeral. Each browser tab sends a heartbeat while
+// it's playing audio; entries that stop reporting expire after LISTENER_TTL_MS.
+const activeListeners = new Map();
+const LISTENER_TTL_MS = 45 * 1000;
+const MAX_LISTENERS = 500;
+const LISTENER_SOURCES = new Set(['root', 'analog', 'live', 'digital']);
+
+function pruneListeners() {
+    const cutoff = Date.now() - LISTENER_TTL_MS;
+    for (const [id, listener] of activeListeners) {
+        if (listener.lastSeen < cutoff) {
+            activeListeners.delete(id);
+        }
+    }
+}
+
+app.post('/api/listeners/heartbeat', express.json({ limit: '4kb' }), (req, res) => {
+    const { id, playing, title, artist, album, path, source } = req.body || {};
+    if (typeof id !== 'string' || id.length === 0 || id.length > 64) {
+        return res.status(400).json({ error: 'Invalid listener id' });
+    }
+
+    if (!playing) {
+        activeListeners.delete(id);
+        return res.json({ ok: true });
+    }
+
+    pruneListeners();
+    if (!activeListeners.has(id) && activeListeners.size >= MAX_LISTENERS) {
+        return res.status(429).json({ error: 'Too many listeners' });
+    }
+
+    const clean = (value, max = 200) => (typeof value === 'string' ? value.slice(0, max) : '');
+    activeListeners.set(id, {
+        title: clean(title),
+        artist: clean(artist),
+        album: clean(album),
+        path: clean(path, 1000),
+        source: LISTENER_SOURCES.has(source) ? source : 'root',
+        lastSeen: Date.now()
+    });
+    res.json({ ok: true });
+});
+
+app.get('/api/listeners', (req, res) => {
+    pruneListeners();
+    const listeners = [...activeListeners].map(([id, listener]) => ({
+        title: listener.title,
+        artist: listener.artist,
+        album: listener.album,
+        path: listener.path,
+        source: listener.source,
+        isYou: id === req.query.me
+    }));
+    res.json({ count: listeners.length, listeners });
+});
+
 // Discogs configuration endpoint
 app.get('/api/discogs-config', function(req, res) {
     res.json({
@@ -1868,6 +1925,7 @@ app.get('/', async (req,res) =>{
             if (recentSongs.length > 0) {
                 chunk += '<div class="recent-songs-section" data-source="local">';
                 chunk += '<h2 class="recent-songs-header">Recently Added <button onclick="loadRecentSongsMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>';
+                chunk += '<div class="active-listeners" id="activeListeners"></div>';
                 chunk += '<div class="recent-songs-list">';
 
                 for (const song of recentSongs) {
@@ -2227,6 +2285,10 @@ app.get('/', async (req,res) =>{
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
 
+        // Show who's listening right now, refreshed periodically
+        loadActiveListeners();
+        setInterval(loadActiveListeners, 15000);
+
         // Defer video metadata probing until videos are near the viewport
         initLazyVideos();
     }
@@ -2276,6 +2338,76 @@ app.get('/', async (req,res) =>{
             } catch (err) {
                 // Silently fail if metadata can't be loaded
             }
+        }
+    }
+
+    // Render the active listener count and what each listener is playing
+    async function loadActiveListeners() {
+        const container = document.getElementById('activeListeners');
+        if (!container) return;
+
+        try {
+            const me = typeof audioHandler !== 'undefined' ? audioHandler.listenerId : '';
+            const response = await fetch('/api/listeners?me=' + encodeURIComponent(me));
+            const data = await response.json();
+            const sourceLabels = { root: 'Local', analog: 'Analog', live: 'Live', digital: 'Digital' };
+
+            container.innerHTML = '';
+            const summary = document.createElement('div');
+            summary.className = 'active-listeners-count';
+            summary.textContent = data.count === 0
+                ? 'No one listening right now'
+                : data.count + (data.count === 1 ? ' listener' : ' listeners') + ' right now';
+            container.appendChild(summary);
+
+            for (const listener of data.listeners) {
+                const row = document.createElement('div');
+                row.className = 'active-listener';
+
+                const source = document.createElement('span');
+                source.className = 'active-listener-source';
+                source.textContent = sourceLabels[listener.source] || listener.source;
+                row.appendChild(source);
+
+                const track = document.createElement('span');
+                track.className = 'active-listener-track';
+                track.textContent = [listener.artist, listener.title].filter(Boolean).join(' - ') || 'Unknown track';
+                if (listener.album && listener.album !== 'Unknown Album') {
+                    const album = document.createElement('span');
+                    album.className = 'active-listener-album';
+                    album.textContent = ' · ' + listener.album;
+                    track.appendChild(album);
+                }
+                row.appendChild(track);
+
+                if (listener.isYou) {
+                    const you = document.createElement('span');
+                    you.className = 'active-listener-you';
+                    you.textContent = '(you)';
+                    row.appendChild(you);
+                }
+                container.appendChild(row);
+
+                // Path to the track, with the folder linked so others can go listen too
+                if (listener.path) {
+                    const pathRow = document.createElement('div');
+                    pathRow.className = 'active-listener-path';
+                    const slash = listener.path.lastIndexOf('/');
+                    const folder = slash >= 0 ? listener.path.slice(0, slash) : '';
+                    const fileName = listener.path.slice(slash + 1);
+                    const sourceBase = listener.source === 'root' ? '/' : '/' + listener.source;
+
+                    const folderLink = document.createElement('a');
+                    folderLink.href = folder ? sourceBase + '?dir=' + encodeURIComponent(folder) : sourceBase;
+                    folderLink.textContent = folder ? folder + '/' : (sourceLabels[listener.source] || listener.source) + '/';
+                    folderLink.title = 'Open this folder';
+                    pathRow.appendChild(folderLink);
+                    pathRow.appendChild(document.createTextNode(fileName));
+                    container.appendChild(pathRow);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load active listeners:', error);
         }
     }
 
@@ -2761,6 +2893,7 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 res.write(`<div class="recent-songs-section" data-source="b2" data-folder="${folderName}">`);
                 res.write('<h2 class="recent-songs-header">Recently Added <button onclick="loadRecentSongsMetadata()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; border-radius: 4px;" title="Refresh ID3 metadata">&#x21bb; ID3</button></h2>');
+                res.write('<div class="active-listeners" id="activeListeners"></div>');
                 res.write('<div class="recent-songs-list">');
 
                 for (const song of recentSongs) {
@@ -3082,6 +3215,10 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         // Incrementally load metadata for recent songs
         loadRecentSongsMetadata();
 
+        // Show who's listening right now, refreshed periodically
+        loadActiveListeners();
+        setInterval(loadActiveListeners, 15000);
+
         // Defer video metadata probing until videos are near the viewport
         initLazyVideos();
     }
@@ -3133,6 +3270,76 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
     // Initialize immediately - script is at end of HTML after all song rows
     initB2Page();
+
+    // Render the active listener count and what each listener is playing
+    async function loadActiveListeners() {
+        const container = document.getElementById('activeListeners');
+        if (!container) return;
+
+        try {
+            const me = typeof audioHandler !== 'undefined' ? audioHandler.listenerId : '';
+            const response = await fetch('/api/listeners?me=' + encodeURIComponent(me));
+            const data = await response.json();
+            const sourceLabels = { root: 'Local', analog: 'Analog', live: 'Live', digital: 'Digital' };
+
+            container.innerHTML = '';
+            const summary = document.createElement('div');
+            summary.className = 'active-listeners-count';
+            summary.textContent = data.count === 0
+                ? 'No one listening right now'
+                : data.count + (data.count === 1 ? ' listener' : ' listeners') + ' right now';
+            container.appendChild(summary);
+
+            for (const listener of data.listeners) {
+                const row = document.createElement('div');
+                row.className = 'active-listener';
+
+                const source = document.createElement('span');
+                source.className = 'active-listener-source';
+                source.textContent = sourceLabels[listener.source] || listener.source;
+                row.appendChild(source);
+
+                const track = document.createElement('span');
+                track.className = 'active-listener-track';
+                track.textContent = [listener.artist, listener.title].filter(Boolean).join(' - ') || 'Unknown track';
+                if (listener.album && listener.album !== 'Unknown Album') {
+                    const album = document.createElement('span');
+                    album.className = 'active-listener-album';
+                    album.textContent = ' · ' + listener.album;
+                    track.appendChild(album);
+                }
+                row.appendChild(track);
+
+                if (listener.isYou) {
+                    const you = document.createElement('span');
+                    you.className = 'active-listener-you';
+                    you.textContent = '(you)';
+                    row.appendChild(you);
+                }
+                container.appendChild(row);
+
+                // Path to the track, with the folder linked so others can go listen too
+                if (listener.path) {
+                    const pathRow = document.createElement('div');
+                    pathRow.className = 'active-listener-path';
+                    const slash = listener.path.lastIndexOf('/');
+                    const folder = slash >= 0 ? listener.path.slice(0, slash) : '';
+                    const fileName = listener.path.slice(slash + 1);
+                    const sourceBase = listener.source === 'root' ? '/' : '/' + listener.source;
+
+                    const folderLink = document.createElement('a');
+                    folderLink.href = folder ? sourceBase + '?dir=' + encodeURIComponent(folder) : sourceBase;
+                    folderLink.textContent = folder ? folder + '/' : (sourceLabels[listener.source] || listener.source) + '/';
+                    folderLink.title = 'Open this folder';
+                    pathRow.appendChild(folderLink);
+                    pathRow.appendChild(document.createTextNode(fileName));
+                    container.appendChild(pathRow);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load active listeners:', error);
+        }
+    }
 
     // Load metadata for recent songs sequentially
     async function loadRecentSongsMetadata() {
