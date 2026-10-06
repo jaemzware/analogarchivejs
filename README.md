@@ -418,7 +418,7 @@ Pull requests welcome! Please feel free to submit issues and enhancement request
 
 ## 📄 License
 
-Open source - feel free to use and modify for your projects!
+Apache License 2.0
 
 ---
 
