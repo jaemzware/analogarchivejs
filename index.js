@@ -36,6 +36,8 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (configurable)
 
 // Persistent disk cache directory for B2 metadata (stored in app directory, not music directory)
 const b2MetadataCacheDir = join(__dirname, '.b2-metadata-cache');
+// Bump to invalidate existing disk cache entries (2: fixed durations of files larger than the metadata chunk)
+const B2_METADATA_CACHE_VERSION = 2;
 
 // Helper function to check if cache entry is still valid
 function isCacheValid(cacheEntry) {
@@ -73,7 +75,7 @@ async function loadB2MetadataFromDisk(b2FilePath) {
         const cachePath = getB2MetadataCachePath(b2FilePath);
         const data = await promises.readFile(cachePath, 'utf8');
         const cached = JSON.parse(data);
-        if (isCacheValid(cached)) {
+        if (cached.version === B2_METADATA_CACHE_VERSION && isCacheValid(cached)) {
             return cached;
         }
     } catch (err) {
@@ -87,11 +89,33 @@ async function saveB2MetadataToDisk(b2FilePath, data) {
     try {
         await promises.mkdir(b2MetadataCacheDir, { recursive: true });
         const cachePath = getB2MetadataCachePath(b2FilePath);
-        const cacheEntry = { data, timestamp: Date.now() };
+        const cacheEntry = { data, timestamp: Date.now(), version: B2_METADATA_CACHE_VERSION };
         await promises.writeFile(cachePath, JSON.stringify(cacheEntry));
     } catch (err) {
         console.error('Error saving B2 metadata to disk cache:', err.message);
     }
+}
+
+// Total file size from a ranged download's Content-Range header ("bytes 0-N/TOTAL")
+function getTotalSizeFromContentRange(headers) {
+    const contentRange = headers?.['content-range'] || headers?.['Content-Range'];
+    const match = /\/(\d+)\s*$/.exec(contentRange || '');
+    return match ? parseInt(match[1], 10) : undefined;
+}
+
+// Duration of an MP3 when only its first chunk was downloaded. music-metadata can only
+// count the frames it was given, so a truncated buffer always reports the chunk's duration
+// (e.g. 10MB @ 192kbps = 7:16). Estimate from the full file size and bitrate instead.
+function getMpegDuration(buffer, format, totalSize) {
+    if (!totalSize || totalSize <= buffer.length || !format.bitrate) {
+        return format.duration;
+    }
+    // Exclude the ID3v2 tag (which can hold large artwork) from the audio byte count
+    let tagSize = 0;
+    if (buffer.length >= 10 && buffer.toString('latin1', 0, 3) === 'ID3') {
+        tagSize = 10 + ((buffer[6] & 0x7f) << 21 | (buffer[7] & 0x7f) << 14 | (buffer[8] & 0x7f) << 7 | (buffer[9] & 0x7f));
+    }
+    return (totalSize - tagSize) * 8 / format.bitrate;
 }
 
 // Backblaze B2 configuration
@@ -764,11 +788,14 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                 } else {
                     mimeType = 'audio/mpeg';
                 }
-                const metadata = await parseBuffer(buffer, {
+                const metadata = await parseBuffer(buffer, { mimeType }, {
                     duration: true,
-                    skipCovers: false,
-                    mimeType
+                    skipCovers: false
                 });
+                const totalSize = getTotalSizeFromContentRange(fileData.headers);
+                const duration = mimeType === 'audio/mpeg'
+                    ? getMpegDuration(buffer, metadata.format, totalSize)
+                    : metadata.format.duration;
 
                 console.log('Metadata parsed successfully');
                 console.log('Artist:', metadata.common.artist);
@@ -811,7 +838,7 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     album: metadata.common.album || 'Unknown Album',
                     title: metadata.common.title || filename,
                     artwork: artwork,
-                    duration: metadata.format.duration || 0,
+                    duration: duration || 0,
                     // Additional metadata from ID3 tags
                     year: metadata.common.year,
                     genre: metadata.common.genre?.[0],
@@ -824,7 +851,7 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
                     codec: metadata.format.codec,
                     numberOfChannels: metadata.format.numberOfChannels,
                     // File info from B2
-                    fileSize: contentLength ? parseInt(contentLength) : undefined
+                    fileSize: totalSize || (contentLength ? parseInt(contentLength) : undefined)
                 };
 
                 // Cache the successful response in memory
@@ -1318,7 +1345,11 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
         if (fileExt === '.flac') mimeType = 'audio/flac';
         if (fileExt === '.m4b') mimeType = 'audio/mp4';
 
-        const metadata = await parseBuffer(buffer, { mimeType, duration: true, skipCovers: false });
+        const metadata = await parseBuffer(buffer, { mimeType }, { duration: true, skipCovers: false });
+        const totalSize = getTotalSizeFromContentRange(downloadResponse.headers);
+        const duration = mimeType === 'audio/mpeg'
+            ? getMpegDuration(buffer, metadata.format, totalSize)
+            : metadata.format.duration;
 
         let artwork = null;
         if (metadata.common.picture && metadata.common.picture.length > 0) {
@@ -1331,7 +1362,7 @@ app.get('/api/b2-song-metadata/:folder', async (req, res) => {
             title: metadata.common.title || '',
             artist: metadata.common.artist || 'Unknown Artist',
             album: metadata.common.album || 'Unknown Album',
-            duration: formatDuration(metadata.format.duration),
+            duration: formatDuration(duration),
             artwork
         };
 
@@ -2190,6 +2221,19 @@ app.get('/', async (req,res) =>{
         return result.trim();
     }
 
+    // Format seconds as m:ss (or h:mm:ss for long files)
+    function formatSongDuration(seconds) {
+        if (typeof seconds === 'string' && seconds.indexOf(':') !== -1) return seconds;
+        seconds = Number(seconds);
+        if (!seconds || !isFinite(seconds)) return '';
+        var h = Math.floor(seconds / 3600);
+        var m = Math.floor((seconds % 3600) / 60);
+        var sec = Math.floor(seconds % 60);
+        var ss = sec < 10 ? '0' + sec : '' + sec;
+        if (h > 0) return h + ':' + (m < 10 ? '0' + m : m) + ':' + ss;
+        return m + ':' + ss;
+    }
+
     // Fetch with a timeout so a hung request can't stall the sequential metadata loop forever
     async function fetchWithTimeout(url, ms = 8000) {
         const controller = new AbortController();
@@ -2322,6 +2366,15 @@ app.get('/', async (req,res) =>{
 
                 // Update link content to match played song format: Artist Album Title
                 link.innerHTML = artist + ' ' + album + ' ' + title;
+
+                // Show duration on the link
+                var duration = formatSongDuration(metadata.duration);
+                if (duration) {
+                    var durationEl = document.createElement('span');
+                    durationEl.className = 'song-duration';
+                    durationEl.textContent = duration;
+                    link.appendChild(durationEl);
+                }
 
                 // Add artwork thumbnail if available
                 if (metadata.artwork) {
@@ -3119,6 +3172,19 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         return result.trim();
     }
 
+    // Format seconds as m:ss (or h:mm:ss for long files)
+    function formatSongDuration(seconds) {
+        if (typeof seconds === 'string' && seconds.indexOf(':') !== -1) return seconds;
+        seconds = Number(seconds);
+        if (!seconds || !isFinite(seconds)) return '';
+        var h = Math.floor(seconds / 3600);
+        var m = Math.floor((seconds % 3600) / 60);
+        var sec = Math.floor(seconds % 60);
+        var ss = sec < 10 ? '0' + sec : '' + sec;
+        if (h > 0) return h + ':' + (m < 10 ? '0' + m : m) + ':' + ss;
+        return m + ':' + ss;
+    }
+
     // Fetch with a timeout so a hung request can't stall the sequential metadata loop forever
     async function fetchWithTimeout(url, ms = 8000) {
         const controller = new AbortController();
@@ -3249,6 +3315,15 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Update link content to match played song format: Artist Album Title
                 link.innerHTML = artist + ' ' + album + ' ' + title;
+
+                // Show duration on the link
+                var duration = formatSongDuration(metadata.duration);
+                if (duration) {
+                    var durationEl = document.createElement('span');
+                    durationEl.className = 'song-duration';
+                    durationEl.textContent = duration;
+                    link.appendChild(durationEl);
+                }
 
                 // Add artwork thumbnail if available
                 if (metadata.artwork) {

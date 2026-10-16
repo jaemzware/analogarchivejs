@@ -1526,11 +1526,23 @@ class AudioHandler {
             link.dataset.originalContent = link.innerHTML;
         }
 
-        // Match the root page format: Artist Album Title
+        // Match the root page format: Artist Album Title [duration]
+        const seconds = Number(metadata.duration);
+        let durationHtml = '';
+        if (typeof metadata.duration === 'string' && metadata.duration.includes(':')) {
+            durationHtml = `<span class="song-duration">${metadata.duration}</span>`;
+        } else if (seconds && isFinite(seconds)) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const sec = Math.floor(seconds % 60).toString().padStart(2, '0');
+            const formatted = h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+            durationHtml = `<span class="song-duration">${formatted}</span>`;
+        }
         const displayContent = `
             ${metadata.artist || 'Unknown Artist'}
             ${metadata.album || 'Unknown Album'}
             ${metadata.title || link.dataset.filename}
+            ${durationHtml}
         `;
 
         // For recent song links, update only the breadcrumb div
