@@ -2190,6 +2190,18 @@ app.get('/', async (req,res) =>{
         return result.trim();
     }
 
+    // Format seconds as m:ss (or h:mm:ss for long files)
+    function formatSongDuration(seconds) {
+        seconds = Number(seconds);
+        if (!seconds || !isFinite(seconds)) return '';
+        var h = Math.floor(seconds / 3600);
+        var m = Math.floor((seconds % 3600) / 60);
+        var sec = Math.floor(seconds % 60);
+        var ss = sec < 10 ? '0' + sec : '' + sec;
+        if (h > 0) return h + ':' + (m < 10 ? '0' + m : m) + ':' + ss;
+        return m + ':' + ss;
+    }
+
     // Fetch with a timeout so a hung request can't stall the sequential metadata loop forever
     async function fetchWithTimeout(url, ms = 8000) {
         const controller = new AbortController();
@@ -2322,6 +2334,15 @@ app.get('/', async (req,res) =>{
 
                 // Update link content to match played song format: Artist Album Title
                 link.innerHTML = artist + ' ' + album + ' ' + title;
+
+                // Show duration on the link
+                var duration = formatSongDuration(metadata.duration);
+                if (duration) {
+                    var durationEl = document.createElement('span');
+                    durationEl.className = 'song-duration';
+                    durationEl.textContent = duration;
+                    link.appendChild(durationEl);
+                }
 
                 // Add artwork thumbnail if available
                 if (metadata.artwork) {
@@ -3119,6 +3140,18 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         return result.trim();
     }
 
+    // Format seconds as m:ss (or h:mm:ss for long files)
+    function formatSongDuration(seconds) {
+        seconds = Number(seconds);
+        if (!seconds || !isFinite(seconds)) return '';
+        var h = Math.floor(seconds / 3600);
+        var m = Math.floor((seconds % 3600) / 60);
+        var sec = Math.floor(seconds % 60);
+        var ss = sec < 10 ? '0' + sec : '' + sec;
+        if (h > 0) return h + ':' + (m < 10 ? '0' + m : m) + ':' + ss;
+        return m + ':' + ss;
+    }
+
     // Fetch with a timeout so a hung request can't stall the sequential metadata loop forever
     async function fetchWithTimeout(url, ms = 8000) {
         const controller = new AbortController();
@@ -3249,6 +3282,15 @@ async function handleB2FolderEndpoint(folderName, req, res) {
 
                 // Update link content to match played song format: Artist Album Title
                 link.innerHTML = artist + ' ' + album + ' ' + title;
+
+                // Show duration on the link
+                var duration = formatSongDuration(metadata.duration);
+                if (duration) {
+                    var durationEl = document.createElement('span');
+                    durationEl.className = 'song-duration';
+                    durationEl.textContent = duration;
+                    link.appendChild(durationEl);
+                }
 
                 // Add artwork thumbnail if available
                 if (metadata.artwork) {
