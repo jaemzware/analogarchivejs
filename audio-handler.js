@@ -1529,7 +1529,9 @@ class AudioHandler {
         // Match the root page format: Artist Album Title [duration]
         const seconds = Number(metadata.duration);
         let durationHtml = '';
-        if (seconds && isFinite(seconds)) {
+        if (typeof metadata.duration === 'string' && metadata.duration.includes(':')) {
+            durationHtml = `<span class="song-duration">${metadata.duration}</span>`;
+        } else if (seconds && isFinite(seconds)) {
             const h = Math.floor(seconds / 3600);
             const m = Math.floor((seconds % 3600) / 60);
             const sec = Math.floor(seconds % 60).toString().padStart(2, '0');
